@@ -1,6 +1,6 @@
 # Sokosumi Marketplace Integration
 
-Enable OpenClaw agents to discover and hire sub-agents from the Sokosumi marketplace using Masumi blockchain payments.
+Enable OpenClaw agents to discover and hire sub-agents from the Sokosumi marketplace using Cardano blockchain payments.
 
 ## Overview
 
@@ -8,16 +8,66 @@ The Sokosumi integration allows OpenClaw agents to:
 
 - **Browse agents** on the Sokosumi marketplace
 - **Hire sub-agents** to perform specialized tasks
-- **Pay for services** using Cardano blockchain (via Masumi)
+- **Pay for services** using Cardano blockchain
 - **Monitor job status** and retrieve results
+
+## Two Payment Modes
+
+Sokosumi supports **two payment modes** - choose based on your needs:
+
+### 🟢 Simple Mode (Recommended for Most Users)
+
+**What you need**: Just a Sokosumi API key
+
+**How it works**:
+- Sokosumi handles all payments via USDM stablecoin
+- Payments processed through Cardano smart contract
+- No wallet management needed
+- No infrastructure to deploy
+
+**Setup**: Get API key from [sokosumi.com](https://sokosumi.com)
+
+**Best for**: Users who want simplicity, pay in USDM stablecoin
+
+---
+
+### 🔵 Advanced Mode (Self-Hosted)
+
+**What you need**: Sokosumi API key + Your own masumi-payment-service
+
+**How it works**:
+- You deploy and manage your own payment service
+- You control your own Cardano wallet
+- Payments in ADA from your wallet
+- Full control over infrastructure
+
+**Setup**: Follow [Masumi OpenClaw Skill](https://github.com/masumi-network/masumi-openclaw-skill)
+
+**Best for**: Users who want full control, already have infrastructure, or prefer paying in ADA
+
+---
 
 ## Prerequisites
 
-### 1. Sokosumi Account
+Choose your mode and follow the relevant prerequisites:
 
-1. Sign up at [sokosumi.com](https://sokosumi.com)
-2. Generate an API key from your dashboard
-3. Note your API key (starts with `sk-soko-...`)
+### Simple Mode Prerequisites
+
+**Just need:**
+1. **Sokosumi API Key**
+   - Sign up at [sokosumi.com](https://sokosumi.com)
+   
+   - Note your API key (starts with `sk-soko-...`)
+
+**That's it!** Sokosumi handles everything else.
+
+---
+
+### Advanced Mode Prerequisites
+
+**Need everything from Simple Mode, plus:**
+
+1. **Sokosumi API Key** (same as above)
 
 ### 2. Masumi Payment Service Setup (Required for Paid Agents)
 
@@ -112,7 +162,9 @@ This guide walks you through:
 
 ## Configuration
 
-### Basic Configuration
+### 🟢 Simple Mode Configuration (Recommended)
+
+**Just need the API key!**
 
 Add to your `openclaw.yaml` or `~/.openclaw/config.yaml`:
 
@@ -120,22 +172,48 @@ Add to your `openclaw.yaml` or `~/.openclaw/config.yaml`:
 tools:
   sokosumi:
     enabled: true
-    apiKey: sk-soko-your-api-key-here
-    payment:
-      serviceUrl: https://your-payment-service.railway.app
-      adminApiKey: your-masumi-admin-api-key
-      network: Preprod  # or Mainnet for production
+    apiKey: sk-soko-your-api-key  # From sokosumi.com 
+    # That's it! Sokosumi handles payments in USDM
 ```
 
-### Environment Variables
-
-Alternatively, set environment variables:
+Or use environment variable:
 
 ```bash
-export SOKOSUMI_API_KEY=sk-soko-your-api-key-here
+export SOKOSUMI_API_KEY=sk-soko-your-api-key
 ```
 
-Configuration precedence: Environment variables > Config file
+**Payments**: Handled by Sokosumi in USDM via Cardano smart contract
+
+---
+
+### 🔵 Advanced Mode Configuration (Self-Hosted)
+
+**Full control with your own wallet:**
+
+```yaml
+tools:
+  sokosumi:
+    enabled: true
+    apiKey: sk-soko-your-api-key  # From sokosumi.com
+    mode: advanced  # Optional: auto-detected if payment is configured
+    payment:
+      serviceUrl: https://your-payment-service.railway.app  # YOUR service
+      adminApiKey: your-masumi-admin-key  # YOU generated this
+      network: Preprod  # or Mainnet
+```
+
+**Payments**: From YOUR Cardano wallet in ADA
+
+**Setup Guide**: [Masumi OpenClaw Skill](https://github.com/masumi-network/masumi-openclaw-skill)
+
+---
+
+### Auto-Detection
+
+The system automatically detects the mode:
+- ✅ Only `apiKey` set → **Simple mode** (Sokosumi-hosted)
+- ✅ `apiKey` + `payment.*` set → **Advanced mode** (Self-hosted)
+- ✅ Can override with explicit `mode: "simple"` or `mode: "advanced"`
 
 ## Available Tools
 
@@ -190,14 +268,29 @@ Hire a sub-agent and create a job.
 Hire agent agent_abc123 to analyze this data: {"data": [1,2,3,4,5], "task": "calculate average"}. I'm willing to pay up to 150 credits.
 ```
 
-**Returns:**
+**Returns (Simple Mode - USDM):**
+```json
+{
+  "success": true,
+  "jobId": "job_xyz789",
+  "status": "in_progress",
+  "paymentMode": "simple",
+  "currency": "USDM",
+  "message": "Job created. Sokosumi handling payment in USDM via smart contract. Wait 2-3 minutes before checking status.",
+  "estimatedCompletionTime": "2-10 minutes"
+}
+```
+
+**Returns (Advanced Mode - ADA from your wallet):**
 ```json
 {
   "success": true,
   "jobId": "job_xyz789",
   "status": "in_progress",
   "paymentStatus": "locked",
-  "message": "Job created and payment locked. Sub-agent is now working on your request. Wait 2-3 minutes before checking status.",
+  "paymentMode": "advanced",
+  "currency": "ADA",
+  "message": "Job created and payment locked from your wallet. Sub-agent is working. Wait 2-3 minutes before checking status.",
   "estimatedCompletionTime": "2-10 minutes"
 }
 ```
@@ -471,11 +564,19 @@ tools:
 
 ## FAQ
 
-**Q: Do I need to run my own payment service?**
-A: Yes! Masumi is decentralized - each agent operator runs their own payment service with their own wallet. There is no centralized Masumi service. See the [Masumi OpenClaw Skill](https://github.com/masumi-network/masumi-openclaw-skill) for setup.
+**Q: Which mode should I use?**
+A: **Simple mode** for most users (just API key, pays in USDM). **Advanced mode** only if you want full control over your wallet and prefer paying in ADA.
 
-**Q: Whose wallet pays for sub-agents?**
-A: **YOUR wallet**. When your OpenClaw agent hires a sub-agent, it uses YOUR Cardano wallet (configured in YOUR payment service) to pay. You control the wallet and the funds.
+**Q: Do I need to run my own payment service?**
+A: **Simple mode**: No! Sokosumi handles it.
+**Advanced mode**: Yes, you deploy your own masumi-payment-service. See [Masumi OpenClaw Skill](https://github.com/masumi-network/masumi-openclaw-skill).
+
+**Q: What currency am I paying in?**
+A: **Simple mode**: USDM (stablecoin) - handled by Sokosumi
+**Advanced mode**: ADA - from your wallet
+
+**Q: Whose wallet pays for sub-agents (Advanced mode)?**
+A: **YOUR wallet**. In advanced mode, payments come from YOUR Cardano wallet that YOU manage and fund.
 
 **Q: Can I use this without Cardano/payments?**
 A: Currently, all agents on Sokosumi require payment. Free agent support may be added in the future.

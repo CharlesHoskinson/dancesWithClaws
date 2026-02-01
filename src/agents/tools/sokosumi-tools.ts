@@ -76,6 +76,24 @@ function validateSokosumiConfig(
   };
 }
 
+/**
+ * Detect payment mode based on configuration
+ */
+function detectPaymentMode(config?: SokosumiConfig): "simple" | "advanced" {
+  // Explicit mode setting takes precedence
+  if (config?.mode === "simple" || config?.mode === "advanced") {
+    return config.mode;
+  }
+
+  // Auto-detect: if payment service is configured, use advanced mode
+  if (config?.payment?.serviceUrl && config?.payment?.adminApiKey) {
+    return "advanced";
+  }
+
+  // Default to simple mode (Sokosumi-hosted)
+  return "simple";
+}
+
 function validateMasumiConfig(
   config?: SokosumiConfig,
 ):
@@ -85,7 +103,7 @@ function validateMasumiConfig(
     return {
       valid: false,
       error:
-        "Masumi payment service is not configured. Set tools.sokosumi.payment in your config.",
+        "Advanced mode requires payment service configuration. Set tools.sokosumi.payment in your config, or use simple mode (just apiKey).",
     };
   }
 
@@ -186,7 +204,7 @@ export function createSokosumiHireAgentTool(cfg?: OpenClawConfig): AnyAgentTool 
   return {
     name: "sokosumi_hire_agent",
     description:
-      "Hire a sub-agent from Sokosumi marketplace to perform a task. Creates a job and handles payment via Masumi. IMPORTANT: Jobs typically take 2-10 minutes to complete. After hiring, wait at least 2-3 minutes before checking status. Do not poll continuously.",
+      "Hire a sub-agent from Sokosumi marketplace to perform a task. Supports two payment modes: (1) Simple mode - Sokosumi handles payments in USDM (just need API key), (2) Advanced mode - self-hosted wallet pays in ADA. IMPORTANT: Jobs typically take 2-10 minutes to complete. After hiring, wait at least 2-3 minutes before checking status. Do not poll continuously.",
     schema: SokosumiHireAgentSchema,
     handler: async (params: Record<string, unknown>) => {
       if (!isSokosumiEnabled(sokosumiConfig)) {
@@ -204,12 +222,21 @@ export function createSokosumiHireAgentTool(cfg?: OpenClawConfig): AnyAgentTool 
         });
       }
 
-      const masumiValidation = validateMasumiConfig(sokosumiConfig);
-      if (!masumiValidation.valid) {
-        return jsonResult({
-          error: "payment_configuration_error",
-          message: masumiValidation.error,
-        });
+      // Detect payment mode
+      const paymentMode = detectPaymentMode(sokosumiConfig);
+
+      // For advanced mode, validate payment service config
+      let masumiClient = null;
+      if (paymentMode === "advanced") {
+        const masumiValidation = validateMasumiConfig(sokosumiConfig);
+        if (!masumiValidation.valid) {
+          return jsonResult({
+            error: "payment_configuration_error",
+            message: masumiValidation.error,
+            hint: "Using advanced mode but payment service not configured. Either configure tools.sokosumi.payment or use simple mode (just apiKey).",
+          });
+        }
+        masumiClient = createMasumiPaymentClient(masumiValidation.config);
       }
 
       // Parse parameters
@@ -253,11 +280,25 @@ export function createSokosumiHireAgentTool(cfg?: OpenClawConfig): AnyAgentTool 
 
       const job = jobResult.data;
 
-      // If job requires payment, handle Masumi payment flow
-      if (job.masumiJobId) {
-        const masumiClient = createMasumiPaymentClient(masumiValidation.config);
+      // Handle payment based on mode
+      if (paymentMode === "simple") {
+        // Simple mode: Sokosumi handles payment in USDM via smart contract
+        // Job is created, Sokosumi manages the payment flow
+        return jsonResult({
+          success: true,
+          jobId: job.id,
+          agentId: job.agentId,
+          status: job.status,
+          paymentMode: "simple",
+          message: "Job created successfully. Sokosumi is handling payment in USDM via Cardano smart contract. IMPORTANT: Jobs typically take 2-10 minutes to complete. Wait at least 2-3 minutes before checking status.",
+          estimatedCompletionTime: "2-10 minutes",
+          currency: "USDM",
+        });
+      }
 
-        // Wait for payment to be locked
+      // Advanced mode: Self-hosted payment service
+      if (job.masumiJobId && masumiClient) {
+        // Wait for payment to be locked on user's wallet
         const paymentResult = await masumiClient.waitForPaymentLocked(job.masumiJobId, {
           maxWaitMs: 300_000, // 5 minutes
           pollIntervalMs: 5_000, // 5 seconds
@@ -275,6 +316,7 @@ export function createSokosumiHireAgentTool(cfg?: OpenClawConfig): AnyAgentTool 
                 : paymentResult.error.message,
             jobId: job.id,
             status: "payment_pending",
+            paymentMode: "advanced",
           });
         }
 
@@ -284,8 +326,10 @@ export function createSokosumiHireAgentTool(cfg?: OpenClawConfig): AnyAgentTool 
           agentId: job.agentId,
           status: "in_progress",
           paymentStatus: "locked",
-          message: "Job created and payment locked. Sub-agent is now working on your request. IMPORTANT: Jobs typically take 2-10 minutes to complete. Wait at least 2-3 minutes before checking status.",
+          paymentMode: "advanced",
+          message: "Job created and payment locked from your wallet. Sub-agent is now working on your request. IMPORTANT: Jobs typically take 2-10 minutes to complete. Wait at least 2-3 minutes before checking status.",
           estimatedCompletionTime: "2-10 minutes",
+          currency: "ADA",
         });
       }
 

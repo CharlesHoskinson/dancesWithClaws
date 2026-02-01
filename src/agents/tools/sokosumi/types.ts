@@ -85,6 +85,17 @@ export interface SokosumiConfig {
   enabled?: boolean;
   apiEndpoint?: string;
   apiKey?: string;
+  /**
+   * Payment mode: "simple" or "advanced"
+   * - simple: Sokosumi handles payments (just need API key, pays in USDM)
+   * - advanced: Self-hosted masumi-payment-service (need wallet, pays in ADA)
+   * Auto-detected based on configuration if not specified
+   */
+  mode?: "simple" | "advanced";
+  /**
+   * Advanced mode only: Self-hosted payment service configuration
+   * Only needed if you want to manage your own wallet and pay in ADA
+   */
   payment?: {
     serviceUrl?: string;
     adminApiKey?: string;

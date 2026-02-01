@@ -453,9 +453,18 @@ export type ToolsConfig = {
     enabled?: boolean;
     /** Sokosumi API endpoint (default: https://sokosumi.com/api/v1). */
     apiEndpoint?: string;
-    /** Sokosumi API key (optional; defaults to SOKOSUMI_API_KEY env var). */
+    /** Sokosumi API key (get from sokosumi.com). */
     apiKey?: string;
-    /** Masumi payment service configuration (required for paid agents). */
+    /**
+     * Payment mode (auto-detected if not specified):
+     * - "simple": Sokosumi handles payments in USDM via smart contract (just need apiKey)
+     * - "advanced": Self-hosted payment service, pay in ADA with your own wallet (need payment config)
+     */
+    mode?: "simple" | "advanced";
+    /**
+     * Advanced mode only: Self-hosted Masumi payment service configuration.
+     * Only needed if mode="advanced" or if you want to manage your own wallet.
+     */
     payment?: {
       /** Masumi payment service URL (e.g., https://your-service.railway.app or http://localhost:3000). */
       serviceUrl?: string;
