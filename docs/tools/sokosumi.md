@@ -175,6 +175,8 @@ List available agents on Sokosumi
 
 Hire a sub-agent and create a job.
 
+**⏱️ IMPORTANT TIMING**: Jobs typically take **2-10 minutes** to complete. After hiring, you must **wait 2-3 minutes** before checking status. Do not poll continuously.
+
 **Parameters:**
 - `agentId` (required): Agent ID from marketplace
 - `inputData` (required): JSON string with input data
@@ -195,13 +197,20 @@ Hire agent agent_abc123 to analyze this data: {"data": [1,2,3,4,5], "task": "cal
   "jobId": "job_xyz789",
   "status": "in_progress",
   "paymentStatus": "locked",
-  "message": "Job created and payment locked. Agent is now working on your request."
+  "message": "Job created and payment locked. Sub-agent is now working on your request. Wait 2-3 minutes before checking status.",
+  "estimatedCompletionTime": "2-10 minutes"
 }
 ```
 
 ### 3. `sokosumi_check_job`
 
 Check job status.
+
+**⏱️ TIMING GUIDANCE**:
+- **First check**: Wait at least **2-3 minutes** after hiring
+- **If still in_progress**: Wait another **2-3 minutes** before checking again
+- **Total job time**: Typically **2-10 minutes**
+- **Don't**: Poll continuously every few seconds (wastes resources and may hit rate limits)
 
 **Parameters:**
 - `jobId` (required): Job ID from Sokosumi
@@ -211,7 +220,7 @@ Check job status.
 Check status of job job_xyz789
 ```
 
-**Returns:**
+**Returns (completed):**
 ```json
 {
   "success": true,
@@ -223,6 +232,17 @@ Check status of job job_xyz789
     "output": "Analysis complete",
     "average": 3.0
   }
+}
+```
+
+**Returns (still processing):**
+```json
+{
+  "success": true,
+  "jobId": "job_xyz789",
+  "status": "in_progress",
+  "hasResult": false,
+  "message": "Job is still processing. Wait 2-3 more minutes before checking again."
 }
 ```
 
@@ -267,20 +287,39 @@ Get results from job job_xyz789
 
    <sokosumi_hire_agent agentId="agent_abc123" inputData="{\"sales\": [100, 200, 300, 400], \"task\": \"calculate total and average\"}" maxAcceptedCredits="150">
 
-   Result: Job created (job_xyz789), payment locked
+   Result: Job created (job_xyz789), payment locked. Estimated completion: 2-10 minutes.
 
-3. Agent: "Check status of job job_xyz789"
+3. Agent: "I'll wait 3 minutes for the job to complete..."
+
+   [Agent waits 3 minutes - DO NOT poll continuously]
+
+4. Agent: "Check status of job job_xyz789"
 
    <sokosumi_check_job jobId="job_xyz789">
 
-   Result: Job completed with results
+   Result: Job still in_progress. Wait 2-3 more minutes.
 
-4. Agent: "Get results from job job_xyz789"
+5. Agent: "I'll wait another 3 minutes..."
+
+   [Agent waits 3 more minutes]
+
+6. Agent: "Check status again"
+
+   <sokosumi_check_job jobId="job_xyz789">
+
+   Result: Job completed!
+
+7. Agent: "Get results from job job_xyz789"
 
    <sokosumi_get_result jobId="job_xyz789">
 
    Result: {"total": 1000, "average": 250}
 ```
+
+**Key Timing Points**:
+- ⏱️ Wait **3 minutes** after hiring before first check
+- ⏱️ If still processing, wait **another 3 minutes**
+- ⏱️ Most jobs complete in **2-10 minutes**
 
 ### Example 2: Hire Multiple Agents for Different Tasks
 
@@ -307,13 +346,21 @@ Find agents on Sokosumi that can do these tasks and hire them."
 <sokosumi_check_job jobId="job_3">
 ```
 
-## Payment Flow
+## Payment Flow & Timing
 
-1. **Agent creates payment request** → Masumi generates blockchain identifier
-2. **Payment locked on-chain** → Funds held in escrow
-3. **Sub-agent executes work** → Processes the task
-4. **Result submitted** → Agent completes work
-5. **Funds released** → Payment automatically unlocked
+1. **Agent creates payment request** → Masumi generates blockchain identifier (~30 seconds)
+2. **Payment locked on-chain** → Funds held in escrow (~1-2 minutes for blockchain confirmation)
+3. **Sub-agent executes work** → Processes the task (⏱️ **2-10 minutes** - MAIN WAIT TIME)
+4. **Result submitted** → Agent completes work (~30 seconds)
+5. **Funds released** → Payment automatically unlocked (~1-2 minutes)
+
+**Total Time**: Typically **3-15 minutes** end-to-end
+
+**⏱️ CRITICAL TIMING GUIDANCE FOR AGENTS**:
+- After hiring, **WAIT 2-3 MINUTES** before first status check
+- If still processing, **WAIT ANOTHER 2-3 MINUTES** before next check
+- **DO NOT** poll every few seconds - jobs need time to complete
+- Most jobs finish in **2-10 minutes** of actual work time
 
 ### Payment States
 

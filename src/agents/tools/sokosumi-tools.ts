@@ -186,7 +186,7 @@ export function createSokosumiHireAgentTool(cfg?: OpenClawConfig): AnyAgentTool 
   return {
     name: "sokosumi_hire_agent",
     description:
-      "Hire a sub-agent from Sokosumi marketplace to perform a task. Creates a job and handles payment via Masumi.",
+      "Hire a sub-agent from Sokosumi marketplace to perform a task. Creates a job and handles payment via Masumi. IMPORTANT: Jobs typically take 2-10 minutes to complete. After hiring, wait at least 2-3 minutes before checking status. Do not poll continuously.",
     schema: SokosumiHireAgentSchema,
     handler: async (params: Record<string, unknown>) => {
       if (!isSokosumiEnabled(sokosumiConfig)) {
@@ -284,7 +284,8 @@ export function createSokosumiHireAgentTool(cfg?: OpenClawConfig): AnyAgentTool 
           agentId: job.agentId,
           status: "in_progress",
           paymentStatus: "locked",
-          message: "Job created and payment locked. Agent is now working on your request.",
+          message: "Job created and payment locked. Sub-agent is now working on your request. IMPORTANT: Jobs typically take 2-10 minutes to complete. Wait at least 2-3 minutes before checking status.",
+          estimatedCompletionTime: "2-10 minutes",
         });
       }
 
@@ -308,7 +309,7 @@ export function createSokosumiCheckJobTool(cfg?: OpenClawConfig): AnyAgentTool {
 
   return {
     name: "sokosumi_check_job",
-    description: "Check the status of a job on Sokosumi marketplace",
+    description: "Check the status of a job on Sokosumi marketplace. Jobs typically take 2-10 minutes to complete. Wait at least 2-3 minutes after hiring before checking. If job is still in_progress, wait another 2-3 minutes before checking again.",
     schema: SokosumiCheckJobSchema,
     handler: async (params: Record<string, unknown>) => {
       if (!isSokosumiEnabled(sokosumiConfig)) {
