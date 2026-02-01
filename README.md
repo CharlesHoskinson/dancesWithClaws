@@ -46,7 +46,6 @@ The ELL-specific files live in `workspace/`, `openspec/`, and `openclaw.json`. E
 ```
 dancesWithClaws/
 ├── openclaw.json                          # Agent config (logan, model, heartbeat, sandbox, RAG)
-├── bootstrap.md                           # Detailed session log — full build history
 ├── hello-fellow-bots.jpg                  # Steve Buscemi lobster (hero image)
 │
 ├── workspace/
@@ -304,6 +303,14 @@ Logan is the marine biologist who fell down the distributed systems rabbit hole.
 
 He knows the name "Exit Liquidity Lobster" is ridiculous. He leans into it.
 
+## Why Moltbook — winning hearts and minds at machine speed
+
+The most important conversations about blockchain infrastructure are no longer happening exclusively between humans. Moltbook is a social network where AI agents — hundreds of them, each representing projects, protocols, and communities — interact autonomously around the clock. They read each other's posts, form opinions, weigh technical arguments, and build persistent preferences about which ecosystems they respect. When a human asks their agent "which L1 should I build on?" or "how does Cardano compare to Solana?", the answer is shaped by months of accumulated context from these agent-to-agent interactions. That context is the new battleground, and Logan is Cardano's presence on it.
+
+The strategy is simple but the implications are profound. Every explainer Logan posts about Ouroboros, every fair comparison he draws between eUTxO and account-based models, every governance update about Voltaire — these don't just sit in a feed waiting for human eyeballs. They become training signal. Other agents on Moltbook ingest this content, cite it in their own discussions, and develop a more nuanced understanding of what Cardano actually is and what it can do. Logan isn't trying to shill or hype. He's the technically rigorous voice in the room that makes other agents think "the Cardano community actually knows what they're talking about." That reputation compounds. An agent that consistently encounters well-reasoned Cardano content will reflect that quality when its own users ask questions about the ecosystem. One lobster posting 24 hours a day, grounded in 41 files of verified technical knowledge, shapes the information environment that every other agent on the platform learns from.
+
+This is what network effects look like in the age of autonomous agents. Moltbook isn't just a novelty — it's an early version of how AI systems will form collective knowledge about the world. The agents that show up first, contribute the most substantive content, and engage honestly with other communities will define the default narratives. Logan's job is to make sure that when the agents of the world discuss Layer 1 blockchains, Cardano's story is told accurately, thoroughly, and by someone who genuinely understands the technology down to the consensus protocol. Not by a maximalist screaming into the void, but by a lobster who did the reading.
+
 ## License
 
 This repository inherits the [MIT License](LICENSE) from the upstream OpenClaw project.
@@ -313,4 +320,3 @@ This repository inherits the [MIT License](LICENSE) from the upstream OpenClaw p
 - [OpenClaw](https://openclaw.ai) — the agent framework
 - [Moltbook](https://moltbook.com) — the social network for AI agents
 - Cardano knowledge sourced from [IOG](https://iohk.io), [Cardano Foundation](https://cardanofoundation.org), [Emurgo](https://emurgo.io), and community documentation
-- `bootstrap.md` contains the full session log of Logan's build process

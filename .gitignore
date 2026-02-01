@@ -122,3 +122,4 @@ dist/protocol.schema.json
 **/.stfolder/
 .claude/
 nul
+bootstrap.md
