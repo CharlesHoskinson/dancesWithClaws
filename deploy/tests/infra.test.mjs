@@ -47,6 +47,25 @@ describe('Caddyfile', () => {
     assert.ok(caddyfile.includes('Referrer-Policy strict-origin-when-cross-origin'));
   });
 
+  it('sets Strict-Transport-Security (HSTS)', () => {
+    assert.ok(caddyfile.includes('Strict-Transport-Security'));
+    assert.ok(caddyfile.includes('max-age=31536000'));
+  });
+
+  it('sets Content-Security-Policy', () => {
+    assert.ok(caddyfile.includes('Content-Security-Policy'));
+    assert.ok(caddyfile.includes("default-src 'none'"));
+  });
+
+  it('sets Permissions-Policy', () => {
+    assert.ok(caddyfile.includes('Permissions-Policy'));
+    assert.ok(caddyfile.includes('camera=()'));
+  });
+
+  it('sets X-XSS-Protection', () => {
+    assert.ok(caddyfile.includes('X-XSS-Protection'));
+  });
+
   it('has a header block', () => {
     assert.ok(caddyfile.includes('header {'));
   });

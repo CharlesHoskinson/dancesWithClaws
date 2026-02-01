@@ -23,7 +23,7 @@ function renderMarkdown(text) {
     .replace(/\*(.+?)\*/g, '<em>$1</em>')
     .replace(/`([^`]+)`/g, '<code>$1</code>')
     .replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_, text, url) =>
-      url.startsWith('javascript:') ? text : `<a href="${url}" rel="noopener">${text}</a>`)
+      /^(javascript|data|vbscript):/i.test(url) ? text : `<a href="${url}" rel="noopener">${text}</a>`)
     .replace(/\n/g, '<br>');
 }
 
