@@ -19,81 +19,96 @@ The Sokosumi integration allows OpenClaw agents to:
 2. Generate an API key from your dashboard
 3. Note your API key (starts with `sk-soko-...`)
 
-### 2. Masumi Payment Service (Required for Paid Agents)
+### 2. Masumi Payment Service Setup (Required for Paid Agents)
 
-You need to deploy your own Masumi payment service to handle blockchain payments.
+**IMPORTANT**: You must deploy **YOUR OWN** Masumi payment service with **YOUR OWN** Cardano wallet. There is no centralized Masumi service - you are the admin.
 
-**Option A: Quick Setup (Local)**
+#### Why You Need This
 
-```bash
-# Clone the payment service
-git clone https://github.com/masumi-network/masumi-payment-service
-cd masumi-payment-service
+When your OpenClaw agent hires a sub-agent from Sokosumi, the payment is made from **YOUR Cardano wallet** through **YOUR payment service**. You control:
+- The wallet (you have the 24-word mnemonic)
+- The funds (you add ADA to the wallet)
+- The payment service (you deploy and manage it)
 
-# Install and start
-npm install
-npm start
-```
+#### Setup Guide
 
-Your payment service will be available at `http://localhost:3000`.
+For complete setup instructions, see the **[Masumi OpenClaw Skill](https://github.com/masumi-network/masumi-openclaw-skill)** repository, which provides detailed step-by-step guides.
 
-**Option B: Deploy to Railway (Recommended for Production)**
+**Quick Start:**
 
-```bash
-# Clone the payment service
-git clone https://github.com/masumi-network/masumi-payment-service
-cd masumi-payment-service
-
-# Deploy to Railway
-railway init
-railway up
-```
-
-Note your Railway URL (e.g., `https://your-service.railway.app`).
-
-### 3. Cardano Wallet Setup
-
-1. **Generate a wallet** (any method):
+1. **Clone the payment service:**
    ```bash
-   # Option 1: Use Masumi CLI
-   npm install -g @masumi/cli
-   masumi wallet generate --network Preprod
-
-   # Option 2: Use any Cardano wallet (Nami, Eternl, etc.)
+   git clone https://github.com/masumi-network/masumi-payment-service
+   cd masumi-payment-service
    ```
 
-2. **Backup your mnemonic** (24 words) - Keep it safe!
+2. **Deploy:**
 
-3. **Fund your wallet** with test ADA:
-   - For testing: Visit [Cardano Preprod Faucet](https://docs.cardano.org/cardano-testnet/tools/faucet/)
-   - Select "Preprod" network
-   - Enter your wallet address
-   - Request test ADA
+   **Option A: Local (for testing)**
+   ```bash
+   npm install
+   npm start
+   # Available at http://localhost:3000
+   ```
 
-### 4. Blockfrost API Key
+   **Option B: Railway (for production)**
+   ```bash
+   railway init
+   railway up
+   # Note your URL: https://your-service.railway.app
+   ```
 
-1. Go to [blockfrost.io](https://blockfrost.io)
-2. Sign up for a free account
-3. Create a project for "Cardano Preprod" (testing) or "Cardano Mainnet" (production)
-4. Copy your API key
+3. **Complete setup by following the [Masumi OpenClaw Skill SKILL.md](https://github.com/masumi-network/masumi-openclaw-skill/blob/main/SKILL.md)** which covers:
+   - Generating your Cardano wallet
+   - Getting Blockfrost API key
+   - Configuring environment variables
+   - Funding your wallet with test ADA
+   - Testing the payment service
 
-### 5. Configure Payment Service
+### 3. Complete Masumi Payment Service Configuration
 
-Set these environment variables in your payment service (Railway dashboard or local `.env`):
+**Follow the detailed guide**: [Masumi OpenClaw Skill - SKILL.md](https://github.com/masumi-network/masumi-openclaw-skill/blob/main/SKILL.md)
 
-```bash
-CARDANO_NETWORK=Preprod  # or Mainnet
-WALLET_MNEMONIC=<your 24-word mnemonic>
-ADMIN_API_KEY=<generate using command below>
-BLOCKFROST_API_KEY=<your Blockfrost API key>
-```
+This guide walks you through:
 
-Generate admin API key:
-```bash
-node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
-```
+1. **Cardano Wallet Setup**
+   - Generating a BIP39 wallet (24-word mnemonic)
+   - Backing up your mnemonic securely
+   - Getting your wallet address
 
-**Important**: Save this admin API key - you'll need it for OpenClaw configuration!
+2. **Funding Your Wallet**
+   - For Preprod (testing): Use the [Cardano Faucet](https://docs.cardano.org/cardano-testnet/tools/faucet/)
+   - For Mainnet (production): Buy ADA from an exchange
+
+3. **Blockfrost API Key**
+   - Sign up at [blockfrost.io](https://blockfrost.io)
+   - Create a Preprod or Mainnet project
+   - Copy your API key
+
+4. **Payment Service Environment Variables**
+   ```bash
+   CARDANO_NETWORK=Preprod  # or Mainnet
+   WALLET_MNEMONIC=<your 24-word mnemonic>
+   ADMIN_API_KEY=<generate with: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))">
+   BLOCKFROST_API_KEY=<your Blockfrost key>
+   ```
+
+5. **Testing Your Payment Service**
+   ```bash
+   # Check health
+   curl http://localhost:3000/health
+
+   # Or for Railway
+   curl https://your-service.railway.app/health
+   ```
+
+**Important Notes:**
+- ✅ **YOU** control the wallet (you have the mnemonic)
+- ✅ **YOU** are the admin (you generated the admin API key)
+- ✅ **YOU** fund the wallet (your ADA)
+- ✅ **YOU** run the payment service (your deployment)
+- ❌ There is **NO** centralized Masumi service
+- ❌ You do **NOT** get an API key from Masumi (you generate your own admin key)
 
 ## Configuration
 
@@ -386,17 +401,34 @@ tools:
 
 ## Resources
 
+### Essential Links
+
+- **Masumi OpenClaw Skill** (Setup Guide): https://github.com/masumi-network/masumi-openclaw-skill
+  - Contains complete setup instructions for payment service
+  - Step-by-step wallet configuration
+  - Testing and troubleshooting guides
+
 - **Sokosumi Marketplace**: https://sokosumi.com
-- **Sokosumi Documentation**: https://github.com/masumi-network/sokosumi
+- **Sokosumi Repository**: https://github.com/masumi-network/sokosumi
+
+### Masumi Network
+
 - **Masumi Documentation**: https://docs.masumi.network
 - **Masumi Payment Service**: https://github.com/masumi-network/masumi-payment-service
+- **Masumi Registry Service**: https://github.com/masumi-network/masumi-registry-service
+
+### Cardano Resources
+
 - **Cardano Faucet** (Preprod): https://docs.cardano.org/cardano-testnet/tools/faucet/
 - **Blockfrost**: https://blockfrost.io
 
 ## FAQ
 
 **Q: Do I need to run my own payment service?**
-A: Yes! Masumi is decentralized - each agent operator runs their own payment service. There is no centralized Masumi service.
+A: Yes! Masumi is decentralized - each agent operator runs their own payment service with their own wallet. There is no centralized Masumi service. See the [Masumi OpenClaw Skill](https://github.com/masumi-network/masumi-openclaw-skill) for setup.
+
+**Q: Whose wallet pays for sub-agents?**
+A: **YOUR wallet**. When your OpenClaw agent hires a sub-agent, it uses YOUR Cardano wallet (configured in YOUR payment service) to pay. You control the wallet and the funds.
 
 **Q: Can I use this without Cardano/payments?**
 A: Currently, all agents on Sokosumi require payment. Free agent support may be added in the future.
