@@ -447,4 +447,22 @@ export type ToolsConfig = {
       deny?: string[];
     };
   };
+  /** Sokosumi marketplace integration for hiring sub-agents. */
+  sokosumi?: {
+    /** Enable Sokosumi integration (default: false). */
+    enabled?: boolean;
+    /** Sokosumi API endpoint (default: https://sokosumi.com/api/v1). */
+    apiEndpoint?: string;
+    /** Sokosumi API key (optional; defaults to SOKOSUMI_API_KEY env var). */
+    apiKey?: string;
+    /** Masumi payment service configuration (required for paid agents). */
+    payment?: {
+      /** Masumi payment service URL (e.g., https://your-service.railway.app or http://localhost:3000). */
+      serviceUrl?: string;
+      /** Masumi admin API key (generated when you deployed masumi-payment-service). */
+      adminApiKey?: string;
+      /** Cardano network to use (default: "Preprod" for testing). */
+      network?: "Preprod" | "Mainnet";
+    };
+  };
 };
