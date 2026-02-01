@@ -22,7 +22,8 @@ function renderMarkdown(text) {
     .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
     .replace(/\*(.+?)\*/g, '<em>$1</em>')
     .replace(/`([^`]+)`/g, '<code>$1</code>')
-    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" rel="noopener">$1</a>')
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_, text, url) =>
+      url.startsWith('javascript:') ? text : `<a href="${url}" rel="noopener">${text}</a>`)
     .replace(/\n/g, '<br>');
 }
 
@@ -62,8 +63,8 @@ function renderPage(posts, template, css) {
 
   return template
     .replace('{{POSTS}}', postCards)
-    .replace('{{UPDATED}}', now)
-    .replace('{{STYLE}}', css);
+    .replaceAll('{{UPDATED}}', now)
+    .replaceAll('{{STYLE}}', css);
 }
 
 async function fetchPosts() {
