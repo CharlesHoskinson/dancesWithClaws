@@ -1,0 +1,34 @@
+name: Deploy Logan
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node --test deploy/tests/*.test.mjs
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to Azure VM
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.LOGAN_VM_HOST }}
+          username: ${{ secrets.LOGAN_VM_USER }}
+          key: ${{ secrets.LOGAN_VM_SSH_KEY }}
+          script: |
+            cd /opt/logan/dancesWithClaws
+            GIT_SSH_COMMAND='ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new' git pull origin master
+            cd deploy
+            docker compose -f docker-compose.logan.yml build lobster-fetch
+            docker compose -f docker-compose.logan.yml up -d --remove-orphans
+            docker image prune -f
