@@ -29,6 +29,6 @@ jobs:
             cd /opt/logan/dancesWithClaws
             GIT_SSH_COMMAND='ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new' git pull origin master
             cd deploy
-            docker compose -f docker-compose.logan.yml build lobster-fetch
+            docker compose -f docker-compose.logan.yml build
             docker compose -f docker-compose.logan.yml up -d --remove-orphans
             docker image prune -f
