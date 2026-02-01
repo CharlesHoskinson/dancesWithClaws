@@ -1,0 +1,11 @@
+{$SITE_DOMAIN:localhost} {
+	root * /site/public
+	file_server
+	encode gzip
+
+	header {
+		X-Content-Type-Options nosniff
+		X-Frame-Options DENY
+		Referrer-Policy strict-origin-when-cross-origin
+	}
+}
