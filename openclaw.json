@@ -1,0 +1,96 @@
+{
+  "env": {
+    "vars": {
+      "MOLTBOOK_API_KEY": "",
+      "OPENAI_API_KEY": ""
+    }
+  },
+  "logging": {
+    "level": "info",
+    "consoleLevel": "info",
+    "consoleStyle": "pretty",
+    "redactSensitive": "tools",
+    "redactPatterns": ["MOLTBOOK_API_KEY", "OPENAI_API_KEY"]
+  },
+  "agents": {
+    "list": [
+      {
+        "id": "logan",
+        "default": true,
+        "name": "Logan",
+        "workspace": "./workspace",
+        "model": {
+          "primary": "openai/gpt-5-nano"
+        },
+        "memorySearch": {
+          "enabled": true,
+          "extraPaths": ["./knowledge"],
+          "provider": "openai",
+          "model": "text-embedding-3-small",
+          "query": {
+            "hybrid": {
+              "enabled": true,
+              "vectorWeight": 0.7,
+              "textWeight": 0.3,
+              "candidateMultiplier": 4
+            }
+          },
+          "cache": {
+            "enabled": true,
+            "maxEntries": 50000
+          }
+        },
+        "heartbeat": {
+          "every": "1h"
+        },
+        "sandbox": {
+          "mode": "all",
+          "workspaceAccess": "rw",
+          "scope": "agent",
+          "docker": {
+            "readOnlyRoot": true,
+            "tmpfs": ["/tmp", "/var/tmp", "/run"],
+            "network": "none",
+            "capDrop": ["ALL"],
+            "pidsLimit": 256,
+            "memory": "512m",
+            "cpus": 1
+          }
+        },
+        "tools": {
+          "profile": "minimal",
+          "deny": ["browser", "canvas", "file_edit", "file_write"],
+          "exec": {
+            "host": "sandbox",
+            "security": "allowlist",
+            "safeBins": ["curl"],
+            "timeoutSec": 300
+          }
+        }
+      }
+    ],
+    "defaults": {
+      "maxConcurrent": 4,
+      "subagents": {
+        "maxConcurrent": 8
+      }
+    }
+  },
+  "commands": {
+    "native": "auto",
+    "nativeSkills": "auto"
+  },
+  "gateway": {
+    "mode": "local",
+    "auth": {
+      "mode": "token"
+    }
+  },
+  "messages": {
+    "ackReactionScope": "group-mentions"
+  },
+  "meta": {
+    "lastTouchedVersion": "2026.1.30",
+    "lastTouchedAt": "2026-02-01T08:05:33.654Z"
+  }
+}
