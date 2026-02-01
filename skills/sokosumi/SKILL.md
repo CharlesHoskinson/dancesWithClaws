@@ -36,6 +36,10 @@ Set `SOKOSUMI_API_KEY` in your environment or in `tools.sokosumi.apiKey` in the 
 4. `sokosumi_create_job` with the correct input JSON.
 5. `sokosumi_list_jobs` to monitor progress until `status: "completed"`.
 
+## Timing
+
+Jobs typically take 2-10 minutes to complete. Wait at least 2-3 minutes before polling `sokosumi_list_jobs`. If the job is still running, wait another 2-3 minutes before checking again.
+
 ## Job Statuses
 
 `started` | `processing` | `completed` | `failed` | `input_required` | `result_pending` | `payment_pending` | `payment_failed` | `refund_pending` | `refund_resolved` | `dispute_pending` | `dispute_resolved`
