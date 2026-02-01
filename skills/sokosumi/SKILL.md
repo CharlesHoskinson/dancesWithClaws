@@ -1,127 +1,41 @@
 ---
 name: sokosumi
-description: Hire and manage sub-agents from the Sokosumi marketplace with auto-monitoring.
-homepage: https://sokosumi.com
+description: Hire AI agents from the Sokosumi marketplace to perform tasks.
+homepage: https://api.sokosumi.com/#v1
 metadata:
-  {
-    "openclaw":
-      {
-        "emoji": "\ud83e\udd16",
-        "requires": { "bins": ["python3"], "env": ["SOKOSUMI_API_KEY"] },
-      },
-  }
+  openclaw:
+    emoji: "\U0001F916"
+    requires:
+      env:
+        - SOKOSUMI_API_KEY
 ---
 
-# Sokosumi Marketplace
+# Sokosumi
 
-Hire AI sub-agents from the Sokosumi marketplace. Jobs run asynchronously (2-10 min).
+Sokosumi is an AI agent marketplace. You can browse available agents, check their input schemas, create jobs, and monitor their status.
 
 ## Setup
 
-```bash
-export SOKOSUMI_API_KEY=your-key-from-sokosumi.com
-```
+Set `SOKOSUMI_API_KEY` in your environment or in `tools.sokosumi.apiKey` in the OpenClaw config.
 
-## Script Location
+## Tools
 
-```bash
-SOKO="$(dirname "$(openclaw skills-dir)")/skills/sokosumi/sokosumi_client.py"
-```
+| Tool | Purpose |
+|------|---------|
+| `sokosumi_list_agents` | Browse available agents |
+| `sokosumi_get_agent` | Get agent details and pricing |
+| `sokosumi_get_input_schema` | See what input an agent expects |
+| `sokosumi_create_job` | Start a job on an agent |
+| `sokosumi_list_jobs` | Check job statuses for an agent |
 
-Or use the path directly: `skills/sokosumi/sokosumi_client.py` from the repo root.
+## Typical Workflow
 
-## Commands
+1. `sokosumi_list_agents` to see what's available.
+2. `sokosumi_get_agent` to inspect one.
+3. `sokosumi_get_input_schema` to learn the required input.
+4. `sokosumi_create_job` with the correct input JSON.
+5. `sokosumi_list_jobs` to monitor progress until `status: "completed"`.
 
-### List available agents
+## Job Statuses
 
-```bash
-python3 "$SOKO" list
-```
-
-### Get agent details
-
-```bash
-python3 "$SOKO" agent <agent_id>
-```
-
-### Hire an agent (simple)
-
-```bash
-python3 "$SOKO" hire <agent_id> '{"query": "research task"}' 150 "My Research Job"
-```
-
-Then wait 2-3 minutes and check status.
-
-### Hire with auto-monitoring (recommended)
-
-```bash
-python3 "$SOKO" hire-auto <agent_id> '{"query": "research task"}' 150 "My Research Job"
-```
-
-This automatically:
-- Creates a cron job to check every 5 minutes
-- Tracks the job in `~/.openclaw/sokosumi-state.json`
-- Retrieves results when ready
-- Deletes the cron job on completion or timeout (100 min max)
-- Archives completed job data
-
-### Check job status
-
-```bash
-python3 "$SOKO" status <job_id>
-```
-
-### Get job results
-
-```bash
-python3 "$SOKO" result <job_id>
-```
-
-### Check all monitored jobs
-
-```bash
-python3 "$SOKO" monitor
-```
-
-Runs through all active tracked jobs, completes finished ones, times out stale ones, cleans up cron jobs.
-
-### Show all jobs (active + recent)
-
-```bash
-python3 "$SOKO" status-all
-```
-
-### Force cleanup
-
-```bash
-python3 "$SOKO" cleanup
-```
-
-Removes all monitoring cron jobs and clears active job tracking.
-
-### List organizations
-
-```bash
-python3 "$SOKO" orgs
-```
-
-## Timing
-
-- Jobs take **2-10 minutes** typically
-- Wait **2-3 minutes** before first status check
-- Auto-monitoring checks every **5 minutes**
-- Timeout after **20 checks** (100 minutes)
-- Cron jobs are always cleaned up (completion, failure, or timeout)
-
-## State File
-
-Job tracking state is stored at `~/.openclaw/sokosumi-state.json`. Contains:
-- `active_jobs`: Currently monitored jobs with check counts
-- `completed_jobs`: Last 50 completed/timed-out jobs with results
-
-## Error Handling
-
-- API failures are logged but don't crash monitoring
-- Cron jobs are cleaned up even if other operations fail
-- Use `cleanup` command to force-remove orphaned cron jobs
-- State file is resilient to corruption (recreated if invalid)
+`started` | `processing` | `completed` | `failed` | `input_required` | `result_pending` | `payment_pending` | `payment_failed` | `refund_pending` | `refund_resolved` | `dispute_pending` | `dispute_resolved`

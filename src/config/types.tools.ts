@@ -449,29 +449,9 @@ export type ToolsConfig = {
   };
   /** Sokosumi marketplace integration for hiring sub-agents. */
   sokosumi?: {
-    /** Enable Sokosumi integration (default: false). */
-    enabled?: boolean;
-    /** Sokosumi API endpoint (default: https://sokosumi.com/api/v1). */
+    /** Sokosumi API endpoint (default: https://api.sokosumi.com/v1). */
     apiEndpoint?: string;
-    /** Sokosumi API key (get from sokosumi.com). */
+    /** Sokosumi API key (or set SOKOSUMI_API_KEY env var). */
     apiKey?: string;
-    /**
-     * Payment mode (auto-detected if not specified):
-     * - "simple": Sokosumi handles payments in USDM via smart contract (just need apiKey)
-     * - "advanced": Self-hosted payment service, pay in ADA with your own wallet (need payment config)
-     */
-    mode?: "simple" | "advanced";
-    /**
-     * Advanced mode only: Self-hosted Masumi payment service configuration.
-     * Only needed if mode="advanced" or if you want to manage your own wallet.
-     */
-    payment?: {
-      /** Masumi payment service URL (e.g., https://your-service.railway.app or http://localhost:3000). */
-      serviceUrl?: string;
-      /** Masumi admin API key (generated when you deployed masumi-payment-service). */
-      adminApiKey?: string;
-      /** Cardano network to use (default: "Preprod" for testing). */
-      network?: "Preprod" | "Mainnet";
-    };
   };
 };

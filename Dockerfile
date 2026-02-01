@@ -31,6 +31,10 @@ RUN pnpm ui:build
 
 ENV NODE_ENV=production
 
+# Pre-create openclaw data directories so the non-root user can write to them
+RUN mkdir -p /home/node/.openclaw/canvas /home/node/.openclaw/cron \
+    && chown -R node:node /home/node/.openclaw
+
 # Security hardening: Run as non-root user
 # The node:22-bookworm image includes a 'node' user (uid 1000)
 # This reduces the attack surface by preventing container escape via root privileges

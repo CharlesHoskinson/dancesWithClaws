@@ -1,291 +1,68 @@
-// Sokosumi API client for OpenClaw
+import type { SokosumiAgent, SokosumiInputSchema, SokosumiJob } from "./types.js";
 
-import type {
-  SokosumiAgent,
-  SokosumiClientConfig,
-  SokosumiCreateJobRequest,
-  SokosumiCreateJobResponse,
-  SokosumiError,
-  SokosumiInputSchemaResponse,
-  SokosumiJob,
-  SokosumiJobResponse,
-  SokosumiListAgentsResponse,
-} from "./types.js";
+const DEFAULT_BASE = "https://api.sokosumi.com/v1";
+const TIMEOUT_MS = 30_000;
 
-const DEFAULT_TIMEOUT_MS = 30000; // 30 seconds
-const DEFAULT_API_ENDPOINT = "https://sokosumi.com/api/v1";
+type Ok<T> = { ok: true; data: T };
+type Err = { ok: false; error: string };
+type Result<T> = Ok<T> | Err;
 
-export class SokosumiClient {
-  private readonly apiEndpoint: string;
-  private readonly apiKey: string;
-  private readonly timeout: number;
-
-  constructor(config: SokosumiClientConfig) {
-    this.apiEndpoint = config.apiEndpoint || DEFAULT_API_ENDPOINT;
-    this.apiKey = config.apiKey;
-    this.timeout = config.timeout || DEFAULT_TIMEOUT_MS;
-  }
-
-  /**
-   * List all available agents on Sokosumi marketplace
-   */
-  async listAgents(): Promise<{ ok: true; data: SokosumiAgent[] } | { ok: false; error: SokosumiError }> {
-    try {
-      const response = await this.request<SokosumiListAgentsResponse>({
-        method: "GET",
-        path: "/agents",
-      });
-
-      if (!response.ok) {
-        return response;
-      }
-
-      return { ok: true, data: response.data.data };
-    } catch (error) {
-      return {
-        ok: false,
-        error: {
-          type: "network_error",
-          message: "Failed to list agents",
-          cause: error,
-        },
-      };
-    }
-  }
-
-  /**
-   * Get agent input schema
-   */
-  async getAgentInputSchema(
-    agentId: string,
-  ): Promise<
-    { ok: true; data: SokosumiInputSchemaResponse["data"] } | { ok: false; error: SokosumiError }
-  > {
-    try {
-      const response = await this.request<SokosumiInputSchemaResponse>({
-        method: "GET",
-        path: `/agents/${encodeURIComponent(agentId)}/input-schema`,
-      });
-
-      if (!response.ok) {
-        return response;
-      }
-
-      return { ok: true, data: response.data.data };
-    } catch (error) {
-      return {
-        ok: false,
-        error: {
-          type: "network_error",
-          message: "Failed to get agent input schema",
-          cause: error,
-        },
-      };
-    }
-  }
-
-  /**
-   * Create a new job for an agent
-   */
-  async createJob(
-    agentId: string,
-    request: SokosumiCreateJobRequest,
-  ): Promise<{ ok: true; data: SokosumiJob } | { ok: false; error: SokosumiError }> {
-    try {
-      const response = await this.request<SokosumiCreateJobResponse>({
-        method: "POST",
-        path: `/agents/${encodeURIComponent(agentId)}/jobs`,
-        body: request,
-      });
-
-      if (!response.ok) {
-        return response;
-      }
-
-      return { ok: true, data: response.data.data };
-    } catch (error) {
-      return {
-        ok: false,
-        error: {
-          type: "network_error",
-          message: "Failed to create job",
-          cause: error,
-        },
-      };
-    }
-  }
-
-  /**
-   * Get job status
-   */
-  async getJob(
-    jobId: string,
-  ): Promise<{ ok: true; data: SokosumiJob } | { ok: false; error: SokosumiError }> {
-    try {
-      const response = await this.request<SokosumiJobResponse>({
-        method: "GET",
-        path: `/jobs/${encodeURIComponent(jobId)}`,
-      });
-
-      if (!response.ok) {
-        return response;
-      }
-
-      return { ok: true, data: response.data.data };
-    } catch (error) {
-      return {
-        ok: false,
-        error: {
-          type: "network_error",
-          message: "Failed to get job status",
-          cause: error,
-        },
-      };
-    }
-  }
-
-  /**
-   * List all jobs for an agent
-   */
-  async listJobs(
-    agentId: string,
-  ): Promise<{ ok: true; data: SokosumiJob[] } | { ok: false; error: SokosumiError }> {
-    try {
-      const response = await this.request<{ data: SokosumiJob[] }>({
-        method: "GET",
-        path: `/agents/${encodeURIComponent(agentId)}/jobs`,
-      });
-
-      if (!response.ok) {
-        return response;
-      }
-
-      return { ok: true, data: response.data.data };
-    } catch (error) {
-      return {
-        ok: false,
-        error: {
-          type: "network_error",
-          message: "Failed to list jobs",
-          cause: error,
-        },
-      };
-    }
-  }
-
-  /**
-   * Generic request method with error handling
-   */
-  private async request<T>(params: {
-    method: "GET" | "POST" | "PUT" | "DELETE";
-    path: string;
-    body?: unknown;
-  }): Promise<{ ok: true; data: T } | { ok: false; error: SokosumiError }> {
-    const url = `${this.apiEndpoint}${params.path}`;
-
+export function createSokosumiClient(apiKey: string, baseUrl = DEFAULT_BASE) {
+  async function request<T>(method: string, path: string, body?: unknown): Promise<Result<T>> {
+    const url = `${baseUrl}${path}`;
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), this.timeout);
+    const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
     try {
       const headers: Record<string, string> = {
-        "X-API-Key": this.apiKey,
+        Authorization: `Bearer ${apiKey}`,
       };
+      if (body) headers["Content-Type"] = "application/json";
 
-      if (params.body) {
-        headers["Content-Type"] = "application/json";
-      }
-
-      const response = await fetch(url, {
-        method: params.method,
+      const res = await fetch(url, {
+        method,
         headers,
-        body: params.body ? JSON.stringify(params.body) : undefined,
+        body: body ? JSON.stringify(body) : undefined,
         signal: controller.signal,
       });
+      clearTimeout(timer);
 
-      clearTimeout(timeoutId);
-
-      // Handle HTTP errors
-      if (!response.ok) {
-        const errorText = await response.text().catch(() => "Unknown error");
-
-        switch (response.status) {
-          case 401:
-            return {
-              ok: false,
-              error: {
-                type: "unauthorized",
-                message: "Invalid Sokosumi API key. Check your configuration.",
-              },
-            };
-          case 404:
-            return {
-              ok: false,
-              error: {
-                type: "not_found",
-                message: `Resource not found: ${params.path}`,
-              },
-            };
-          case 402:
-          case 403:
-            return {
-              ok: false,
-              error: {
-                type: "insufficient_balance",
-                message: "Insufficient balance or credits. Please add funds to your account.",
-              },
-            };
-          case 400:
-            return {
-              ok: false,
-              error: {
-                type: "invalid_input",
-                message: `Invalid input: ${errorText}`,
-              },
-            };
-          default:
-            return {
-              ok: false,
-              error: {
-                type: "api_error",
-                message: `API error: ${errorText}`,
-                statusCode: response.status,
-              },
-            };
-        }
+      if (!res.ok) {
+        const text = await res.text().catch(() => "");
+        return { ok: false, error: `${res.status}: ${text || res.statusText}` };
       }
 
-      // Parse JSON response
-      const data = (await response.json()) as T;
+      const data = (await res.json()) as T;
       return { ok: true, data };
-    } catch (error) {
-      clearTimeout(timeoutId);
-
-      if (error instanceof Error && error.name === "AbortError") {
-        return {
-          ok: false,
-          error: {
-            type: "network_error",
-            message: `Request timeout after ${this.timeout}ms`,
-            cause: error,
-          },
-        };
-      }
-
-      return {
-        ok: false,
-        error: {
-          type: "network_error",
-          message: `Network error: ${error instanceof Error ? error.message : "Unknown error"}`,
-          cause: error,
-        },
-      };
+    } catch (e) {
+      clearTimeout(timer);
+      return { ok: false, error: e instanceof Error ? e.message : "Unknown error" };
     }
   }
-}
 
-/**
- * Create a Sokosumi client with the given configuration
- */
-export function createSokosumiClient(config: SokosumiClientConfig): SokosumiClient {
-  return new SokosumiClient(config);
+  return {
+    listAgents: () => request<{ data: SokosumiAgent[] }>("GET", "/agents"),
+
+    getAgent: (id: string) =>
+      request<{ data: SokosumiAgent }>("GET", `/agents/${encodeURIComponent(id)}`),
+
+    getInputSchema: (agentId: string) =>
+      request<{ data: SokosumiInputSchema }>(
+        "GET",
+        `/agents/${encodeURIComponent(agentId)}/input-schema`,
+      ),
+
+    listJobs: (agentId: string) =>
+      request<{ data: SokosumiJob[] }>(
+        "GET",
+        `/agents/${encodeURIComponent(agentId)}/jobs`,
+      ),
+
+    createJob: (agentId: string, input: Record<string, unknown>) =>
+      request<{ data: SokosumiJob }>(
+        "POST",
+        `/agents/${encodeURIComponent(agentId)}/jobs`,
+        input,
+      ),
+  };
 }

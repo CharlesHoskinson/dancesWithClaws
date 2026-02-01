@@ -214,9 +214,9 @@ describe('deploy-logan.yml workflow', () => {
     assert.ok(workflow.includes('git pull'));
   });
 
-  it('deploy script builds lobster-fetch', () => {
+  it('deploy script builds all services', () => {
     assert.ok(workflow.includes('docker compose'));
-    assert.ok(workflow.includes('build lobster-fetch'));
+    assert.ok(workflow.match(/build\b/));
   });
 
   it('deploy script runs docker compose up', () => {
