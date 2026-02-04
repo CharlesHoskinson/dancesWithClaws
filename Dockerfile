@@ -35,9 +35,18 @@ ENV NODE_ENV=production
 RUN mkdir -p /home/node/.openclaw/canvas /home/node/.openclaw/cron \
     && chown -R node:node /home/node/.openclaw
 
+# Allow non-root user to write temp files during runtime/tests.
+RUN chown -R node:node /app
+
 # Security hardening: Run as non-root user
 # The node:22-bookworm image includes a 'node' user (uid 1000)
 # This reduces the attack surface by preventing container escape via root privileges
 USER node
 
-CMD ["node", "dist/index.js"]
+# Start gateway server with default config.
+# Binds to loopback (127.0.0.1) by default for security.
+#
+# For container platforms requiring external health checks:
+#   1. Set OPENCLAW_GATEWAY_TOKEN or OPENCLAW_GATEWAY_PASSWORD env var
+#   2. Override CMD: ["node","dist/index.js","gateway","--allow-unconfigured","--bind","lan"]
+CMD ["node", "dist/index.js", "gateway", "--allow-unconfigured"]

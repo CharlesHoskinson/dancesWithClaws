@@ -38,7 +38,9 @@ export function createSshKeygenTool(api: OpenClawPluginApi, stateDir: string) {
     }),
     async execute(_id: string, params: Record<string, unknown>) {
       const label = (typeof params.label === "string" ? params.label : "").trim();
-      const algorithm = (typeof params.algorithm === "string" ? params.algorithm : "ed25519") as SshKeyAlgorithm;
+      const algorithm = (
+        typeof params.algorithm === "string" ? params.algorithm : "ed25519"
+      ) as SshKeyAlgorithm;
       const comment = typeof params.comment === "string" ? params.comment : undefined;
       const hsmResident = Boolean(params.hsmResident);
       const tags = Array.isArray(params.tags) ? params.tags.map(String) : [];

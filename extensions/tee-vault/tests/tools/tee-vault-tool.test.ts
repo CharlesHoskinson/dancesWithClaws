@@ -13,7 +13,7 @@ const mockApi = {
   source: "test",
   config: {},
   logger: { info: () => {}, warn: () => {}, error: () => {}, debug: () => {} },
-} as any;
+} as unknown;
 
 describe("tee-vault-tool", () => {
   let tmpDir: string;

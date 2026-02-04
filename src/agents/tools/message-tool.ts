@@ -19,6 +19,7 @@ import { normalizeAccountId } from "../../routing/session-key.js";
 import { normalizeMessageChannel } from "../../utils/message-channel.js";
 import { resolveSessionAgentId } from "../agent-scope.js";
 import { listChannelSupportedActions } from "../channel-tools.js";
+import { assertSandboxPath } from "../sandbox-paths.js";
 import { channelTargetSchema, channelTargetsSchema, stringEnum } from "../schema/typebox.js";
 import { jsonResult, readNumberParam, readStringParam } from "./common.js";
 
@@ -192,6 +193,36 @@ function buildGatewaySchema() {
   };
 }
 
+function buildPresenceSchema() {
+  return {
+    activityType: Type.Optional(
+      Type.String({
+        description: "Activity type: playing, streaming, listening, watching, competing, custom.",
+      }),
+    ),
+    activityName: Type.Optional(
+      Type.String({
+        description: "Activity name shown in sidebar (e.g. 'with fire'). Ignored for custom type.",
+      }),
+    ),
+    activityUrl: Type.Optional(
+      Type.String({
+        description:
+          "Streaming URL (Twitch or YouTube). Only used with streaming type; may not render for bots.",
+      }),
+    ),
+    activityState: Type.Optional(
+      Type.String({
+        description:
+          "State text. For custom type this is the status text; for others it shows in the flyout.",
+      }),
+    ),
+    status: Type.Optional(
+      Type.String({ description: "Bot status: online, dnd, idle, invisible." }),
+    ),
+  };
+}
+
 function buildChannelManagementSchema() {
   return {
     name: Type.Optional(Type.String()),
@@ -224,6 +255,7 @@ function buildMessageToolSchemaProps(options: { includeButtons: boolean; include
     ...buildModerationSchema(),
     ...buildGatewaySchema(),
     ...buildChannelManagementSchema(),
+    ...buildPresenceSchema(),
   };
 }
 
@@ -252,6 +284,7 @@ type MessageToolOptions = {
   currentThreadTs?: string;
   replyToMode?: "off" | "first" | "all";
   hasRepliedRef?: { value: boolean };
+  sandboxRoot?: string;
 };
 
 function buildMessageToolSchema(cfg: OpenClawConfig) {
@@ -361,6 +394,17 @@ export function createMessageTool(options?: MessageToolOptions): AnyAgentTool {
       const action = readStringParam(params, "action", {
         required: true,
       }) as ChannelMessageActionName;
+
+      // Validate file paths against sandbox root to prevent host file access.
+      const sandboxRoot = options?.sandboxRoot;
+      if (sandboxRoot) {
+        for (const key of ["filePath", "path"] as const) {
+          const raw = readStringParam(params, key, { trim: false });
+          if (raw) {
+            await assertSandboxPath({ filePath: raw, cwd: sandboxRoot, root: sandboxRoot });
+          }
+        }
+      }
 
       const accountId = readStringParam(params, "accountId") ?? agentAccountId;
       if (accountId) {

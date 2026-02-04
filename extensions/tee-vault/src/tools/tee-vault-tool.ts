@@ -49,16 +49,12 @@ export function createVaultStoreTool(api: OpenClawPluginApi, stateDir: string) {
 
       const vmk = vaultLock.getVmk();
       let envelope = await vaultStore.readVault(stateDir);
-      const { envelope: updated, entry } = await vaultEntries.addEntry(
-        envelope,
-        vmk,
-        {
-          label: label.trim(),
-          type,
-          tags,
-          value: Buffer.from(value, "utf8"),
-        },
-      );
+      const { envelope: updated, entry } = await vaultEntries.addEntry(envelope, vmk, {
+        label: label.trim(),
+        type,
+        tags,
+        value: Buffer.from(value, "utf8"),
+      });
       await vaultStore.writeVault(stateDir, updated);
 
       await appendAuditLog(stateDir, {
@@ -88,10 +84,7 @@ export function createVaultStoreTool(api: OpenClawPluginApi, stateDir: string) {
   };
 }
 
-export function createVaultRetrieveTool(
-  api: OpenClawPluginApi,
-  stateDir: string,
-) {
+export function createVaultRetrieveTool(api: OpenClawPluginApi, stateDir: string) {
   return {
     name: "vault_retrieve",
     description:
@@ -105,34 +98,20 @@ export function createVaultRetrieveTool(
         enum: ["list", "get", "delete"],
         description: "Action to perform",
       }),
-      label: Type.Optional(
-        Type.String({ description: "Entry label (required for get/delete)" }),
-      ),
+      label: Type.Optional(Type.String({ description: "Entry label (required for get/delete)" })),
       type: Type.Optional(
         Type.Unsafe<EntryType>({
           type: "string",
-          enum: [
-            "secret",
-            "api_token",
-            "ssh_key",
-            "private_key",
-            "certificate",
-          ],
+          enum: ["secret", "api_token", "ssh_key", "private_key", "certificate"],
           description: "Filter by type (for list action)",
         }),
       ),
-      tag: Type.Optional(
-        Type.String({ description: "Filter by tag (for list action)" }),
-      ),
+      tag: Type.Optional(Type.String({ description: "Filter by tag (for list action)" })),
     }),
     async execute(_id: string, params: Record<string, unknown>) {
       const action = typeof params.action === "string" ? params.action : "list";
-      const label =
-        typeof params.label === "string" ? params.label.trim() : undefined;
-      const type =
-        typeof params.type === "string"
-          ? (params.type as EntryType)
-          : undefined;
+      const label = typeof params.label === "string" ? params.label.trim() : undefined;
+      const type = typeof params.type === "string" ? (params.type as EntryType) : undefined;
       const tag = typeof params.tag === "string" ? params.tag : undefined;
 
       if (!vaultLock.isUnlocked()) {
@@ -151,9 +130,7 @@ export function createVaultRetrieveTool(
           success: true,
         });
         return {
-          content: [
-            { type: "text", text: JSON.stringify({ entries }, null, 2) },
-          ],
+          content: [{ type: "text", text: JSON.stringify({ entries }, null, 2) }],
         };
       }
 
@@ -162,11 +139,7 @@ export function createVaultRetrieveTool(
       }
 
       if (action === "get") {
-        const { value } = await vaultEntries.retrieveEntry(
-          envelope,
-          vmk,
-          label,
-        );
+        const { value } = await vaultEntries.retrieveEntry(envelope, vmk, label);
         const text = value.toString("utf8");
         await appendAuditLog(stateDir, {
           timestamp: new Date().toISOString(),
@@ -176,9 +149,7 @@ export function createVaultRetrieveTool(
           success: true,
         });
         return {
-          content: [
-            { type: "text", text: JSON.stringify({ label, value: text }) },
-          ],
+          content: [{ type: "text", text: JSON.stringify({ label, value: text }) }],
         };
       }
 

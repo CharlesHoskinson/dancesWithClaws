@@ -38,7 +38,9 @@ export function createTeeCryptoTool(api: OpenClawPluginApi, stateDir: string) {
       ),
     }),
     async execute(_id: string, params: Record<string, unknown>) {
-      const operation = (typeof params.operation === "string" ? params.operation : "") as CryptoOperation;
+      const operation = (
+        typeof params.operation === "string" ? params.operation : ""
+      ) as CryptoOperation;
       const label = (typeof params.label === "string" ? params.label : "").trim();
       const dataB64 = typeof params.data === "string" ? params.data : "";
       const signatureB64 = typeof params.signature === "string" ? params.signature : undefined;
@@ -155,12 +157,12 @@ export function createTeeCryptoTool(api: OpenClawPluginApi, stateDir: string) {
           break;
         }
         default:
-          throw new Error(`Unknown operation: ${operation}`);
+          throw new Error(`Unknown operation: ${String(operation)}`);
       }
 
       await appendAuditLog(stateDir, {
         timestamp: new Date().toISOString(),
-        action: `crypto_${operation}`,
+        action: `crypto_${String(operation)}`,
         entryLabel: label,
         tool: "tee_crypto",
         success: true,

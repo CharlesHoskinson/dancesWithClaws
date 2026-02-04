@@ -38,7 +38,7 @@ export async function readVault(stateDir: string): Promise<VaultEnvelope> {
   const raw = await fs.readFile(vaultPath, "utf8");
   const envelope = JSON.parse(raw) as VaultEnvelope;
   if (envelope.version !== 1) {
-    throw new Error(`Unsupported vault version: ${envelope.version}`);
+    throw new Error(`Unsupported vault version: ${String(envelope.version)}`);
   }
   return envelope;
 }

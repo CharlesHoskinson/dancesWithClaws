@@ -50,7 +50,7 @@ export function registerTeeCli(program: Command, stateDir: string): void {
       }
 
       const backend = (opts.backend as BackendType) ?? (await detectBestBackend());
-      console.log(`Initializing vault with backend: ${backend}`);
+      console.log(`Initializing vault with backend: ${String(backend)}`);
 
       const vmk = generateVmk();
       let sealedVmk: string;
@@ -99,7 +99,7 @@ export function registerTeeCli(program: Command, stateDir: string): void {
             break;
           }
           default:
-            throw new Error(`Unknown backend: ${backend}`);
+            throw new Error(`Unknown backend: ${String(backend)}`);
         }
 
         const envelope = vaultStore.createEmptyEnvelope(sealedVmk, backend, vmk);
@@ -109,7 +109,7 @@ export function registerTeeCli(program: Command, stateDir: string): void {
         await setVaultPermissions(stateDir);
 
         console.log(`Vault initialized at ${vaultStore.resolveVaultPath(stateDir)}`);
-        console.log(`Backend: ${backend}`);
+        console.log(`Backend: ${String(backend)}`);
         console.log(`Entries: 0`);
       } finally {
         zeroBuffer(vmk);
@@ -167,7 +167,7 @@ export function registerTeeCli(program: Command, stateDir: string): void {
           break;
         }
         default:
-          throw new Error(`Unknown backend: ${backend}`);
+          throw new Error(`Unknown backend: ${String(backend)}`);
       }
 
       // Verify HMAC integrity
@@ -187,7 +187,9 @@ export function registerTeeCli(program: Command, stateDir: string): void {
         success: true,
       });
 
-      console.log(`Vault unlocked (backend: ${backend}, entries: ${envelope.entries.length}).`);
+      console.log(
+        `Vault unlocked (backend: ${String(backend)}, entries: ${envelope.entries.length}).`,
+      );
     });
 
   // --- lock ---

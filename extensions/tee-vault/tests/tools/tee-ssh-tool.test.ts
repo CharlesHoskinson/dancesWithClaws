@@ -14,7 +14,7 @@ const mockApi = {
   source: "test",
   config: {},
   logger: { info: () => {}, warn: () => {}, error: () => {}, debug: () => {} },
-} as any;
+} as unknown;
 
 describe("tee-ssh-tool", () => {
   let tmpDir: string;
