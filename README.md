@@ -461,36 +461,36 @@ Expected: `200` for the first, `403` for the second.
 
 ### Verification checklist
 
-| What                     | Command                                                                 | Expected                                |
-| ------------------------ | ----------------------------------------------------------------------- | --------------------------------------- |
-| WSL2 version             | `wsl -l -v`                                                             | Ubuntu, VERSION 2                       |
-| Docker works in WSL2     | `docker run --rm hello-world`                                           | "Hello from Docker!"                    |
-| Interop disabled         | `cmd.exe` inside WSL2                                                   | "command not found"                     |
-| Node.js version          | `node --version`                                                        | v22.x                                   |
-| OpenClaw CLI installed   | `openclaw --version`                                                    | Version string                          |
-| API keys set             | `echo $MOLTBOOK_API_KEY`                                                | Non-empty                               |
-| Docker images built      | `docker images \| grep openclaw`                                        | sandbox and proxy rows                  |
-| Proxy container running  | `docker ps --filter name=openclaw-proxy`                                | Status: Up                              |
-| Firewall rules installed | `Get-NetFirewallRule -DisplayName "OpenClaw*"` (Windows PowerShell)      | Three rules                             |
+| What                     | Command                                                                             | Expected               |
+| ------------------------ | ----------------------------------------------------------------------------------- | ---------------------- |
+| WSL2 version             | `wsl -l -v`                                                                         | Ubuntu, VERSION 2      |
+| Docker works in WSL2     | `docker run --rm hello-world`                                                       | "Hello from Docker!"   |
+| Interop disabled         | `cmd.exe` inside WSL2                                                               | "command not found"    |
+| Node.js version          | `node --version`                                                                    | v22.x                  |
+| OpenClaw CLI installed   | `openclaw --version`                                                                | Version string         |
+| API keys set             | `echo $MOLTBOOK_API_KEY`                                                            | Non-empty              |
+| Docker images built      | `docker images \| grep openclaw`                                                    | sandbox and proxy rows |
+| Proxy container running  | `docker ps --filter name=openclaw-proxy`                                            | Status: Up             |
+| Firewall rules installed | `Get-NetFirewallRule -DisplayName "OpenClaw*"` (Windows PowerShell)                 | Three rules            |
 | Proxy allows moltbook    | `docker exec <sandbox> curl -s -o /dev/null -w "%{http_code}" https://moltbook.com` | `200`                  |
-| Proxy blocks evil.com    | `docker exec <sandbox> curl -s -o /dev/null -w "%{http_code}" https://evil.com`      | `403`                  |
+| Proxy blocks evil.com    | `docker exec <sandbox> curl -s -o /dev/null -w "%{http_code}" https://evil.com`     | `403`                  |
 
 ## Configuration
 
 All agent configuration lives in `openclaw.json` at the repo root. Key settings:
 
-| Setting                     | Value                                    | Why                                               |
-| --------------------------- | ---------------------------------------- | ------------------------------------------------- |
-| `model.primary`             | `openai/gpt-5-nano`                      | Cheapest viable model for high-volume posting     |
-| `heartbeat.every`           | `1h`                                     | 24 cycles/day, 24/7                               |
-| `sandbox.mode`              | `all`                                    | Every tool call runs inside Docker                |
-| `sandbox.docker.network`    | `oc-sandbox-net`                         | Bridge network; egress only via proxy sidecar     |
-| `tools.profile`             | `minimal`                                | Smallest possible tool surface                    |
-| `tools.deny`                | `browser, canvas, file_edit, file_write` | Only bash+curl needed                             |
-| `tools.exec.safeBins`       | `["curl"]`                               | Allowlisted executables                           |
-| `memorySearch.provider`     | `openai`                                 | Uses `text-embedding-3-small` for embeddings      |
-| `memorySearch.query.hybrid` | `vector: 0.7, text: 0.3`                 | BM25 + semantic blend                             |
-| `logging.redactSensitive`   | `tools`                                  | API keys scrubbed from tool output                |
+| Setting                     | Value                                    | Why                                           |
+| --------------------------- | ---------------------------------------- | --------------------------------------------- |
+| `model.primary`             | `openai/gpt-5-nano`                      | Cheapest viable model for high-volume posting |
+| `heartbeat.every`           | `1h`                                     | 24 cycles/day, 24/7                           |
+| `sandbox.mode`              | `all`                                    | Every tool call runs inside Docker            |
+| `sandbox.docker.network`    | `oc-sandbox-net`                         | Bridge network; egress only via proxy sidecar |
+| `tools.profile`             | `minimal`                                | Smallest possible tool surface                |
+| `tools.deny`                | `browser, canvas, file_edit, file_write` | Only bash+curl needed                         |
+| `tools.exec.safeBins`       | `["curl"]`                               | Allowlisted executables                       |
+| `memorySearch.provider`     | `openai`                                 | Uses `text-embedding-3-small` for embeddings  |
+| `memorySearch.query.hybrid` | `vector: 0.7, text: 0.3`                 | BM25 + semantic blend                         |
+| `logging.redactSensitive`   | `tools`                                  | API keys scrubbed from tool output            |
 
 ## How it works
 
@@ -731,19 +731,20 @@ If an attacker escapes Docker, escapes WSL2 (which requires interop or a kernel 
 
 ### Layer summary
 
-| Layer | Assumes | Prevents |
-| ----- | ------- | -------- |
-| Seccomp profile | Attacker has code execution in bot container | Kernel exploitation via dangerous syscalls (ptrace, bpf, mount, kexec) |
-| Read-only root + no caps | Attacker has code execution | Persistent filesystem modification, privilege escalation |
-| Non-root user | Attacker has code execution | Access to privileged operations, writing to system paths |
-| Proxy sidecar | Attacker controls curl/networking | Reaching arbitrary domains, bulk data exfiltration (64KB/s cap) |
-| Proxy iptables | Attacker has compromised the proxy process | Outbound connections on non-443 ports, non-DNS UDP |
-| WSL2 interop=false | Attacker has escaped Docker into WSL2 | Launching Windows binaries (cmd.exe, powershell.exe) |
-| WSL2 umask 077 | Attacker has escaped Docker into WSL2 | Reading other users' files on mounted Windows drives |
-| Windows Firewall | Attacker has escaped WSL2 to Windows network | Lateral movement to LAN devices (RFC1918 blocked) |
-| Credential Guard + BitLocker | Physical theft or disk imaging | Extracting credentials from LSASS, reading encrypted disk offline |
+| Layer                        | Assumes                                      | Prevents                                                               |
+| ---------------------------- | -------------------------------------------- | ---------------------------------------------------------------------- |
+| Seccomp profile              | Attacker has code execution in bot container | Kernel exploitation via dangerous syscalls (ptrace, bpf, mount, kexec) |
+| Read-only root + no caps     | Attacker has code execution                  | Persistent filesystem modification, privilege escalation               |
+| Non-root user                | Attacker has code execution                  | Access to privileged operations, writing to system paths               |
+| Proxy sidecar                | Attacker controls curl/networking            | Reaching arbitrary domains, bulk data exfiltration (64KB/s cap)        |
+| Proxy iptables               | Attacker has compromised the proxy process   | Outbound connections on non-443 ports, non-DNS UDP                     |
+| WSL2 interop=false           | Attacker has escaped Docker into WSL2        | Launching Windows binaries (cmd.exe, powershell.exe)                   |
+| WSL2 umask 077               | Attacker has escaped Docker into WSL2        | Reading other users' files on mounted Windows drives                   |
+| Windows Firewall             | Attacker has escaped WSL2 to Windows network | Lateral movement to LAN devices (RFC1918 blocked)                      |
+| Credential Guard + BitLocker | Physical theft or disk imaging               | Extracting credentials from LSASS, reading encrypted disk offline      |
 
 What a compromised bot cannot do:
+
 - Call `mount`, `ptrace`, `bpf`, or 29 other blocked syscalls (seccomp returns EPERM)
 - Reach any domain not on the allowlist (Squid returns 403)
 - Bypass the proxy for direct connections (no direct egress from bot container)
@@ -758,17 +759,17 @@ What it can still do if compromised: use the three allowlisted APIs within rate 
 
 ### Security files
 
-| File | Purpose |
-| ---- | ------- |
-| `security/seccomp-sandbox.json` | Syscall filter (Docker default minus 32 dangerous calls) |
-| `security/proxy/squid.conf` | Squid config with domain ACLs, rate limiting, connection limits |
-| `security/proxy/allowed-domains.txt` | Domain allowlist (3 entries: .moltbook.com, .openai.com, .sokosumi.com) |
-| `security/proxy/entrypoint.sh` | Proxy startup: iptables rules, log directory setup, Squid launch |
-| `security/openclaw-sandbox-apparmor` | AppArmor profile (ready, waiting for WSL2 kernel to mount apparmor fs) |
-| `security/load-apparmor.sh` | Loads AppArmor profile into kernel when available |
-| `security/windows-firewall-rules.ps1` | Creates Windows Firewall rules blocking WSL2 LAN access |
-| `Dockerfile.proxy` | Alpine + Squid + iptables (proxy sidecar image) |
-| `Dockerfile.sandbox` | Debian slim, non-root, no apt/dpkg, proxy env vars baked in |
+| File                                  | Purpose                                                                 |
+| ------------------------------------- | ----------------------------------------------------------------------- |
+| `security/seccomp-sandbox.json`       | Syscall filter (Docker default minus 32 dangerous calls)                |
+| `security/proxy/squid.conf`           | Squid config with domain ACLs, rate limiting, connection limits         |
+| `security/proxy/allowed-domains.txt`  | Domain allowlist (3 entries: .moltbook.com, .openai.com, .sokosumi.com) |
+| `security/proxy/entrypoint.sh`        | Proxy startup: iptables rules, log directory setup, Squid launch        |
+| `security/openclaw-sandbox-apparmor`  | AppArmor profile (ready, waiting for WSL2 kernel to mount apparmor fs)  |
+| `security/load-apparmor.sh`           | Loads AppArmor profile into kernel when available                       |
+| `security/windows-firewall-rules.ps1` | Creates Windows Firewall rules blocking WSL2 LAN access                 |
+| `Dockerfile.proxy`                    | Alpine + Squid + iptables (proxy sidecar image)                         |
+| `Dockerfile.sandbox`                  | Debian slim, non-root, no apt/dpkg, proxy env vars baked in             |
 
 ### Hardware-backed key management (mostlySecure)
 

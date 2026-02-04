@@ -37,12 +37,9 @@ export function createSshKeygenTool(api: OpenClawPluginApi, stateDir: string) {
       tags: Type.Optional(Type.Array(Type.String())),
     }),
     async execute(_id: string, params: Record<string, unknown>) {
-      const label = String(params.label ?? "").trim();
-      const algorithm = String(
-        params.algorithm ?? "ed25519",
-      ) as SshKeyAlgorithm;
-      const comment =
-        typeof params.comment === "string" ? params.comment : undefined;
+      const label = (typeof params.label === "string" ? params.label : "").trim();
+      const algorithm = (typeof params.algorithm === "string" ? params.algorithm : "ed25519") as SshKeyAlgorithm;
+      const comment = typeof params.comment === "string" ? params.comment : undefined;
       const hsmResident = Boolean(params.hsmResident);
       const tags = Array.isArray(params.tags) ? params.tags.map(String) : [];
 
@@ -78,36 +75,25 @@ export function createSshKeygenTool(api: OpenClawPluginApi, stateDir: string) {
             break;
         }
         publicKey = result.publicKey.toString("base64");
-        const { envelope: updated } = await vaultEntries.addEntry(
-          envelope,
-          vmk,
-          {
-            label,
-            type: "ssh_key",
-            tags: [...tags, `algorithm:${algorithm}`, "hsm-resident"],
-            value: Buffer.alloc(0),
-            hsmResident: true,
-            hsmObjectId: result.objectId,
-          },
-        );
+        const { envelope: updated } = await vaultEntries.addEntry(envelope, vmk, {
+          label,
+          type: "ssh_key",
+          tags: [...tags, `algorithm:${algorithm}`, "hsm-resident"],
+          value: Buffer.alloc(0),
+          hsmResident: true,
+          hsmObjectId: result.objectId,
+        });
         envelope = updated;
       } else {
         // Generate key in software
-        const keyPair = await opensslBridge.generateSshKeyPair(
-          algorithm,
-          comment,
-        );
+        const keyPair = await opensslBridge.generateSshKeyPair(algorithm, comment);
         publicKey = keyPair.publicKey;
-        const { envelope: updated } = await vaultEntries.addEntry(
-          envelope,
-          vmk,
-          {
-            label,
-            type: "ssh_key",
-            tags: [...tags, `algorithm:${algorithm}`],
-            value: Buffer.from(keyPair.privateKey, "utf8"),
-          },
-        );
+        const { envelope: updated } = await vaultEntries.addEntry(envelope, vmk, {
+          label,
+          type: "ssh_key",
+          tags: [...tags, `algorithm:${algorithm}`],
+          value: Buffer.from(keyPair.privateKey, "utf8"),
+        });
         envelope = updated;
       }
 
@@ -150,8 +136,8 @@ export function createSshSignTool(api: OpenClawPluginApi, stateDir: string) {
       data: Type.String({ description: "Base64-encoded data to sign" }),
     }),
     async execute(_id: string, params: Record<string, unknown>) {
-      const label = String(params.label ?? "").trim();
-      const dataB64 = String(params.data ?? "");
+      const label = (typeof params.label === "string" ? params.label : "").trim();
+      const dataB64 = typeof params.data === "string" ? params.data : "";
 
       if (!label) {
         throw new Error("label is required");
@@ -179,22 +165,13 @@ export function createSshSignTool(api: OpenClawPluginApi, stateDir: string) {
       if (entry.hsmResident && entry.hsmObjectId != null) {
         // Sign on the HSM
         const algorithm =
-          entry.tags.find((t) => t.startsWith("algorithm:"))?.split(":")[1] ??
-          "ed25519";
+          entry.tags.find((t) => t.startsWith("algorithm:"))?.split(":")[1] ?? "ed25519";
         const mechanism =
-          algorithm === "ed25519"
-            ? "EDDSA"
-            : algorithm.startsWith("ecdsa")
-              ? "ECDSA"
-              : "RSA_PKCS";
+          algorithm === "ed25519" ? "EDDSA" : algorithm.startsWith("ecdsa") ? "ECDSA" : "RSA_PKCS";
         signature = await yubiHsm.hsmSign(entry.hsmObjectId, data, mechanism);
       } else {
         // Decrypt the private key and sign in software
-        const { value: privateKeyBuf } = await vaultEntries.retrieveEntry(
-          envelope,
-          vmk,
-          label,
-        );
+        const { value: privateKeyBuf } = await vaultEntries.retrieveEntry(envelope, vmk, label);
         try {
           const algorithm =
             (entry.tags

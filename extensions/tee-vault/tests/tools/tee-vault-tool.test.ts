@@ -2,14 +2,8 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import {
-  generateVmk,
-  sealVmkWithPassphrase,
-} from "../../src/crypto/key-hierarchy.js";
-import {
-  createVaultStoreTool,
-  createVaultRetrieveTool,
-} from "../../src/tools/tee-vault-tool.js";
+import { generateVmk, sealVmkWithPassphrase } from "../../src/crypto/key-hierarchy.js";
+import { createVaultStoreTool, createVaultRetrieveTool } from "../../src/tools/tee-vault-tool.js";
 import * as vaultLock from "../../src/vault/vault-lock.js";
 import * as vaultStore from "../../src/vault/vault-store.js";
 

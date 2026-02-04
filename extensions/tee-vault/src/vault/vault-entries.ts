@@ -162,11 +162,7 @@ export function listEntries(
 }
 
 /** Delete an entry from the vault. */
-export function deleteEntry(
-  envelope: VaultEnvelope,
-  vmk: Buffer,
-  label: string,
-): VaultEnvelope {
+export function deleteEntry(envelope: VaultEnvelope, vmk: Buffer, label: string): VaultEnvelope {
   const idx = envelope.entries.findIndex((e) => e.label === label);
   if (idx === -1) {
     throw new Error(`Entry "${label}" not found`);
@@ -187,7 +183,7 @@ export async function rotateEntry(
     throw new Error(`Entry "${label}" not found`);
   }
 
-  const entry = envelope.entries[idx]!;
+  const entry = envelope.entries[idx];
   if (entry.hsmResident) {
     throw new Error(`Cannot rotate HSM-resident entry "${label}"`);
   }

@@ -2,8 +2,8 @@
  * tee_crypto tool: generic encrypt/decrypt/sign/verify using vault keys.
  */
 
-import { createSign, createVerify } from "node:crypto";
 import { Type } from "@sinclair/typebox";
+import { createSign, createVerify } from "node:crypto";
 import type { OpenClawPluginApi } from "../../../../src/plugins/types.js";
 import type { CryptoOperation } from "../types.js";
 import { appendAuditLog } from "../audit/tee-audit.js";
@@ -38,11 +38,10 @@ export function createTeeCryptoTool(api: OpenClawPluginApi, stateDir: string) {
       ),
     }),
     async execute(_id: string, params: Record<string, unknown>) {
-      const operation = String(params.operation ?? "") as CryptoOperation;
-      const label = String(params.label ?? "").trim();
-      const dataB64 = String(params.data ?? "");
-      const signatureB64 =
-        typeof params.signature === "string" ? params.signature : undefined;
+      const operation = (typeof params.operation === "string" ? params.operation : "") as CryptoOperation;
+      const label = (typeof params.label === "string" ? params.label : "").trim();
+      const dataB64 = typeof params.data === "string" ? params.data : "";
+      const signatureB64 = typeof params.signature === "string" ? params.signature : undefined;
 
       if (!label) {
         throw new Error("label is required");
@@ -115,13 +114,14 @@ export function createTeeCryptoTool(api: OpenClawPluginApi, stateDir: string) {
           break;
         }
         case "sign": {
-          const { entry, value: privateKeyBuf } =
-            await vaultEntries.retrieveEntry(envelope, vmk, label);
+          const { entry, value: privateKeyBuf } = await vaultEntries.retrieveEntry(
+            envelope,
+            vmk,
+            label,
+          );
           try {
             const privateKeyPem = privateKeyBuf.toString("utf8");
-            const algorithm = entry.tags
-              .find((t) => t.startsWith("algorithm:"))
-              ?.split(":")[1];
+            const algorithm = entry.tags.find((t) => t.startsWith("algorithm:"))?.split(":")[1];
             const digestAlg = algorithm === "ed25519" ? undefined : "sha256";
             const signer = createSign(digestAlg ?? "sha256");
             signer.update(data);
@@ -135,21 +135,19 @@ export function createTeeCryptoTool(api: OpenClawPluginApi, stateDir: string) {
           break;
         }
         case "verify": {
-          const { entry, value: privateKeyBuf } =
-            await vaultEntries.retrieveEntry(envelope, vmk, label);
+          const { entry, value: privateKeyBuf } = await vaultEntries.retrieveEntry(
+            envelope,
+            vmk,
+            label,
+          );
           try {
             // For verification we need the public key; derive from private
             const privateKeyPem = privateKeyBuf.toString("utf8");
-            const algorithm = entry.tags
-              .find((t) => t.startsWith("algorithm:"))
-              ?.split(":")[1];
+            const algorithm = entry.tags.find((t) => t.startsWith("algorithm:"))?.split(":")[1];
             const digestAlg = algorithm === "ed25519" ? undefined : "sha256";
             const verifier = createVerify(digestAlg ?? "sha256");
             verifier.update(data);
-            const valid = verifier.verify(
-              privateKeyPem,
-              Buffer.from(signatureB64!, "base64"),
-            );
+            const valid = verifier.verify(privateKeyPem, Buffer.from(signatureB64!, "base64"));
             result = { valid };
           } finally {
             privateKeyBuf.fill(0);

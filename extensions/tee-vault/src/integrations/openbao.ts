@@ -54,12 +54,7 @@ export interface TransitDecryptResponse {
 }
 
 function resolveAddr(config?: Partial<OpenbaoConfig>): string {
-  return (
-    config?.addr ??
-    process.env.VAULT_ADDR ??
-    process.env.BAO_ADDR ??
-    DEFAULT_ADDR
-  );
+  return config?.addr ?? process.env.VAULT_ADDR ?? process.env.BAO_ADDR ?? DEFAULT_ADDR;
 }
 
 /** Make an HTTP request to the OpenBao API. */
@@ -79,10 +74,7 @@ async function baoRequest(
   const bodyStr = body ? JSON.stringify(body) : undefined;
 
   return new Promise((resolve, reject) => {
-    const timer = setTimeout(
-      () => reject(new Error("OpenBao request timed out")),
-      TIMEOUT_MS,
-    );
+    const timer = setTimeout(() => reject(new Error("OpenBao request timed out")), TIMEOUT_MS);
 
     const req = reqFn(
       url,
@@ -91,9 +83,7 @@ async function baoRequest(
         headers: {
           "X-Vault-Token": token,
           "Content-Type": "application/json",
-          ...(config?.namespace
-            ? { "X-Vault-Namespace": config.namespace }
-            : {}),
+          ...(config?.namespace ? { "X-Vault-Namespace": config.namespace } : {}),
         },
       },
       (res) => {
@@ -126,19 +116,14 @@ async function baoRequest(
 }
 
 /** Check OpenBao health/seal status. */
-export async function getSealStatus(
-  config?: Partial<OpenbaoConfig>,
-): Promise<OpenbaoSealStatus> {
+export async function getSealStatus(config?: Partial<OpenbaoConfig>): Promise<OpenbaoSealStatus> {
   const addr = resolveAddr(config);
   const url = new URL("/v1/sys/seal-status", addr);
   const isHttps = url.protocol === "https:";
   const reqFn = isHttps ? httpsRequest : request;
 
   return new Promise((resolve, reject) => {
-    const timer = setTimeout(
-      () => reject(new Error("OpenBao health check timed out")),
-      TIMEOUT_MS,
-    );
+    const timer = setTimeout(() => reject(new Error("OpenBao health check timed out")), TIMEOUT_MS);
     const req = reqFn(url, { method: "GET" }, (res) => {
       let data = "";
       res.on("data", (chunk) => {
@@ -162,9 +147,7 @@ export async function getSealStatus(
 }
 
 /** Check if OpenBao is reachable and unsealed. */
-export async function isOpenbaoReady(
-  config?: Partial<OpenbaoConfig>,
-): Promise<boolean> {
+export async function isOpenbaoReady(config?: Partial<OpenbaoConfig>): Promise<boolean> {
   try {
     const status = await getSealStatus(config);
     return status.initialized && !status.sealed;
@@ -183,15 +166,9 @@ export async function kvPut(
   data: Record<string, string>,
   config?: Partial<OpenbaoConfig>,
 ): Promise<void> {
-  const { status } = await baoRequest(
-    "POST",
-    `${mountPath}/data/${secretPath}`,
-    token,
-    config,
-    {
-      data,
-    },
-  );
+  const { status } = await baoRequest("POST", `${mountPath}/data/${secretPath}`, token, config, {
+    data,
+  });
   if (status !== 200 && status !== 204) {
     throw new Error(`OpenBao KV put failed (HTTP ${status})`);
   }
@@ -273,15 +250,9 @@ export async function transitEncrypt(
   plaintext: string, // base64-encoded
   config?: Partial<OpenbaoConfig>,
 ): Promise<TransitEncryptResponse> {
-  const { status, data } = await baoRequest(
-    "POST",
-    `transit/encrypt/${keyName}`,
-    token,
-    config,
-    {
-      plaintext,
-    },
-  );
+  const { status, data } = await baoRequest("POST", `transit/encrypt/${keyName}`, token, config, {
+    plaintext,
+  });
   if (status !== 200) {
     throw new Error(`Transit encrypt failed (HTTP ${status})`);
   }
@@ -299,15 +270,9 @@ export async function transitDecrypt(
   ciphertext: string,
   config?: Partial<OpenbaoConfig>,
 ): Promise<TransitDecryptResponse> {
-  const { status, data } = await baoRequest(
-    "POST",
-    `transit/decrypt/${keyName}`,
-    token,
-    config,
-    {
-      ciphertext,
-    },
-  );
+  const { status, data } = await baoRequest("POST", `transit/decrypt/${keyName}`, token, config, {
+    ciphertext,
+  });
   if (status !== 200) {
     throw new Error(`Transit decrypt failed (HTTP ${status})`);
   }

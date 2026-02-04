@@ -78,11 +78,7 @@ function resetAutoLockTimer(): void {
       lock();
     }, autoLockTimeoutMs);
     // Don't keep the process alive just for the timer
-    if (
-      autoLockTimer &&
-      typeof autoLockTimer === "object" &&
-      "unref" in autoLockTimer
-    ) {
+    if (autoLockTimer && typeof autoLockTimer === "object" && "unref" in autoLockTimer) {
       autoLockTimer.unref();
     }
   }

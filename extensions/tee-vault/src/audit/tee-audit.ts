@@ -52,7 +52,7 @@ export async function collectContainerHardeningFindings(
   }
 
   // Navigate to sandbox.docker config
-  const agents = (config as Record<string, unknown>).agents as Record<string, unknown> | undefined;
+  const agents = config.agents as Record<string, unknown> | undefined;
   const list = (agents?.list as Array<Record<string, unknown>>) ?? [];
   const agent = list[0];
   const sandbox = agent?.sandbox as Record<string, unknown> | undefined;

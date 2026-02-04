@@ -2,10 +2,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import {
-  generateVmk,
-  sealVmkWithPassphrase,
-} from "../../src/crypto/key-hierarchy.js";
+import { generateVmk, sealVmkWithPassphrase } from "../../src/crypto/key-hierarchy.js";
 import { createTeeCryptoTool } from "../../src/tools/tee-crypto-tool.js";
 import { createVaultStoreTool } from "../../src/tools/tee-vault-tool.js";
 import * as vaultLock from "../../src/vault/vault-lock.js";
@@ -72,9 +69,7 @@ describe("tee-crypto-tool", () => {
       data: Buffer.from(encJson).toString("base64"),
     });
     const decParsed = JSON.parse(decResult.content[0].text);
-    const recovered = Buffer.from(decParsed.plaintext, "base64").toString(
-      "utf8",
-    );
+    const recovered = Buffer.from(decParsed.plaintext, "base64").toString("utf8");
     expect(recovered).toBe("hello encrypted world");
   });
 

@@ -10,7 +10,7 @@
 
 import fs from "node:fs/promises";
 import path from "node:path";
-import type { VaultEnvelope, VaultEntry, VaultMetadata } from "../types.js";
+import type { VaultEnvelope, VaultEntry, BackendType } from "../types.js";
 import { VAULT_DIR_NAME, VAULT_FILE_NAME } from "../constants.js";
 import { computeHmac, verifyHmac } from "../crypto/key-hierarchy.js";
 
@@ -44,10 +44,7 @@ export async function readVault(stateDir: string): Promise<VaultEnvelope> {
 }
 
 /** Write the vault envelope to disk atomically. */
-export async function writeVault(
-  stateDir: string,
-  envelope: VaultEnvelope,
-): Promise<void> {
+export async function writeVault(stateDir: string, envelope: VaultEnvelope): Promise<void> {
   const vaultDir = resolveVaultDir(stateDir);
   await fs.mkdir(vaultDir, { recursive: true });
   const vaultPath = resolveVaultPath(stateDir);
@@ -58,10 +55,7 @@ export async function writeVault(
 }
 
 /** Compute the HMAC over all entry ciphertexts for integrity verification. */
-export function computeEnvelopeHmac(
-  vmk: Buffer,
-  entries: VaultEntry[],
-): string {
+export function computeEnvelopeHmac(vmk: Buffer, entries: VaultEntry[]): string {
   const payload = entries
     .map((e) => `${e.id}:${e.version}:${e.ciphertext ?? ""}:${e.authTag ?? ""}`)
     .join("|");
@@ -107,10 +101,7 @@ export function createEmptyEnvelope(
 }
 
 /** Update envelope metadata after a mutation. */
-export function touchEnvelope(
-  envelope: VaultEnvelope,
-  vmk: Buffer,
-): VaultEnvelope {
+export function touchEnvelope(envelope: VaultEnvelope, vmk: Buffer): VaultEnvelope {
   return {
     ...envelope,
     metadata: {

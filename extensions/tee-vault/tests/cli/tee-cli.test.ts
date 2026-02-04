@@ -2,10 +2,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import {
-  generateVmk,
-  sealVmkWithPassphrase,
-} from "../../src/crypto/key-hierarchy.js";
+import { generateVmk, sealVmkWithPassphrase } from "../../src/crypto/key-hierarchy.js";
 import * as vaultEntries from "../../src/vault/vault-entries.js";
 import * as vaultLock from "../../src/vault/vault-lock.js";
 import * as vaultStore from "../../src/vault/vault-store.js";
@@ -44,11 +41,7 @@ describe("tee-cli", () => {
     const vmk = generateVmk();
     const passphrase = "test-pass";
     const sealed = await sealVmkWithPassphrase(vmk, passphrase);
-    let envelope = vaultStore.createEmptyEnvelope(
-      sealed.toString("base64"),
-      "openssl-pbkdf2",
-      vmk,
-    );
+    let envelope = vaultStore.createEmptyEnvelope(sealed.toString("base64"), "openssl-pbkdf2", vmk);
     await vaultStore.writeVault(tmpDir, envelope);
 
     // Unlock
@@ -68,15 +61,11 @@ describe("tee-cli", () => {
     // List
     const list = vaultEntries.listEntries(updated);
     expect(list.length).toBe(1);
-    expect(list[0]!.label).toBe("test-secret");
-    expect(list[0]!.type).toBe("secret");
+    expect(list[0].label).toBe("test-secret");
+    expect(list[0].type).toBe("secret");
 
     // Export (retrieve)
-    const { value } = await vaultEntries.retrieveEntry(
-      updated,
-      vmk,
-      "test-secret",
-    );
+    const { value } = await vaultEntries.retrieveEntry(updated, vmk, "test-secret");
     expect(value.toString("utf8")).toBe("my-value-123");
 
     // Lock

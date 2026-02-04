@@ -4,50 +4,31 @@
   "archMap": [
     {
       "architecture": "SCMP_ARCH_X86_64",
-      "subArchitectures": [
-        "SCMP_ARCH_X86",
-        "SCMP_ARCH_X32"
-      ]
+      "subArchitectures": ["SCMP_ARCH_X86", "SCMP_ARCH_X32"]
     },
     {
       "architecture": "SCMP_ARCH_AARCH64",
-      "subArchitectures": [
-        "SCMP_ARCH_ARM"
-      ]
+      "subArchitectures": ["SCMP_ARCH_ARM"]
     },
     {
       "architecture": "SCMP_ARCH_MIPS64",
-      "subArchitectures": [
-        "SCMP_ARCH_MIPS",
-        "SCMP_ARCH_MIPS64N32"
-      ]
+      "subArchitectures": ["SCMP_ARCH_MIPS", "SCMP_ARCH_MIPS64N32"]
     },
     {
       "architecture": "SCMP_ARCH_MIPS64N32",
-      "subArchitectures": [
-        "SCMP_ARCH_MIPS",
-        "SCMP_ARCH_MIPS64"
-      ]
+      "subArchitectures": ["SCMP_ARCH_MIPS", "SCMP_ARCH_MIPS64"]
     },
     {
       "architecture": "SCMP_ARCH_MIPSEL64",
-      "subArchitectures": [
-        "SCMP_ARCH_MIPSEL",
-        "SCMP_ARCH_MIPSEL64N32"
-      ]
+      "subArchitectures": ["SCMP_ARCH_MIPSEL", "SCMP_ARCH_MIPSEL64N32"]
     },
     {
       "architecture": "SCMP_ARCH_MIPSEL64N32",
-      "subArchitectures": [
-        "SCMP_ARCH_MIPSEL",
-        "SCMP_ARCH_MIPSEL64"
-      ]
+      "subArchitectures": ["SCMP_ARCH_MIPSEL", "SCMP_ARCH_MIPSEL64"]
     },
     {
       "architecture": "SCMP_ARCH_S390X",
-      "subArchitectures": [
-        "SCMP_ARCH_S390"
-      ]
+      "subArchitectures": ["SCMP_ARCH_S390"]
     },
     {
       "architecture": "SCMP_ARCH_RISCV64",
@@ -407,9 +388,7 @@
       "action": "SCMP_ACT_ALLOW"
     },
     {
-      "names": [
-        "socket"
-      ],
+      "names": ["socket"],
       "action": "SCMP_ACT_ALLOW",
       "args": [
         {
@@ -420,9 +399,7 @@
       ]
     },
     {
-      "names": [
-        "personality"
-      ],
+      "names": ["personality"],
       "action": "SCMP_ACT_ALLOW",
       "args": [
         {
@@ -433,9 +410,7 @@
       ]
     },
     {
-      "names": [
-        "personality"
-      ],
+      "names": ["personality"],
       "action": "SCMP_ACT_ALLOW",
       "args": [
         {
@@ -446,9 +421,7 @@
       ]
     },
     {
-      "names": [
-        "personality"
-      ],
+      "names": ["personality"],
       "action": "SCMP_ACT_ALLOW",
       "args": [
         {
@@ -459,9 +432,7 @@
       ]
     },
     {
-      "names": [
-        "personality"
-      ],
+      "names": ["personality"],
       "action": "SCMP_ACT_ALLOW",
       "args": [
         {
@@ -472,9 +443,7 @@
       ]
     },
     {
-      "names": [
-        "personality"
-      ],
+      "names": ["personality"],
       "action": "SCMP_ACT_ALLOW",
       "args": [
         {
@@ -485,15 +454,10 @@
       ]
     },
     {
-      "names": [
-        "sync_file_range2",
-        "swapcontext"
-      ],
+      "names": ["sync_file_range2", "swapcontext"],
       "action": "SCMP_ACT_ALLOW",
       "includes": {
-        "arches": [
-          "ppc64le"
-        ]
+        "arches": ["ppc64le"]
       }
     },
     {
@@ -507,71 +471,42 @@
       ],
       "action": "SCMP_ACT_ALLOW",
       "includes": {
-        "arches": [
-          "arm",
-          "arm64"
-        ]
+        "arches": ["arm", "arm64"]
       }
     },
     {
-      "names": [
-        "arch_prctl"
-      ],
+      "names": ["arch_prctl"],
       "action": "SCMP_ACT_ALLOW",
       "includes": {
-        "arches": [
-          "amd64",
-          "x32"
-        ]
+        "arches": ["amd64", "x32"]
       }
     },
     {
-      "names": [
-        "modify_ldt"
-      ],
+      "names": ["modify_ldt"],
       "action": "SCMP_ACT_ALLOW",
       "includes": {
-        "arches": [
-          "amd64",
-          "x32",
-          "x86"
-        ]
+        "arches": ["amd64", "x32", "x86"]
       }
     },
     {
-      "names": [
-        "s390_pci_mmio_read",
-        "s390_pci_mmio_write",
-        "s390_runtime_instr"
-      ],
+      "names": ["s390_pci_mmio_read", "s390_pci_mmio_write", "s390_runtime_instr"],
       "action": "SCMP_ACT_ALLOW",
       "includes": {
-        "arches": [
-          "s390",
-          "s390x"
-        ]
+        "arches": ["s390", "s390x"]
       }
     },
     {
-      "names": [
-        "riscv_flush_icache"
-      ],
+      "names": ["riscv_flush_icache"],
       "action": "SCMP_ACT_ALLOW",
       "includes": {
-        "arches": [
-          "riscv64"
-        ]
+        "arches": ["riscv64"]
       }
     },
     {
-      "names": [
-        "open_by_handle_at"
-      ],
+      "names": ["open_by_handle_at"],
       "action": "SCMP_ACT_ALLOW",
       "includes": {
-        "caps": [
-          "CAP_DAC_READ_SEARCH"
-        ]
+        "caps": ["CAP_DAC_READ_SEARCH"]
       }
     },
     {
@@ -591,15 +526,11 @@
       ],
       "action": "SCMP_ACT_ALLOW",
       "includes": {
-        "caps": [
-          "CAP_SYS_ADMIN"
-        ]
+        "caps": ["CAP_SYS_ADMIN"]
       }
     },
     {
-      "names": [
-        "clone"
-      ],
+      "names": ["clone"],
       "action": "SCMP_ACT_ALLOW",
       "args": [
         {
@@ -609,19 +540,12 @@
         }
       ],
       "excludes": {
-        "caps": [
-          "CAP_SYS_ADMIN"
-        ],
-        "arches": [
-          "s390",
-          "s390x"
-        ]
+        "caps": ["CAP_SYS_ADMIN"],
+        "arches": ["s390", "s390x"]
       }
     },
     {
-      "names": [
-        "clone"
-      ],
+      "names": ["clone"],
       "action": "SCMP_ACT_ALLOW",
       "args": [
         {
@@ -632,99 +556,60 @@
       ],
       "comment": "s390 parameter ordering for clone is different",
       "includes": {
-        "arches": [
-          "s390",
-          "s390x"
-        ]
+        "arches": ["s390", "s390x"]
       },
       "excludes": {
-        "caps": [
-          "CAP_SYS_ADMIN"
-        ]
+        "caps": ["CAP_SYS_ADMIN"]
       }
     },
     {
-      "names": [
-        "clone3"
-      ],
+      "names": ["clone3"],
       "action": "SCMP_ACT_ERRNO",
       "errnoRet": 38,
       "excludes": {
-        "caps": [
-          "CAP_SYS_ADMIN"
-        ]
+        "caps": ["CAP_SYS_ADMIN"]
       }
     },
     {
-      "names": [
-        "chroot"
-      ],
+      "names": ["chroot"],
       "action": "SCMP_ACT_ALLOW",
       "includes": {
-        "caps": [
-          "CAP_SYS_CHROOT"
-        ]
+        "caps": ["CAP_SYS_CHROOT"]
       }
     },
     {
-      "names": [
-        "kcmp",
-        "pidfd_getfd",
-        "process_madvise"
-      ],
+      "names": ["kcmp", "pidfd_getfd", "process_madvise"],
       "action": "SCMP_ACT_ALLOW",
       "includes": {
-        "caps": [
-          "CAP_SYS_PTRACE"
-        ]
+        "caps": ["CAP_SYS_PTRACE"]
       }
     },
     {
-      "names": [
-        "stime",
-        "clock_settime",
-        "clock_settime64"
-      ],
+      "names": ["stime", "clock_settime", "clock_settime64"],
       "action": "SCMP_ACT_ALLOW",
       "includes": {
-        "caps": [
-          "CAP_SYS_TIME"
-        ]
+        "caps": ["CAP_SYS_TIME"]
       }
     },
     {
-      "names": [
-        "vhangup"
-      ],
+      "names": ["vhangup"],
       "action": "SCMP_ACT_ALLOW",
       "includes": {
-        "caps": [
-          "CAP_SYS_TTY_CONFIG"
-        ]
+        "caps": ["CAP_SYS_TTY_CONFIG"]
       }
     },
     {
-      "names": [
-        "get_mempolicy",
-        "mbind",
-        "set_mempolicy"
-      ],
+      "names": ["get_mempolicy", "mbind", "set_mempolicy"],
       "action": "SCMP_ACT_ALLOW",
       "includes": {
-        "caps": [
-          "CAP_SYS_NICE"
-        ]
+        "caps": ["CAP_SYS_NICE"]
       }
     },
     {
-      "names": [
-        "syslog"
-      ],
+      "names": ["syslog"],
       "action": "SCMP_ACT_ALLOW",
       "includes": {
-        "caps": [
-          "CAP_SYSLOG"
-        ]
+        "caps": ["CAP_SYSLOG"]
       }
     },
     {

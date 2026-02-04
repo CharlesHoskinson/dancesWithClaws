@@ -84,9 +84,7 @@ describe("vault-entries", () => {
     });
 
     it("throws for nonexistent entry", async () => {
-      await expect(retrieveEntry(envelope, vmk, "nope")).rejects.toThrow(
-        "not found",
-      );
+      await expect(retrieveEntry(envelope, vmk, "nope")).rejects.toThrow("not found");
     });
 
     it("throws for HSM-resident entries", async () => {
@@ -97,9 +95,7 @@ describe("vault-entries", () => {
         hsmResident: true,
         hsmObjectId: 1,
       });
-      await expect(retrieveEntry(updated, vmk, "hsm")).rejects.toThrow(
-        "HSM-resident",
-      );
+      await expect(retrieveEntry(updated, vmk, "hsm")).rejects.toThrow("HSM-resident");
     });
   });
 
@@ -121,18 +117,18 @@ describe("vault-entries", () => {
 
       const all = listEntries(env);
       expect(all.length).toBe(2);
-      expect(all[0]!.label).toBe("key1");
-      expect(all[1]!.label).toBe("key2");
+      expect(all[0].label).toBe("key1");
+      expect(all[1].label).toBe("key2");
 
       // Filter by type
       const tokens = listEntries(env, { type: "api_token" });
       expect(tokens.length).toBe(1);
-      expect(tokens[0]!.label).toBe("key2");
+      expect(tokens[0].label).toBe("key2");
 
       // Filter by tag
       const dev = listEntries(env, { tag: "dev" });
       expect(dev.length).toBe(1);
-      expect(dev[0]!.label).toBe("key1");
+      expect(dev[0].label).toBe("key1");
     });
   });
 
@@ -161,10 +157,10 @@ describe("vault-entries", () => {
         type: "secret",
         value: Buffer.from("original"),
       });
-      expect(env1.entries[0]!.version).toBe(1);
+      expect(env1.entries[0].version).toBe(1);
 
       const env2 = await rotateEntry(env1, vmk, "rotate-me");
-      expect(env2.entries[0]!.version).toBe(2);
+      expect(env2.entries[0].version).toBe(2);
 
       // Value should still decrypt correctly
       const { value } = await retrieveEntry(env2, vmk, "rotate-me");
@@ -200,7 +196,7 @@ describe("vault-entries", () => {
       expect(v2.toString("utf8")).toBe("val2");
 
       // Versions reset to 1
-      expect(rotated.entries[0]!.version).toBe(1);
+      expect(rotated.entries[0].version).toBe(1);
       expect(rotated.metadata.vmkVersion).toBe(2);
 
       zeroBuffer(newVmk);

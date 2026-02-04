@@ -31,9 +31,9 @@ export function createVaultStoreTool(api: OpenClawPluginApi, stateDir: string) {
       ),
     }),
     async execute(_id: string, params: Record<string, unknown>) {
-      const label = String(params.label ?? "");
-      const type = String(params.type ?? "secret") as EntryType;
-      const value = String(params.value ?? "");
+      const label = typeof params.label === "string" ? params.label : "";
+      const type = (typeof params.type === "string" ? params.type : "secret") as EntryType;
+      const value = typeof params.value === "string" ? params.value : "";
       const tags = Array.isArray(params.tags) ? params.tags.map(String) : [];
 
       if (!label.trim()) {
@@ -126,7 +126,7 @@ export function createVaultRetrieveTool(
       ),
     }),
     async execute(_id: string, params: Record<string, unknown>) {
-      const action = String(params.action ?? "list");
+      const action = typeof params.action === "string" ? params.action : "list";
       const label =
         typeof params.label === "string" ? params.label.trim() : undefined;
       const type =

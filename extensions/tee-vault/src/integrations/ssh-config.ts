@@ -119,18 +119,14 @@ export async function removeSshHostConfig(hostAlias: string): Promise<boolean> {
 }
 
 /** Replace a host block in SSH config content. */
-function replaceHostBlock(
-  config: string,
-  hostAlias: string,
-  replacement: string,
-): string {
+function replaceHostBlock(config: string, hostAlias: string, replacement: string): string {
   const lines = config.split("\n");
   const result: string[] = [];
   let inTargetBlock = false;
   let found = false;
 
   for (let i = 0; i < lines.length; i++) {
-    const line = lines[i]!;
+    const line = lines[i];
     const trimmed = line.trim();
 
     if (trimmed.startsWith("Host ") && !trimmed.startsWith("Host *")) {
@@ -175,9 +171,7 @@ function replaceHostBlock(
  * From mostlySecure.md:
  *   ssh-add -s "C:\Program Files\Yubico\YubiHSM2\bin\yubihsm_pkcs11.dll"
  */
-export async function loadPkcs11IntoAgent(
-  pkcs11Library?: string,
-): Promise<void> {
+export async function loadPkcs11IntoAgent(pkcs11Library?: string): Promise<void> {
   const lib = pkcs11Library ?? YUBIHSM_DEFAULT_PKCS11_PATH;
   const sshAdd = process.platform === "win32" ? "ssh-add.exe" : "ssh-add";
 
@@ -190,14 +184,13 @@ export async function loadPkcs11IntoAgent(
     throw new Error(
       `Failed to load PKCS#11 into ssh-agent: ${err instanceof Error ? err.message : err}. ` +
         `Ensure ssh-agent is running and yubihsm-connector is active.`,
+      { cause: err },
     );
   }
 }
 
 /** Remove the PKCS#11 provider from ssh-agent. */
-export async function unloadPkcs11FromAgent(
-  pkcs11Library?: string,
-): Promise<void> {
+export async function unloadPkcs11FromAgent(pkcs11Library?: string): Promise<void> {
   const lib = pkcs11Library ?? YUBIHSM_DEFAULT_PKCS11_PATH;
   const sshAdd = process.platform === "win32" ? "ssh-add.exe" : "ssh-add";
 
@@ -226,9 +219,7 @@ export async function listAgentKeys(): Promise<string[]> {
 }
 
 /** Check if yubihsm-connector is running. */
-export async function isConnectorRunning(
-  connectorUrl?: string,
-): Promise<boolean> {
+export async function isConnectorRunning(connectorUrl?: string): Promise<boolean> {
   const url = connectorUrl ?? "http://localhost:12345";
   const { request: httpReq } = await import("node:http");
 
@@ -303,8 +294,7 @@ export async function getHsmPublicKeySsh(
   );
   // The PEM output can be converted to SSH format via ssh-keygen
   const pemKey = stdout.trim();
-  const sshKeygen =
-    process.platform === "win32" ? "ssh-keygen.exe" : "ssh-keygen";
+  const sshKeygen = process.platform === "win32" ? "ssh-keygen.exe" : "ssh-keygen";
 
   return new Promise((resolve, _reject) => {
     const child = spawn(sshKeygen, ["-i", "-m", "PKCS8", "-f", "/dev/stdin"], {
