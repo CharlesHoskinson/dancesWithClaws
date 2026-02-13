@@ -55,21 +55,23 @@ Protocol details:
 
 ## Connection lifecycle (single client)
 
-```
-Client                    Gateway
-  |                          |
-  |---- req:connect -------->|
-  |<------ res (ok) ---------|   (or res error + close)
-  |   (payload=hello-ok carries snapshot: presence + health)
-  |                          |
-  |<------ event:presence ---|
-  |<------ event:tick -------|
-  |                          |
-  |------- req:agent ------->|
-  |<------ res:agent --------|   (ack: {runId,status:"accepted"})
-  |<------ event:agent ------|   (streaming)
-  |<------ res:agent --------|   (final: {runId,status,summary})
-  |                          |
+```mermaid
+sequenceDiagram
+    participant Client
+    participant Gateway
+
+    Client->>Gateway: req:connect
+    Gateway-->>Client: res (ok)
+    Note right of Gateway: or res error + close
+    Note left of Client: payload=hello-ok<br>snapshot: presence + health
+
+    Gateway-->>Client: event:presence
+    Gateway-->>Client: event:tick
+
+    Client->>Gateway: req:agent
+    Gateway-->>Client: res:agent<br>ack {runId, status:"accepted"}
+    Gateway-->>Client: event:agent<br>(streaming)
+    Gateway-->>Client: res:agent<br>final {runId, status, summary}
 ```
 
 ## Wire protocol (summary)
@@ -97,7 +99,7 @@ Client                    Gateway
 - Gateway auth (`gateway.auth.*`) still applies to **all** connections, local or
   remote.
 
-Details: [Gateway protocol](/gateway/protocol), [Pairing](/start/pairing),
+Details: [Gateway protocol](/gateway/protocol), [Pairing](/channels/pairing),
 [Security](/gateway/security).
 
 ## Protocol typing and codegen
@@ -110,9 +112,11 @@ Details: [Gateway protocol](/gateway/protocol), [Pairing](/start/pairing),
 
 - Preferred: Tailscale or VPN.
 - Alternative: SSH tunnel
+
   ```bash
   ssh -N -L 18789:127.0.0.1:18789 user@host
   ```
+
 - The same handshake + auth token apply over the tunnel.
 - TLS + optional pinning can be enabled for WS in remote setups.
 

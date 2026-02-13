@@ -15,7 +15,13 @@ export class SsrFBlockedError extends Error {
   }
 }
 
-type LookupFn = typeof dnsLookup;
+export type LookupFn = typeof dnsLookup;
+
+export type SsrFPolicy = {
+  allowPrivateNetwork?: boolean;
+  allowedHostnames?: string[];
+  hostnameAllowlist?: string[];
+};
 
 const PRIVATE_IPV6_PREFIXES = ["fe80:", "fec0:", "fc", "fd"];
 const BLOCKED_HOSTNAMES = new Set(["localhost", "metadata.google.internal"]);
@@ -26,6 +32,44 @@ function normalizeHostname(hostname: string): string {
     return normalized.slice(1, -1);
   }
   return normalized;
+}
+
+function normalizeHostnameSet(values?: string[]): Set<string> {
+  if (!values || values.length === 0) {
+    return new Set<string>();
+  }
+  return new Set(values.map((value) => normalizeHostname(value)).filter(Boolean));
+}
+
+function normalizeHostnameAllowlist(values?: string[]): string[] {
+  if (!values || values.length === 0) {
+    return [];
+  }
+  return Array.from(
+    new Set(
+      values
+        .map((value) => normalizeHostname(value))
+        .filter((value) => value !== "*" && value !== "*." && value.length > 0),
+    ),
+  );
+}
+
+function isHostnameAllowedByPattern(hostname: string, pattern: string): boolean {
+  if (pattern.startsWith("*.")) {
+    const suffix = pattern.slice(2);
+    if (!suffix || hostname === suffix) {
+      return false;
+    }
+    return hostname.endsWith(`.${suffix}`);
+  }
+  return hostname === pattern;
+}
+
+function matchesHostnameAllowlist(hostname: string, allowlist: string[]): boolean {
+  if (allowlist.length === 0) {
+    return true;
+  }
+  return allowlist.some((pattern) => isHostnameAllowedByPattern(hostname, pattern));
 }
 
 function parseIpv4(address: string): number[] | null {
@@ -206,31 +250,45 @@ export type PinnedHostname = {
   lookup: typeof dnsLookupCb;
 };
 
-export async function resolvePinnedHostname(
+export async function resolvePinnedHostnameWithPolicy(
   hostname: string,
-  lookupFn: LookupFn = dnsLookup,
+  params: { lookupFn?: LookupFn; policy?: SsrFPolicy } = {},
 ): Promise<PinnedHostname> {
   const normalized = normalizeHostname(hostname);
   if (!normalized) {
     throw new Error("Invalid hostname");
   }
 
-  if (isBlockedHostname(normalized)) {
-    throw new SsrFBlockedError(`Blocked hostname: ${hostname}`);
+  const allowPrivateNetwork = Boolean(params.policy?.allowPrivateNetwork);
+  const allowedHostnames = normalizeHostnameSet(params.policy?.allowedHostnames);
+  const hostnameAllowlist = normalizeHostnameAllowlist(params.policy?.hostnameAllowlist);
+  const isExplicitAllowed = allowedHostnames.has(normalized);
+
+  if (!matchesHostnameAllowlist(normalized, hostnameAllowlist)) {
+    throw new SsrFBlockedError(`Blocked hostname (not in allowlist): ${hostname}`);
   }
 
-  if (isPrivateIpAddress(normalized)) {
-    throw new SsrFBlockedError("Blocked: private/internal IP address");
+  if (!allowPrivateNetwork && !isExplicitAllowed) {
+    if (isBlockedHostname(normalized)) {
+      throw new SsrFBlockedError(`Blocked hostname: ${hostname}`);
+    }
+
+    if (isPrivateIpAddress(normalized)) {
+      throw new SsrFBlockedError("Blocked: private/internal IP address");
+    }
   }
 
+  const lookupFn = params.lookupFn ?? dnsLookup;
   const results = await lookupFn(normalized, { all: true });
   if (results.length === 0) {
     throw new Error(`Unable to resolve hostname: ${hostname}`);
   }
 
-  for (const entry of results) {
-    if (isPrivateIpAddress(entry.address)) {
-      throw new SsrFBlockedError("Blocked: resolves to private/internal IP address");
+  if (!allowPrivateNetwork && !isExplicitAllowed) {
+    for (const entry of results) {
+      if (isPrivateIpAddress(entry.address)) {
+        throw new SsrFBlockedError("Blocked: resolves to private/internal IP address");
+      }
     }
   }
 
@@ -244,6 +302,13 @@ export async function resolvePinnedHostname(
     addresses,
     lookup: createPinnedLookup({ hostname: normalized, addresses }),
   };
+}
+
+export async function resolvePinnedHostname(
+  hostname: string,
+  lookupFn: LookupFn = dnsLookup,
+): Promise<PinnedHostname> {
+  return await resolvePinnedHostnameWithPolicy(hostname, { lookupFn });
 }
 
 export function createPinnedDispatcher(pinned: PinnedHostname): Dispatcher {

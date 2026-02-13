@@ -3,6 +3,10 @@ name: Formal models (informational conformance)
 on:
   pull_request:
 
+concurrency:
+  group: formal-conformance-${{ github.event.pull_request.number || github.ref_name }}
+  cancel-in-progress: true
+
 jobs:
   formal_conformance:
     runs-on: ubuntu-latest
@@ -18,35 +22,40 @@ jobs:
           path: openclaw
 
       - name: Checkout formal models
-        id: checkout-formal
         uses: actions/checkout@v4
-        continue-on-error: true
         with:
           repository: vignesh07/clawdbot-formal-models
           ref: main
           path: clawdbot-formal-models
 
-      - name: Skip if formal models unavailable
-        if: steps.checkout-formal.outcome == 'failure'
-        run: |
-          echo "::notice::Formal models repo not accessible — skipping conformance check."
-          echo "skip=true" >> "$GITHUB_OUTPUT"
-        id: skip-check
-
       - name: Setup Node
-        if: steps.skip-check.outputs.skip != 'true'
         uses: actions/setup-node@v4
         with:
           node-version: "22"
 
       - name: Regenerate extracted constants from openclaw
-        if: steps.skip-check.outputs.skip != 'true'
         run: |
           set -euo pipefail
           cd clawdbot-formal-models
           export OPENCLAW_REPO_DIR="${GITHUB_WORKSPACE}/openclaw"
           node scripts/extract-tool-groups.mjs
           node scripts/check-tool-group-alias.mjs
+
+      # Drift is about extracted artifacts only; compute it before model checking
+      # to avoid any incidental file touches affecting the result.
+      - name: Compute drift (generated/*)
+        id: drift
+        run: |
+          set -euo pipefail
+          cd clawdbot-formal-models
+
+          if git diff --quiet -- generated; then
+            echo "drift=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "drift=true" >> "$GITHUB_OUTPUT"
+          git diff -- generated > "${GITHUB_WORKSPACE}/formal-models-drift.diff"
 
       - name: Model check (green suite)
         run: |
@@ -62,6 +71,10 @@ jobs:
             routing-isolation routing-precedence routing-identitylinks routing-identity-transitive routing-identity-symmetry routing-identity-channel-override \
             routing-thread-parent discord-pluralkit \
             ingress-retry session-key-stability session-explosion-bound config-normalization \
+            queue-drain delivery-route-stability delivery-pipeline retry-termination retry-eventual-success \
+            no-cross-stream multi-event-eventual-emission \
+            dedupe-collision-fallback crash-restart-dedupe two-worker-dedupe openclaw-session-key-conformance \
+            routing-thread-parent-channel-override routing-trirule gateway-auth-proxy-header-spoof \
             group-alias-check
 
       - name: Model check (negative suite, expected violations)
@@ -80,22 +93,11 @@ jobs:
             ingress-gating-negative ingress-idempotency-negative ingress-dedupe-fallback-negative ingress-trace-negative ingress-trace2-negative \
             routing-isolation-negative routing-precedence-negative routing-identitylinks-negative routing-identity-transitive-negative routing-identity-symmetry-negative routing-identity-channel-override-negative \
             routing-thread-parent-negative discord-pluralkit-negative \
-            ingress-retry-negative session-key-stability-negative config-normalization-negative
-
-      - name: Compute drift
-        if: steps.skip-check.outputs.skip != 'true'
-        id: drift
-        run: |
-          set -euo pipefail
-          cd clawdbot-formal-models
-
-          if git diff --quiet; then
-            echo "drift=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          echo "drift=true" >> "$GITHUB_OUTPUT"
-          git diff > "${GITHUB_WORKSPACE}/formal-models-drift.diff"
+            ingress-retry-negative session-key-stability-negative config-normalization-negative \
+            queue-drain delivery-route-stability-negative delivery-pipeline-negative retry-termination-negative retry-eventual-success-negative \
+            no-cross-stream-negative multi-event-eventual-emission-negative \
+            dedupe-collision-fallback-negative crash-restart-dedupe-negative two-worker-dedupe-negative openclaw-session-key-conformance-negative \
+            routing-thread-parent-channel-override-negative routing-trirule-negative gateway-auth-proxy-header-spoof-negative
 
       - name: Upload drift diff artifact
         if: steps.drift.outputs.drift == 'true'
@@ -129,9 +131,7 @@ jobs:
 
       - name: Summary
         run: |
-          if [ "${{ steps.skip-check.outputs.skip }}" = "true" ]; then
-            echo "Formal models repo not accessible — skipped."
-          elif [ "${{ steps.drift.outputs.drift }}" = "true" ]; then
+          if [ "${{ steps.drift.outputs.drift }}" = "true" ]; then
             echo "Formal conformance drift detected (informational)."
           else
             echo "Formal conformance: no drift."

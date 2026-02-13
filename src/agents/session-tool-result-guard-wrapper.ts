@@ -1,5 +1,9 @@
 import type { SessionManager } from "@mariozechner/pi-coding-agent";
 import { getGlobalHookRunner } from "../plugins/hook-runner-global.js";
+import {
+  applyInputProvenanceToUserMessage,
+  type InputProvenance,
+} from "../sessions/input-provenance.js";
 import { installSessionToolResultGuard } from "./session-tool-result-guard.js";
 
 export type GuardedSessionManager = SessionManager & {
@@ -16,6 +20,7 @@ export function guardSessionManager(
   opts?: {
     agentId?: string;
     sessionKey?: string;
+    inputProvenance?: InputProvenance;
     allowSyntheticToolResults?: boolean;
   },
 ): GuardedSessionManager {
@@ -25,7 +30,8 @@ export function guardSessionManager(
 
   const hookRunner = getGlobalHookRunner();
   const transform = hookRunner?.hasHooks("tool_result_persist")
-    ? (message: any, meta: { toolCallId?: string; toolName?: string; isSynthetic?: boolean }) => {
+    ? // oxlint-disable-next-line typescript/no-explicit-any
+      (message: any, meta: { toolCallId?: string; toolName?: string; isSynthetic?: boolean }) => {
         const out = hookRunner.runToolResultPersist(
           {
             toolName: meta.toolName,
@@ -45,6 +51,8 @@ export function guardSessionManager(
     : undefined;
 
   const guard = installSessionToolResultGuard(sessionManager, {
+    transformMessageForPersistence: (message) =>
+      applyInputProvenanceToUserMessage(message, opts?.inputProvenance),
     transformToolResultForPersistence: transform,
     allowSyntheticToolResults: opts?.allowSyntheticToolResults,
   });

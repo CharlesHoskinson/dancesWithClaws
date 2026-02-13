@@ -2,6 +2,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
+import { sleep } from "../utils.js";
 import {
   buildGroupDisplayName,
   deriveSessionKey,
@@ -175,6 +176,50 @@ describe("sessions", () => {
     });
   });
 
+  it("updateLastRoute clears threadId when explicit route omits threadId", async () => {
+    const mainSessionKey = "agent:main:main";
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-sessions-"));
+    const storePath = path.join(dir, "sessions.json");
+    await fs.writeFile(
+      storePath,
+      JSON.stringify(
+        {
+          [mainSessionKey]: {
+            sessionId: "sess-1",
+            updatedAt: 123,
+            deliveryContext: {
+              channel: "telegram",
+              to: "222",
+              threadId: "42",
+            },
+            lastChannel: "telegram",
+            lastTo: "222",
+            lastThreadId: "42",
+          },
+        },
+        null,
+        2,
+      ),
+      "utf-8",
+    );
+
+    await updateLastRoute({
+      storePath,
+      sessionKey: mainSessionKey,
+      deliveryContext: {
+        channel: "telegram",
+        to: "222",
+      },
+    });
+
+    const store = loadSessionStore(storePath);
+    expect(store[mainSessionKey]?.deliveryContext).toEqual({
+      channel: "telegram",
+      to: "222",
+    });
+    expect(store[mainSessionKey]?.lastThreadId).toBeUndefined();
+  });
+
   it("updateLastRoute records origin + group metadata when ctx is provided", async () => {
     const sessionKey = "agent:main:whatsapp:group:123@g.us";
     const dir = await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-sessions-"));
@@ -243,10 +288,10 @@ describe("sessions", () => {
 
     await Promise.all([
       updateSessionStore(storePath, (store) => {
-        store["agent:main:one"] = { sessionId: "sess-1", updatedAt: 1 };
+        store["agent:main:one"] = { sessionId: "sess-1", updatedAt: Date.now() };
       }),
       updateSessionStore(storePath, (store) => {
-        store["agent:main:two"] = { sessionId: "sess-2", updatedAt: 2 };
+        store["agent:main:two"] = { sessionId: "sess-2", updatedAt: Date.now() };
       }),
     ]);
 
@@ -261,7 +306,7 @@ describe("sessions", () => {
     await fs.writeFile(storePath, "[]", "utf-8");
 
     await updateSessionStore(storePath, (store) => {
-      store["agent:main:main"] = { sessionId: "sess-1", updatedAt: 1 };
+      store["agent:main:main"] = { sessionId: "sess-1", updatedAt: Date.now() };
     });
 
     const store = loadSessionStore(storePath);
@@ -279,7 +324,7 @@ describe("sessions", () => {
     await updateSessionStore(storePath, (store) => {
       store["agent:main:main"] = {
         sessionId: "sess-normalized",
-        updatedAt: 1,
+        updatedAt: Date.now(),
         lastChannel: " WhatsApp ",
         lastTo: " +1555 ",
         lastAccountId: " acct-1 ",
@@ -304,8 +349,8 @@ describe("sessions", () => {
       storePath,
       JSON.stringify(
         {
-          "agent:main:old": { sessionId: "sess-old", updatedAt: 1 },
-          "agent:main:keep": { sessionId: "sess-keep", updatedAt: 2 },
+          "agent:main:old": { sessionId: "sess-old", updatedAt: Date.now() },
+          "agent:main:keep": { sessionId: "sess-keep", updatedAt: Date.now() },
         },
         null,
         2,
@@ -318,7 +363,7 @@ describe("sessions", () => {
         delete store["agent:main:old"];
       }),
       updateSessionStore(storePath, (store) => {
-        store["agent:main:new"] = { sessionId: "sess-new", updatedAt: 3 };
+        store["agent:main:new"] = { sessionId: "sess-new", updatedAt: Date.now() };
       }),
     ]);
 
@@ -428,7 +473,6 @@ describe("sessions", () => {
       "utf-8",
     );
 
-    const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
     await Promise.all([
       updateSessionStoreEntry({
         storePath,

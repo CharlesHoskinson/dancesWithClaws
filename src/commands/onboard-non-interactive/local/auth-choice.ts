@@ -6,34 +6,54 @@ import { normalizeProviderId } from "../../../agents/model-selection.js";
 import { parseDurationMs } from "../../../cli/parse-duration.js";
 import { upsertSharedEnvVar } from "../../../infra/env-file.js";
 import { shortenHomePath } from "../../../utils.js";
+import { normalizeSecretInput } from "../../../utils/normalize-secret-input.js";
 import { buildTokenProfileId, validateAnthropicSetupToken } from "../../auth-token.js";
 import { applyGoogleGeminiModelDefault } from "../../google-gemini-model-default.js";
 import {
   applyAuthProfileConfig,
+  applyCloudflareAiGatewayConfig,
+  applyQianfanConfig,
   applyKimiCodeConfig,
   applyMinimaxApiConfig,
   applyMinimaxConfig,
   applyMoonshotConfig,
+  applyMoonshotConfigCn,
   applyOpencodeZenConfig,
   applyOpenrouterConfig,
   applySyntheticConfig,
   applyVeniceConfig,
+  applyTogetherConfig,
   applyVercelAiGatewayConfig,
+  applyLitellmConfig,
+  applyXaiConfig,
   applyXiaomiConfig,
   applyZaiConfig,
   setAnthropicApiKey,
+  setCloudflareAiGatewayConfig,
+  setQianfanApiKey,
   setGeminiApiKey,
   setKimiCodingApiKey,
+  setLitellmApiKey,
   setMinimaxApiKey,
   setMoonshotApiKey,
   setOpencodeZenApiKey,
   setOpenrouterApiKey,
   setSyntheticApiKey,
+  setXaiApiKey,
   setVeniceApiKey,
+  setTogetherApiKey,
   setVercelAiGatewayApiKey,
   setXiaomiApiKey,
   setZaiApiKey,
 } from "../../onboard-auth.js";
+import {
+  applyCustomApiConfig,
+  CustomApiError,
+  parseNonInteractiveCustomApiFlags,
+  resolveCustomProviderId,
+} from "../../onboard-custom.js";
+import { applyOpenAIConfig } from "../../openai-model-default.js";
+import { detectZaiEndpoint } from "../../zai-endpoint-detect.js";
 import { resolveNonInteractiveApiKey } from "../api-keys.js";
 
 export async function applyNonInteractiveAuthChoice(params: {
@@ -103,7 +123,7 @@ export async function applyNonInteractiveAuthChoice(params: {
       runtime.exit(1);
       return null;
     }
-    const tokenRaw = opts.token?.trim();
+    const tokenRaw = normalizeSecretInput(opts.token);
     if (!tokenRaw) {
       runtime.error("Missing --token for --auth-choice token.");
       runtime.exit(1);
@@ -168,7 +188,13 @@ export async function applyNonInteractiveAuthChoice(params: {
     return applyGoogleGeminiModelDefault(nextConfig).next;
   }
 
-  if (authChoice === "zai-api-key") {
+  if (
+    authChoice === "zai-api-key" ||
+    authChoice === "zai-coding-global" ||
+    authChoice === "zai-coding-cn" ||
+    authChoice === "zai-global" ||
+    authChoice === "zai-cn"
+  ) {
     const resolved = await resolveNonInteractiveApiKey({
       provider: "zai",
       cfg: baseConfig,
@@ -188,7 +214,33 @@ export async function applyNonInteractiveAuthChoice(params: {
       provider: "zai",
       mode: "api_key",
     });
-    return applyZaiConfig(nextConfig);
+
+    // Determine endpoint from authChoice or detect from the API key.
+    let endpoint: "global" | "cn" | "coding-global" | "coding-cn" | undefined;
+    let modelIdOverride: string | undefined;
+
+    if (authChoice === "zai-coding-global") {
+      endpoint = "coding-global";
+    } else if (authChoice === "zai-coding-cn") {
+      endpoint = "coding-cn";
+    } else if (authChoice === "zai-global") {
+      endpoint = "global";
+    } else if (authChoice === "zai-cn") {
+      endpoint = "cn";
+    } else {
+      const detected = await detectZaiEndpoint({ apiKey: resolved.key });
+      if (detected) {
+        endpoint = detected.endpoint;
+        modelIdOverride = detected.modelId;
+      } else {
+        endpoint = "global";
+      }
+    }
+
+    return applyZaiConfig(nextConfig, {
+      endpoint,
+      ...(modelIdOverride ? { modelId: modelIdOverride } : {}),
+    });
   }
 
   if (authChoice === "xiaomi-api-key") {
@@ -214,6 +266,52 @@ export async function applyNonInteractiveAuthChoice(params: {
     return applyXiaomiConfig(nextConfig);
   }
 
+  if (authChoice === "xai-api-key") {
+    const resolved = await resolveNonInteractiveApiKey({
+      provider: "xai",
+      cfg: baseConfig,
+      flagValue: opts.xaiApiKey,
+      flagName: "--xai-api-key",
+      envVar: "XAI_API_KEY",
+      runtime,
+    });
+    if (!resolved) {
+      return null;
+    }
+    if (resolved.source !== "profile") {
+      setXaiApiKey(resolved.key);
+    }
+    nextConfig = applyAuthProfileConfig(nextConfig, {
+      profileId: "xai:default",
+      provider: "xai",
+      mode: "api_key",
+    });
+    return applyXaiConfig(nextConfig);
+  }
+
+  if (authChoice === "qianfan-api-key") {
+    const resolved = await resolveNonInteractiveApiKey({
+      provider: "qianfan",
+      cfg: baseConfig,
+      flagValue: opts.qianfanApiKey,
+      flagName: "--qianfan-api-key",
+      envVar: "QIANFAN_API_KEY",
+      runtime,
+    });
+    if (!resolved) {
+      return null;
+    }
+    if (resolved.source !== "profile") {
+      setQianfanApiKey(resolved.key);
+    }
+    nextConfig = applyAuthProfileConfig(nextConfig, {
+      profileId: "qianfan:default",
+      provider: "qianfan",
+      mode: "api_key",
+    });
+    return applyQianfanConfig(nextConfig);
+  }
+
   if (authChoice === "openai-api-key") {
     const resolved = await resolveNonInteractiveApiKey({
       provider: "openai",
@@ -231,7 +329,7 @@ export async function applyNonInteractiveAuthChoice(params: {
     const result = upsertSharedEnvVar({ key: "OPENAI_API_KEY", value: key });
     process.env.OPENAI_API_KEY = key;
     runtime.log(`Saved OPENAI_API_KEY to ${shortenHomePath(result.path)}`);
-    return nextConfig;
+    return applyOpenAIConfig(nextConfig);
   }
 
   if (authChoice === "openrouter-api-key") {
@@ -257,6 +355,29 @@ export async function applyNonInteractiveAuthChoice(params: {
     return applyOpenrouterConfig(nextConfig);
   }
 
+  if (authChoice === "litellm-api-key") {
+    const resolved = await resolveNonInteractiveApiKey({
+      provider: "litellm",
+      cfg: baseConfig,
+      flagValue: opts.litellmApiKey,
+      flagName: "--litellm-api-key",
+      envVar: "LITELLM_API_KEY",
+      runtime,
+    });
+    if (!resolved) {
+      return null;
+    }
+    if (resolved.source !== "profile") {
+      await setLitellmApiKey(resolved.key);
+    }
+    nextConfig = applyAuthProfileConfig(nextConfig, {
+      profileId: "litellm:default",
+      provider: "litellm",
+      mode: "api_key",
+    });
+    return applyLitellmConfig(nextConfig);
+  }
+
   if (authChoice === "ai-gateway-api-key") {
     const resolved = await resolveNonInteractiveApiKey({
       provider: "vercel-ai-gateway",
@@ -280,6 +401,44 @@ export async function applyNonInteractiveAuthChoice(params: {
     return applyVercelAiGatewayConfig(nextConfig);
   }
 
+  if (authChoice === "cloudflare-ai-gateway-api-key") {
+    const accountId = opts.cloudflareAiGatewayAccountId?.trim() ?? "";
+    const gatewayId = opts.cloudflareAiGatewayGatewayId?.trim() ?? "";
+    if (!accountId || !gatewayId) {
+      runtime.error(
+        [
+          'Auth choice "cloudflare-ai-gateway-api-key" requires Account ID and Gateway ID.',
+          "Use --cloudflare-ai-gateway-account-id and --cloudflare-ai-gateway-gateway-id.",
+        ].join("\n"),
+      );
+      runtime.exit(1);
+      return null;
+    }
+    const resolved = await resolveNonInteractiveApiKey({
+      provider: "cloudflare-ai-gateway",
+      cfg: baseConfig,
+      flagValue: opts.cloudflareAiGatewayApiKey,
+      flagName: "--cloudflare-ai-gateway-api-key",
+      envVar: "CLOUDFLARE_AI_GATEWAY_API_KEY",
+      runtime,
+    });
+    if (!resolved) {
+      return null;
+    }
+    if (resolved.source !== "profile") {
+      await setCloudflareAiGatewayConfig(accountId, gatewayId, resolved.key);
+    }
+    nextConfig = applyAuthProfileConfig(nextConfig, {
+      profileId: "cloudflare-ai-gateway:default",
+      provider: "cloudflare-ai-gateway",
+      mode: "api_key",
+    });
+    return applyCloudflareAiGatewayConfig(nextConfig, {
+      accountId,
+      gatewayId,
+    });
+  }
+
   if (authChoice === "moonshot-api-key") {
     const resolved = await resolveNonInteractiveApiKey({
       provider: "moonshot",
@@ -301,6 +460,29 @@ export async function applyNonInteractiveAuthChoice(params: {
       mode: "api_key",
     });
     return applyMoonshotConfig(nextConfig);
+  }
+
+  if (authChoice === "moonshot-api-key-cn") {
+    const resolved = await resolveNonInteractiveApiKey({
+      provider: "moonshot",
+      cfg: baseConfig,
+      flagValue: opts.moonshotApiKey,
+      flagName: "--moonshot-api-key",
+      envVar: "MOONSHOT_API_KEY",
+      runtime,
+    });
+    if (!resolved) {
+      return null;
+    }
+    if (resolved.source !== "profile") {
+      await setMoonshotApiKey(resolved.key);
+    }
+    nextConfig = applyAuthProfileConfig(nextConfig, {
+      profileId: "moonshot:default",
+      provider: "moonshot",
+      mode: "api_key",
+    });
+    return applyMoonshotConfigCn(nextConfig);
   }
 
   if (authChoice === "kimi-code-api-key") {
@@ -426,6 +608,88 @@ export async function applyNonInteractiveAuthChoice(params: {
       mode: "api_key",
     });
     return applyOpencodeZenConfig(nextConfig);
+  }
+
+  if (authChoice === "together-api-key") {
+    const resolved = await resolveNonInteractiveApiKey({
+      provider: "together",
+      cfg: baseConfig,
+      flagValue: opts.togetherApiKey,
+      flagName: "--together-api-key",
+      envVar: "TOGETHER_API_KEY",
+      runtime,
+    });
+    if (!resolved) {
+      return null;
+    }
+    if (resolved.source !== "profile") {
+      await setTogetherApiKey(resolved.key);
+    }
+    nextConfig = applyAuthProfileConfig(nextConfig, {
+      profileId: "together:default",
+      provider: "together",
+      mode: "api_key",
+    });
+    return applyTogetherConfig(nextConfig);
+  }
+
+  if (authChoice === "custom-api-key") {
+    try {
+      const customAuth = parseNonInteractiveCustomApiFlags({
+        baseUrl: opts.customBaseUrl,
+        modelId: opts.customModelId,
+        compatibility: opts.customCompatibility,
+        apiKey: opts.customApiKey,
+        providerId: opts.customProviderId,
+      });
+      const resolvedProviderId = resolveCustomProviderId({
+        config: nextConfig,
+        baseUrl: customAuth.baseUrl,
+        providerId: customAuth.providerId,
+      });
+      const resolvedCustomApiKey = await resolveNonInteractiveApiKey({
+        provider: resolvedProviderId.providerId,
+        cfg: baseConfig,
+        flagValue: customAuth.apiKey,
+        flagName: "--custom-api-key",
+        envVar: "CUSTOM_API_KEY",
+        envVarName: "CUSTOM_API_KEY",
+        runtime,
+        required: false,
+      });
+      const result = applyCustomApiConfig({
+        config: nextConfig,
+        baseUrl: customAuth.baseUrl,
+        modelId: customAuth.modelId,
+        compatibility: customAuth.compatibility,
+        apiKey: resolvedCustomApiKey?.key,
+        providerId: customAuth.providerId,
+      });
+      if (result.providerIdRenamedFrom && result.providerId) {
+        runtime.log(
+          `Custom provider ID "${result.providerIdRenamedFrom}" already exists for a different base URL. Using "${result.providerId}".`,
+        );
+      }
+      return result.config;
+    } catch (err) {
+      if (err instanceof CustomApiError) {
+        switch (err.code) {
+          case "missing_required":
+          case "invalid_compatibility":
+            runtime.error(err.message);
+            break;
+          default:
+            runtime.error(`Invalid custom provider config: ${err.message}`);
+            break;
+        }
+        runtime.exit(1);
+        return null;
+      }
+      const reason = err instanceof Error ? err.message : String(err);
+      runtime.error(`Invalid custom provider config: ${reason}`);
+      runtime.exit(1);
+      return null;
+    }
   }
 
   if (

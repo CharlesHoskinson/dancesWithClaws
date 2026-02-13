@@ -4,6 +4,7 @@ import {
   resolveAgentDir,
   resolveAgentModelFallbacksOverride,
   resolveAgentModelPrimary,
+  resolveAgentSkillsFilter,
   resolveAgentWorkspaceDir,
 } from "../agents/agent-scope.js";
 import { ensureAuthProfileStore } from "../agents/auth-profiles.js";
@@ -187,11 +188,13 @@ export async function agentCommand(
 
     const needsSkillsSnapshot = isNewSession || !sessionEntry?.skillsSnapshot;
     const skillsSnapshotVersion = getSkillsSnapshotVersion(workspaceDir);
+    const skillFilter = resolveAgentSkillsFilter(cfg, sessionAgentId);
     const skillsSnapshot = needsSkillsSnapshot
       ? buildWorkspaceSkillSnapshot(workspaceDir, {
           config: cfg,
           eligibility: { remote: getRemoteSkillEligibility() },
           snapshotVersion: skillsSnapshotVersion,
+          skillFilter,
         })
       : sessionEntry?.skillsSnapshot;
 
@@ -219,11 +222,7 @@ export async function agentCommand(
         sessionEntry ?? { sessionId, updatedAt: Date.now() };
       const next: SessionEntry = { ...entry, sessionId, updatedAt: Date.now() };
       if (thinkOverride) {
-        if (thinkOverride === "off") {
-          delete next.thinkingLevel;
-        } else {
-          next.thinkingLevel = thinkOverride;
-        }
+        next.thinkingLevel = thinkOverride;
       }
       applyVerboseOverride(next, verboseOverride);
       sessionStore[sessionKey] = next;
@@ -395,6 +394,7 @@ export async function agentCommand(
             return runCliAgent({
               sessionId,
               sessionKey,
+              agentId: sessionAgentId,
               sessionFile,
               workspaceDir,
               config: cfg,
@@ -415,6 +415,7 @@ export async function agentCommand(
           return runEmbeddedPiAgent({
             sessionId,
             sessionKey,
+            agentId: sessionAgentId,
             messageChannel,
             agentAccountId: runContext.accountId,
             messageTo: opts.replyTo ?? opts.to,
@@ -427,6 +428,7 @@ export async function agentCommand(
             currentThreadTs: runContext.currentThreadTs,
             replyToMode: runContext.replyToMode,
             hasRepliedRef: runContext.hasRepliedRef,
+            senderIsOwner: true,
             sessionFile,
             workspaceDir,
             config: cfg,
@@ -447,6 +449,7 @@ export async function agentCommand(
             lane: opts.lane,
             abortSignal: opts.abortSignal,
             extraSystemPrompt: opts.extraSystemPrompt,
+            inputProvenance: opts.inputProvenance,
             streamParams: opts.streamParams,
             agentDir,
             onAgentEvent: (evt) => {

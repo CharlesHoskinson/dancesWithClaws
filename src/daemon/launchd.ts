@@ -355,7 +355,7 @@ export async function uninstallLaunchAgent({
 }
 
 function isLaunchctlNotLoaded(res: { stdout: string; stderr: string; code: number }): boolean {
-  const detail = `${res.stderr || res.stdout}`.toLowerCase();
+  const detail = (res.stderr || res.stdout).toLowerCase();
   return (
     detail.includes("no such process") ||
     detail.includes("could not find service") ||
@@ -460,5 +460,11 @@ export async function restartLaunchAgent({
   if (res.code !== 0) {
     throw new Error(`launchctl kickstart failed: ${res.stderr || res.stdout}`.trim());
   }
-  stdout.write(`${formatLine("Restarted LaunchAgent", `${domain}/${label}`)}\n`);
+  try {
+    stdout.write(`${formatLine("Restarted LaunchAgent", `${domain}/${label}`)}\n`);
+  } catch (err: unknown) {
+    if ((err as NodeJS.ErrnoException)?.code !== "EPIPE") {
+      throw err;
+    }
+  }
 }

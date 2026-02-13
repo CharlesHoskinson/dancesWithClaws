@@ -13,7 +13,9 @@ export type AuthChoiceGroupId =
   | "google"
   | "copilot"
   | "openrouter"
+  | "litellm"
   | "ai-gateway"
+  | "cloudflare-ai-gateway"
   | "moonshot"
   | "zai"
   | "xiaomi"
@@ -21,7 +23,11 @@ export type AuthChoiceGroupId =
   | "minimax"
   | "synthetic"
   | "venice"
-  | "qwen";
+  | "qwen"
+  | "together"
+  | "qianfan"
+  | "xai"
+  | "custom";
 
 export type AuthChoiceGroup = {
   value: AuthChoiceGroupId;
@@ -51,20 +57,26 @@ const AUTH_CHOICE_GROUP_DEFS: {
   {
     value: "minimax",
     label: "MiniMax",
-    hint: "M2.1 (recommended)",
+    hint: "M2.5 (recommended)",
     choices: ["minimax-portal", "minimax-api", "minimax-api-lightning"],
   },
   {
     value: "moonshot",
-    label: "Moonshot AI",
-    hint: "Kimi K2 + Kimi Coding",
-    choices: ["moonshot-api-key", "kimi-code-api-key"],
+    label: "Moonshot AI (Kimi K2.5)",
+    hint: "Kimi K2.5 + Kimi Coding",
+    choices: ["moonshot-api-key", "moonshot-api-key-cn", "kimi-code-api-key"],
   },
   {
     value: "google",
     label: "Google",
     hint: "Gemini API key + OAuth",
     choices: ["gemini-api-key", "google-antigravity", "google-gemini-cli"],
+  },
+  {
+    value: "xai",
+    label: "xAI (Grok)",
+    hint: "API key",
+    choices: ["xai-api-key"],
   },
   {
     value: "openrouter",
@@ -80,9 +92,15 @@ const AUTH_CHOICE_GROUP_DEFS: {
   },
   {
     value: "zai",
-    label: "Z.AI (GLM 4.7)",
+    label: "Z.AI",
+    hint: "GLM Coding Plan / Global / CN",
+    choices: ["zai-coding-global", "zai-coding-cn", "zai-global", "zai-cn"],
+  },
+  {
+    value: "qianfan",
+    label: "Qianfan",
     hint: "API key",
-    choices: ["zai-api-key"],
+    choices: ["qianfan-api-key"],
   },
   {
     value: "copilot",
@@ -115,10 +133,34 @@ const AUTH_CHOICE_GROUP_DEFS: {
     choices: ["synthetic-api-key"],
   },
   {
+    value: "together",
+    label: "Together AI",
+    hint: "API key",
+    choices: ["together-api-key"],
+  },
+  {
     value: "venice",
     label: "Venice AI",
     hint: "Privacy-focused (uncensored models)",
     choices: ["venice-api-key"],
+  },
+  {
+    value: "litellm",
+    label: "LiteLLM",
+    hint: "Unified LLM gateway (100+ providers)",
+    choices: ["litellm-api-key"],
+  },
+  {
+    value: "cloudflare-ai-gateway",
+    label: "Cloudflare AI Gateway",
+    hint: "Account ID + Gateway ID + API key",
+    choices: ["cloudflare-ai-gateway-api-key"],
+  },
+  {
+    value: "custom",
+    label: "Custom Provider",
+    hint: "Any OpenAI or Anthropic compatible endpoint",
+    choices: ["custom-api-key"],
   },
 ];
 
@@ -141,18 +183,48 @@ export function buildAuthChoiceOptions(params: {
   });
   options.push({ value: "chutes", label: "Chutes (OAuth)" });
   options.push({ value: "openai-api-key", label: "OpenAI API key" });
+  options.push({ value: "xai-api-key", label: "xAI (Grok) API key" });
+  options.push({
+    value: "qianfan-api-key",
+    label: "Qianfan API key",
+  });
   options.push({ value: "openrouter-api-key", label: "OpenRouter API key" });
+  options.push({
+    value: "litellm-api-key",
+    label: "LiteLLM API key",
+    hint: "Unified gateway for 100+ LLM providers",
+  });
   options.push({
     value: "ai-gateway-api-key",
     label: "Vercel AI Gateway API key",
   });
-  options.push({ value: "moonshot-api-key", label: "Moonshot AI API key" });
-  options.push({ value: "kimi-code-api-key", label: "Kimi Coding API key" });
+  options.push({
+    value: "cloudflare-ai-gateway-api-key",
+    label: "Cloudflare AI Gateway",
+    hint: "Account ID + Gateway ID + API key",
+  });
+  options.push({
+    value: "moonshot-api-key",
+    label: "Kimi API key (.ai)",
+  });
+  options.push({
+    value: "moonshot-api-key-cn",
+    label: "Kimi API key (.cn)",
+  });
+  options.push({
+    value: "kimi-code-api-key",
+    label: "Kimi Code API key (subscription)",
+  });
   options.push({ value: "synthetic-api-key", label: "Synthetic API key" });
   options.push({
     value: "venice-api-key",
     label: "Venice AI API key",
     hint: "Privacy-focused inference (uncensored models)",
+  });
+  options.push({
+    value: "together-api-key",
+    label: "Together AI API key",
+    hint: "Access to Llama, DeepSeek, Qwen, and more open models",
   });
   options.push({
     value: "github-copilot",
@@ -170,7 +242,27 @@ export function buildAuthChoiceOptions(params: {
     label: "Google Gemini CLI OAuth",
     hint: "Uses the bundled Gemini CLI auth plugin",
   });
-  options.push({ value: "zai-api-key", label: "Z.AI (GLM 4.7) API key" });
+  options.push({ value: "zai-api-key", label: "Z.AI API key" });
+  options.push({
+    value: "zai-coding-global",
+    label: "Coding-Plan-Global",
+    hint: "GLM Coding Plan Global (api.z.ai)",
+  });
+  options.push({
+    value: "zai-coding-cn",
+    label: "Coding-Plan-CN",
+    hint: "GLM Coding Plan CN (open.bigmodel.cn)",
+  });
+  options.push({
+    value: "zai-global",
+    label: "Global",
+    hint: "Z.AI Global (api.z.ai)",
+  });
+  options.push({
+    value: "zai-cn",
+    label: "CN",
+    hint: "Z.AI CN (open.bigmodel.cn)",
+  });
   options.push({
     value: "xiaomi-api-key",
     label: "Xiaomi API key",
@@ -193,12 +285,14 @@ export function buildAuthChoiceOptions(params: {
     label: "OpenCode Zen (multi-model proxy)",
     hint: "Claude, GPT, Gemini via opencode.ai/zen",
   });
-  options.push({ value: "minimax-api", label: "MiniMax M2.1" });
+  options.push({ value: "minimax-api", label: "MiniMax M2.5" });
   options.push({
     value: "minimax-api-lightning",
-    label: "MiniMax M2.1 Lightning",
+    label: "MiniMax M2.5 Lightning",
     hint: "Faster, higher output cost",
   });
+  options.push({ value: "custom-api-key", label: "Custom Provider" });
+
   if (params.includeSkip) {
     options.push({ value: "skip", label: "Skip for now" });
   }

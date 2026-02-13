@@ -5,7 +5,12 @@ import { ApprovalsSchema } from "./zod-schema.approvals.js";
 import { HexColorSchema, ModelsConfigSchema } from "./zod-schema.core.js";
 import { HookMappingSchema, HooksGmailSchema, InternalHooksSchema } from "./zod-schema.hooks.js";
 import { ChannelsSchema } from "./zod-schema.providers.js";
-import { CommandsSchema, MessagesSchema, SessionSchema } from "./zod-schema.session.js";
+import {
+  CommandsSchema,
+  MessagesSchema,
+  SessionSchema,
+  SessionSendPolicySchema,
+} from "./zod-schema.session.js";
 
 const BrowserSnapshotDefaultsSchema = z
   .object({
@@ -23,6 +28,66 @@ const NodeHostSchema = z
       })
       .strict()
       .optional(),
+  })
+  .strict()
+  .optional();
+
+const MemoryQmdPathSchema = z
+  .object({
+    path: z.string(),
+    name: z.string().optional(),
+    pattern: z.string().optional(),
+  })
+  .strict();
+
+const MemoryQmdSessionSchema = z
+  .object({
+    enabled: z.boolean().optional(),
+    exportDir: z.string().optional(),
+    retentionDays: z.number().int().nonnegative().optional(),
+  })
+  .strict();
+
+const MemoryQmdUpdateSchema = z
+  .object({
+    interval: z.string().optional(),
+    debounceMs: z.number().int().nonnegative().optional(),
+    onBoot: z.boolean().optional(),
+    waitForBootSync: z.boolean().optional(),
+    embedInterval: z.string().optional(),
+    commandTimeoutMs: z.number().int().nonnegative().optional(),
+    updateTimeoutMs: z.number().int().nonnegative().optional(),
+    embedTimeoutMs: z.number().int().nonnegative().optional(),
+  })
+  .strict();
+
+const MemoryQmdLimitsSchema = z
+  .object({
+    maxResults: z.number().int().positive().optional(),
+    maxSnippetChars: z.number().int().positive().optional(),
+    maxInjectedChars: z.number().int().positive().optional(),
+    timeoutMs: z.number().int().nonnegative().optional(),
+  })
+  .strict();
+
+const MemoryQmdSchema = z
+  .object({
+    command: z.string().optional(),
+    searchMode: z.union([z.literal("query"), z.literal("search"), z.literal("vsearch")]).optional(),
+    includeDefaultMemory: z.boolean().optional(),
+    paths: z.array(MemoryQmdPathSchema).optional(),
+    sessions: MemoryQmdSessionSchema.optional(),
+    update: MemoryQmdUpdateSchema.optional(),
+    limits: MemoryQmdLimitsSchema.optional(),
+    scope: SessionSendPolicySchema.optional(),
+  })
+  .strict();
+
+const MemorySchema = z
+  .object({
+    backend: z.union([z.literal("builtin"), z.literal("qmd")]).optional(),
+    citations: z.union([z.literal("auto"), z.literal("on"), z.literal("off")]).optional(),
+    qmd: MemoryQmdSchema.optional(),
   })
   .strict()
   .optional();
@@ -154,7 +219,7 @@ export const OpenClawSchema = z
               .object({
                 cdpPort: z.number().int().min(1).max(65535).optional(),
                 cdpUrl: z.string().optional(),
-                driver: z.union([z.literal("openclaw"), z.literal("extension")]).optional(),
+                driver: z.union([z.literal("clawd"), z.literal("extension")]).optional(),
                 color: HexColorSchema,
               })
               .strict()
@@ -228,6 +293,7 @@ export const OpenClawSchema = z
         enabled: z.boolean().optional(),
         store: z.string().optional(),
         maxConcurrentRuns: z.number().int().positive().optional(),
+        sessionRetention: z.union([z.string(), z.literal(false)]).optional(),
       })
       .strict()
       .optional(),
@@ -236,6 +302,10 @@ export const OpenClawSchema = z
         enabled: z.boolean().optional(),
         path: z.string().optional(),
         token: z.string().optional(),
+        defaultSessionKey: z.string().optional(),
+        allowRequestSessionKey: z.boolean().optional(),
+        allowedSessionKeyPrefixes: z.array(z.string()).optional(),
+        allowedAgentIds: z.array(z.string()).optional(),
         maxBodyBytes: z.number().int().positive().optional(),
         presets: z.array(z.string()).optional(),
         transformsDir: z.string().optional(),
@@ -268,7 +338,6 @@ export const OpenClawSchema = z
         wideArea: z
           .object({
             enabled: z.boolean().optional(),
-            domain: z.string().optional(),
           })
           .strict()
           .optional(),
@@ -318,6 +387,8 @@ export const OpenClawSchema = z
           .object({
             enabled: z.boolean().optional(),
             basePath: z.string().optional(),
+            root: z.string().optional(),
+            allowedOrigins: z.array(z.string()).optional(),
             allowInsecureAuth: z.boolean().optional(),
             dangerouslyDisableDeviceAuth: z.boolean().optional(),
           })
@@ -389,9 +460,11 @@ export const OpenClawSchema = z
                   .object({
                     enabled: z.boolean().optional(),
                     maxBodyBytes: z.number().int().positive().optional(),
+                    maxUrlParts: z.number().int().nonnegative().optional(),
                     files: z
                       .object({
                         allowUrl: z.boolean().optional(),
+                        urlAllowlist: z.array(z.string()).optional(),
                         allowedMimes: z.array(z.string()).optional(),
                         maxBytes: z.number().int().positive().optional(),
                         maxChars: z.number().int().positive().optional(),
@@ -411,6 +484,7 @@ export const OpenClawSchema = z
                     images: z
                       .object({
                         allowUrl: z.boolean().optional(),
+                        urlAllowlist: z.array(z.string()).optional(),
                         allowedMimes: z.array(z.string()).optional(),
                         maxBytes: z.number().int().positive().optional(),
                         maxRedirects: z.number().int().nonnegative().optional(),
@@ -446,6 +520,7 @@ export const OpenClawSchema = z
       })
       .strict()
       .optional(),
+    memory: MemorySchema,
     skills: z
       .object({
         allowBundled: z.array(z.string()).optional(),

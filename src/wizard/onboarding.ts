@@ -10,7 +10,6 @@ import type { QuickstartGatewayDefaults, WizardFlow } from "./onboarding.types.j
 import { ensureAuthProfileStore } from "../agents/auth-profiles.js";
 import { listChannelPlugins } from "../channels/plugins/index.js";
 import { formatCliCommand } from "../cli/command-format.js";
-import { installCompletion } from "../cli/completion-cli.js";
 import { promptAuthChoiceGrouped } from "../commands/auth-choice-prompt.js";
 import {
   applyAuthChoice,
@@ -19,6 +18,7 @@ import {
 } from "../commands/auth-choice.js";
 import { applyPrimaryModel, promptDefaultModel } from "../commands/model-picker.js";
 import { setupChannels } from "../commands/onboard-channels.js";
+import { promptCustomApiConfig } from "../commands/onboard-custom.js";
 import {
   applyWizardMetadata,
   DEFAULT_WORKSPACE,
@@ -379,26 +379,38 @@ export async function runOnboardingWizard(
       includeSkip: true,
     }));
 
-  const authResult = await applyAuthChoice({
-    authChoice,
-    config: nextConfig,
-    prompter,
-    runtime,
-    setDefaultModel: true,
-    opts: {
-      tokenProvider: opts.tokenProvider,
-      token: opts.authChoice === "apiKey" && opts.token ? opts.token : undefined,
-    },
-  });
-  nextConfig = authResult.config;
+  let customPreferredProvider: string | undefined;
+  if (authChoice === "custom-api-key") {
+    const customResult = await promptCustomApiConfig({
+      prompter,
+      runtime,
+      config: nextConfig,
+    });
+    nextConfig = customResult.config;
+    customPreferredProvider = customResult.providerId;
+  } else {
+    const authResult = await applyAuthChoice({
+      authChoice,
+      config: nextConfig,
+      prompter,
+      runtime,
+      setDefaultModel: true,
+      opts: {
+        tokenProvider: opts.tokenProvider,
+        token: opts.authChoice === "apiKey" && opts.token ? opts.token : undefined,
+      },
+    });
+    nextConfig = authResult.config;
+  }
 
-  if (authChoiceFromPrompt) {
+  if (authChoiceFromPrompt && authChoice !== "custom-api-key") {
     const modelSelection = await promptDefaultModel({
       config: nextConfig,
       prompter,
       allowKeep: true,
       ignoreAllowlist: true,
-      preferredProvider: resolvePreferredProviderForAuthChoice(authChoice),
+      preferredProvider:
+        customPreferredProvider ?? resolvePreferredProviderForAuthChoice(authChoice),
     });
     if (modelSelection.model) {
       nextConfig = applyPrimaryModel(nextConfig, modelSelection.model);
@@ -455,7 +467,7 @@ export async function runOnboardingWizard(
   nextConfig = applyWizardMetadata(nextConfig, { command: "onboard", mode });
   await writeConfigFile(nextConfig);
 
-  await finalizeOnboardingWizard({
+  const { launchedTui } = await finalizeOnboardingWizard({
     flow,
     opts,
     baseConfig,
@@ -465,16 +477,7 @@ export async function runOnboardingWizard(
     prompter,
     runtime,
   });
-
-  const installShell = await prompter.confirm({
-    message: "Install shell completion script?",
-    initialValue: true,
-  });
-
-  if (installShell) {
-    const shell = process.env.SHELL?.split("/").pop() || "zsh";
-    // We pass 'yes=true' to skip any double-confirmation inside the helper,
-    // as the wizard prompt above serves as confirmation.
-    await installCompletion(shell, true);
+  if (launchedTui) {
+    return;
   }
 }
