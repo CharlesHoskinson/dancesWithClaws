@@ -73,20 +73,14 @@ describe("key-hierarchy", () => {
     it("fails with wrong key", () => {
       const key1 = generateVmk();
       const key2 = generateVmk();
-      const { iv, ciphertext, authTag } = aesGcmEncrypt(
-        key1,
-        Buffer.from("test"),
-      );
+      const { iv, ciphertext, authTag } = aesGcmEncrypt(key1, Buffer.from("test"));
 
       expect(() => aesGcmDecrypt(key2, iv, ciphertext, authTag)).toThrow();
     });
 
     it("fails with tampered ciphertext", () => {
       const key = generateVmk();
-      const { iv, ciphertext, authTag } = aesGcmEncrypt(
-        key,
-        Buffer.from("test"),
-      );
+      const { iv, ciphertext, authTag } = aesGcmEncrypt(key, Buffer.from("test"));
 
       ciphertext[0] ^= 0xff;
       expect(() => aesGcmDecrypt(key, iv, ciphertext, authTag)).toThrow();
@@ -94,10 +88,7 @@ describe("key-hierarchy", () => {
 
     it("fails with tampered auth tag", () => {
       const key = generateVmk();
-      const { iv, ciphertext, authTag } = aesGcmEncrypt(
-        key,
-        Buffer.from("test"),
-      );
+      const { iv, ciphertext, authTag } = aesGcmEncrypt(key, Buffer.from("test"));
 
       authTag[0] ^= 0xff;
       expect(() => aesGcmDecrypt(key, iv, ciphertext, authTag)).toThrow();

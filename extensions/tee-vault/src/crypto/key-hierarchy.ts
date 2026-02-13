@@ -38,13 +38,7 @@ export async function deriveEntryKey(
   version: number,
 ): Promise<Buffer> {
   const info = Buffer.from(`${entryId}||${version}`, "utf8");
-  const derived = await hkdfAsync(
-    HKDF_HASH,
-    vmk,
-    Buffer.alloc(0),
-    info,
-    VMK_KEY_LENGTH,
-  );
+  const derived = await hkdfAsync(HKDF_HASH, vmk, Buffer.alloc(0), info, VMK_KEY_LENGTH);
   return Buffer.from(derived);
 }
 
@@ -78,11 +72,7 @@ export function computeHmac(key: Buffer, data: Buffer): Buffer {
 }
 
 /** Constant-time HMAC-SHA256 verification. */
-export function verifyHmac(
-  key: Buffer,
-  data: Buffer,
-  expected: Buffer,
-): boolean {
+export function verifyHmac(key: Buffer, data: Buffer, expected: Buffer): boolean {
   const actual = computeHmac(key, data);
   if (actual.length !== expected.length) {
     return false;
@@ -119,10 +109,7 @@ export async function deriveKeyFromPassphrase(
  * Seal VMK with a passphrase (openssl-pbkdf2 backend).
  * Returns: salt(32) || iv(12) || ciphertext || authTag(16)
  */
-export async function sealVmkWithPassphrase(
-  vmk: Buffer,
-  passphrase: string,
-): Promise<Buffer> {
+export async function sealVmkWithPassphrase(vmk: Buffer, passphrase: string): Promise<Buffer> {
   const { key, salt } = await deriveKeyFromPassphrase(passphrase);
   try {
     const { iv, ciphertext, authTag } = aesGcmEncrypt(key, vmk);
@@ -133,15 +120,9 @@ export async function sealVmkWithPassphrase(
 }
 
 /** Unseal VMK from a passphrase-sealed blob. */
-export async function unsealVmkWithPassphrase(
-  sealed: Buffer,
-  passphrase: string,
-): Promise<Buffer> {
+export async function unsealVmkWithPassphrase(sealed: Buffer, passphrase: string): Promise<Buffer> {
   const salt = sealed.subarray(0, PBKDF2_SALT_LENGTH);
-  const iv = sealed.subarray(
-    PBKDF2_SALT_LENGTH,
-    PBKDF2_SALT_LENGTH + GCM_IV_LENGTH,
-  );
+  const iv = sealed.subarray(PBKDF2_SALT_LENGTH, PBKDF2_SALT_LENGTH + GCM_IV_LENGTH);
   const authTag = sealed.subarray(sealed.length - GCM_AUTH_TAG_LENGTH);
   const ciphertext = sealed.subarray(
     PBKDF2_SALT_LENGTH + GCM_IV_LENGTH,

@@ -3,10 +3,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import {
-  generateSshConfigBlock,
-  generateMcpSshConfig,
-} from "../../src/integrations/ssh-config.js";
+import { generateSshConfigBlock, generateMcpSshConfig } from "../../src/integrations/ssh-config.js";
 
 describe("ssh-config", () => {
   describe("generateSshConfigBlock", () => {

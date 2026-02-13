@@ -10,21 +10,14 @@ import { appendAuditLog } from "./src/audit/tee-audit.js";
 import { registerTeeCli } from "./src/cli/tee-cli.js";
 import { DEFAULT_AUTO_LOCK_TIMEOUT_MS } from "./src/constants.js";
 import { createTeeCryptoTool } from "./src/tools/tee-crypto-tool.js";
-import {
-  createSshKeygenTool,
-  createSshSignTool,
-} from "./src/tools/tee-ssh-tool.js";
-import {
-  createVaultStoreTool,
-  createVaultRetrieveTool,
-} from "./src/tools/tee-vault-tool.js";
+import { createSshKeygenTool, createSshSignTool } from "./src/tools/tee-ssh-tool.js";
+import { createVaultStoreTool, createVaultRetrieveTool } from "./src/tools/tee-vault-tool.js";
 import * as vaultLock from "./src/vault/vault-lock.js";
 
 const teeVaultPlugin = {
   id: "tee-vault",
   name: "TEE Vault",
-  description:
-    "Hardware-backed encrypted vault for secrets, SSH keys, and private keys",
+  description: "Hardware-backed encrypted vault for secrets, SSH keys, and private keys",
 
   register(api: OpenClawPluginApi) {
     const stateDir = resolveStateDir(api);
@@ -138,8 +131,7 @@ const teeVaultPlugin = {
 
       // Check yubihsm-connector health on startup (non-blocking)
       try {
-        const { isConnectorRunning } =
-          await import("./src/integrations/ssh-config.js");
+        const { isConnectorRunning } = await import("./src/integrations/ssh-config.js");
         const running = await isConnectorRunning();
         if (running) {
           api.logger.info("yubihsm-connector is reachable.");
@@ -150,8 +142,7 @@ const teeVaultPlugin = {
 
       // Check OpenBao health on startup (non-blocking)
       try {
-        const { isOpenbaoReady } =
-          await import("./src/integrations/openbao.js");
+        const { isOpenbaoReady } = await import("./src/integrations/openbao.js");
         const ready = await isOpenbaoReady();
         if (ready) {
           api.logger.info("OpenBao is initialized and unsealed.");
@@ -165,10 +156,7 @@ const teeVaultPlugin = {
 
 function resolveStateDir(api: OpenClawPluginApi): string {
   // Use the runtime state directory or fall back to config
-  if (
-    typeof api.pluginConfig?.stateDir === "string" &&
-    api.pluginConfig.stateDir
-  ) {
+  if (typeof api.pluginConfig?.stateDir === "string" && api.pluginConfig.stateDir) {
     return api.pluginConfig.stateDir;
   }
   // Default: use the workspace or agent state dir
