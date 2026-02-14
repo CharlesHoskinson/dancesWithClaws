@@ -204,8 +204,10 @@ export function createSurgePriceTool(): AnyAgentTool {
     parameters: Type.Object({
       token: Type.String({ description: "Token policy ID or ticker symbol" }),
     }),
-    execute: async (args: Record<string, unknown>) => {
-      const token = readStringParam(args, "token");
+    execute: async (_toolCallId, args) => {
+      const params = args as Record<string, unknown>;
+      const token = readStringParam(params, "token", { required: true });
+      if (!token) return jsonResult({ error: "Token is required" });
       const resp = await fetchJson<{ price: string; change24h: string }>(
         `${SURGE_API}/price/${encodeURIComponent(token)}`,
       );
@@ -230,6 +232,6 @@ export function createSurgeTools(): AnyAgentTool[] {
   return [createSurgePoolsTool(), createSurgeQuoteTool(), createSurgePriceTool()];
 }
 
-export function createDefiTools(): AnyAgentTool[] {
+export function createDefiTools(cfg?: OpenClawConfig): AnyAgentTool[] {
   return [...createLiqwidTools(), ...createSurgeTools()];
 }

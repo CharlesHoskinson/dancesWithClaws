@@ -22,4 +22,8 @@ ENV https_proxy=http://proxy:3128
 ENV no_proxy=localhost,127.0.0.1
 USER sandboxuser
 
+RUN useradd --create-home --shell /bin/bash sandbox
+USER sandbox
+WORKDIR /home/sandbox
+
 CMD ["sleep", "infinity"]

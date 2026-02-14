@@ -3,10 +3,15 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import type { OpenClawConfig } from "../config/config.js";
 import type { RuntimeEnv } from "../runtime.js";
 import type { LineChannelData, ResolvedLineAccount } from "./types.js";
-import { resolveEffectiveMessagesConfig } from "../agents/identity.js";
 import { chunkMarkdownText } from "../auto-reply/chunk.js";
 import { dispatchReplyWithBufferedBlockDispatcher } from "../auto-reply/reply/provider-dispatcher.js";
+import { createReplyPrefixOptions } from "../channels/reply-prefix.js";
 import { danger, logVerbose } from "../globals.js";
+import {
+  isRequestBodyLimitError,
+  readRequestBodyWithLimit,
+  requestBodyErrorToText,
+} from "../infra/http-body.js";
 import { normalizePluginHttpPath } from "../plugins/http-path.js";
 import { registerPluginHttpRoute } from "../plugins/http-registry.js";
 import { deliverLineAutoReply } from "./auto-reply-delivery.js";
@@ -45,6 +50,9 @@ export interface LineProviderMonitor {
   handleWebhook: (body: WebhookRequestBody) => Promise<void>;
   stop: () => void;
 }
+
+const LINE_WEBHOOK_MAX_BODY_BYTES = 1024 * 1024;
+const LINE_WEBHOOK_BODY_TIMEOUT_MS = 30_000;
 
 // Track runtime state in memory (simplified version)
 const runtimeState = new Map<
@@ -85,12 +93,13 @@ export function getLineRuntimeState(accountId: string) {
   return runtimeState.get(`line:${accountId}`);
 }
 
-async function readRequestBody(req: IncomingMessage): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const chunks: Buffer[] = [];
-    req.on("data", (chunk) => chunks.push(chunk));
-    req.on("end", () => resolve(Buffer.concat(chunks).toString("utf-8")));
-    req.on("error", reject);
+export async function readLineWebhookRequestBody(
+  req: IncomingMessage,
+  maxBytes = LINE_WEBHOOK_MAX_BODY_BYTES,
+): Promise<string> {
+  return await readRequestBodyWithLimit(req, {
+    maxBytes,
+    timeoutMs: LINE_WEBHOOK_BODY_TIMEOUT_MS,
   });
 }
 
@@ -192,12 +201,18 @@ export async function monitorLineProvider(
       try {
         const textLimit = 5000; // LINE max message length
         let replyTokenUsed = false; // Track if we've used the one-time reply token
+        const { onModelSelected, ...prefixOptions } = createReplyPrefixOptions({
+          cfg: config,
+          agentId: route.agentId,
+          channel: "line",
+          accountId: route.accountId,
+        });
 
         const { queuedFinal } = await dispatchReplyWithBufferedBlockDispatcher({
           ctx: ctxPayload,
           cfg: config,
           dispatcherOptions: {
-            responsePrefix: resolveEffectiveMessagesConfig(config, route.agentId).responsePrefix,
+            ...prefixOptions,
             deliver: async (payload, _info) => {
               const lineData = (payload.channelData?.line as LineChannelData | undefined) ?? {};
 
@@ -249,7 +264,9 @@ export async function monitorLineProvider(
               runtime.error?.(danger(`line ${info.kind} reply failed: ${String(err)}`));
             },
           },
-          replyOptions: {},
+          replyOptions: {
+            onModelSelected,
+          },
         });
 
         if (!queuedFinal) {
@@ -302,7 +319,7 @@ export async function monitorLineProvider(
       }
 
       try {
-        const rawBody = await readRequestBody(req);
+        const rawBody = await readLineWebhookRequestBody(req, LINE_WEBHOOK_MAX_BODY_BYTES);
         const signature = req.headers["x-line-signature"];
 
         // Validate signature
@@ -338,6 +355,18 @@ export async function monitorLineProvider(
           });
         }
       } catch (err) {
+        if (isRequestBodyLimitError(err, "PAYLOAD_TOO_LARGE")) {
+          res.statusCode = 413;
+          res.setHeader("Content-Type", "application/json");
+          res.end(JSON.stringify({ error: "Payload too large" }));
+          return;
+        }
+        if (isRequestBodyLimitError(err, "REQUEST_BODY_TIMEOUT")) {
+          res.statusCode = 408;
+          res.setHeader("Content-Type", "application/json");
+          res.end(JSON.stringify({ error: requestBodyErrorToText("REQUEST_BODY_TIMEOUT") }));
+          return;
+        }
         runtime.error?.(danger(`line webhook error: ${String(err)}`));
         if (!res.headersSent) {
           res.statusCode = 500;

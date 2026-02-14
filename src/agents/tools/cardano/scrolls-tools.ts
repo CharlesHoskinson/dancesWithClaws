@@ -15,7 +15,6 @@ function getCardanoConfig(cfg?: OpenClawConfig): CardanoClientConfig {
   const cardano = tools?.cardano as Record<string, unknown> | undefined;
   return {
     network: (cardano?.network as "mainnet" | "preprod" | "preview") ?? "mainnet",
-    primaryProvider: (cardano?.primaryProvider as "koios" | "blockfrost") ?? "koios",
     blockfrostApiKey: (cardano?.blockfrostApiKey as string) || process.env.BLOCKFROST_API_KEY,
     koiosApiKey: (cardano?.koiosApiKey as string) || process.env.KOIOS_API_KEY,
   };
@@ -45,7 +44,7 @@ export function createScrollsReadTool(cfg?: OpenClawConfig): AnyAgentTool {
       }
 
       const tx = result.data;
-      const metadata = tx.metadata as Record<string, unknown> | undefined;
+      const metadata = (tx as unknown as Record<string, unknown>).metadata as Record<string, unknown> | undefined;
 
       if (!metadata || !metadata[SCROLLS_METADATA_LABEL]) {
         return jsonResult({ error: "No Ledger-Scrolls data found in this transaction" });

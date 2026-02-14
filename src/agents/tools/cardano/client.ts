@@ -83,7 +83,15 @@ export function createCardanoClient(config: CardanoClientConfig = {}) {
       koiosRequest<{ hash: string; epoch_no: number; abs_slot: number; block_no: number }[]>(
         "GET",
         "/tip",
-      ).then((r) => (r.ok ? { ok: true, data: r.data[0] } : r)),
+      ).then(
+        (r) =>
+          (r.ok ? { ok: true, data: r.data[0] } : r) as Result<{
+            hash: string;
+            epoch_no: number;
+            abs_slot: number;
+            block_no: number;
+          }>,
+      ),
     getAssetInfo: (policyId: string, assetName: string) =>
       koiosRequest<AssetInfo[]>("POST", "/asset_info", {
         _asset_list: [[policyId, assetName]],

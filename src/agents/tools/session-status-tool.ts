@@ -104,7 +104,7 @@ function resolveModelAuthLabel(params: {
     if (profile.type === "token") {
       return `token ${formatApiKeySnippet(profile.token)}${label ? ` (${label})` : ""}`;
     }
-    return `api-key ${formatApiKeySnippet(profile.key)}${label ? ` (${label})` : ""}`;
+    return `api-key ${formatApiKeySnippet(profile.key ?? "")}${label ? ` (${label})` : ""}`;
   }
 
   const envKey = resolveEnvApiKey(providerKey);
@@ -436,8 +436,10 @@ export function createSessionStatusTool(opts?: {
           ...agentDefaults,
           model: agentModel,
         },
+        agentId,
         sessionEntry: resolved.entry,
         sessionKey: resolved.key,
+        sessionStorePath: storePath,
         groupActivation,
         modelAuth: resolveModelAuthLabel({
           provider: providerForCard,

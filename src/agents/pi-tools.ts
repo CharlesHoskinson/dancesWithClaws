@@ -13,6 +13,7 @@ import { logWarn } from "../logger.js";
 import { getPluginToolMeta } from "../plugins/tools.js";
 import { isSubagentSessionKey } from "../routing/session-key.js";
 import { resolveGatewayMessageChannel } from "../utils/message-channel.js";
+import { resolveAgentConfig } from "./agent-scope.js";
 import { createApplyPatchTool } from "./apply-patch.js";
 import {
   createExecTool,
@@ -44,6 +45,7 @@ import {
 } from "./pi-tools.read.js";
 import { cleanToolSchemaForGemini, normalizeToolParameters } from "./pi-tools.schema.js";
 import {
+  applyOwnerOnlyToolPolicy,
   buildPluginToolGroups,
   collectExplicitAllowlist,
   expandPolicyWithPluginGroups,
@@ -85,21 +87,25 @@ function isApplyPatchAllowedForModel(params: {
   });
 }
 
-function resolveExecConfig(cfg: OpenClawConfig | undefined) {
+function resolveExecConfig(params: { cfg?: OpenClawConfig; agentId?: string }) {
+  const cfg = params.cfg;
   const globalExec = cfg?.tools?.exec;
+  const agentExec =
+    cfg && params.agentId ? resolveAgentConfig(cfg, params.agentId)?.tools?.exec : undefined;
   return {
-    host: globalExec?.host,
-    security: globalExec?.security,
-    ask: globalExec?.ask,
-    node: globalExec?.node,
-    pathPrepend: globalExec?.pathPrepend,
-    safeBins: globalExec?.safeBins,
-    backgroundMs: globalExec?.backgroundMs,
-    timeoutSec: globalExec?.timeoutSec,
-    approvalRunningNoticeMs: globalExec?.approvalRunningNoticeMs,
-    cleanupMs: globalExec?.cleanupMs,
-    notifyOnExit: globalExec?.notifyOnExit,
-    applyPatch: globalExec?.applyPatch,
+    host: agentExec?.host ?? globalExec?.host,
+    security: agentExec?.security ?? globalExec?.security,
+    ask: agentExec?.ask ?? globalExec?.ask,
+    node: agentExec?.node ?? globalExec?.node,
+    pathPrepend: agentExec?.pathPrepend ?? globalExec?.pathPrepend,
+    safeBins: agentExec?.safeBins ?? globalExec?.safeBins,
+    backgroundMs: agentExec?.backgroundMs ?? globalExec?.backgroundMs,
+    timeoutSec: agentExec?.timeoutSec ?? globalExec?.timeoutSec,
+    approvalRunningNoticeMs:
+      agentExec?.approvalRunningNoticeMs ?? globalExec?.approvalRunningNoticeMs,
+    cleanupMs: agentExec?.cleanupMs ?? globalExec?.cleanupMs,
+    notifyOnExit: agentExec?.notifyOnExit ?? globalExec?.notifyOnExit,
+    applyPatch: agentExec?.applyPatch ?? globalExec?.applyPatch,
   };
 }
 
@@ -157,6 +163,12 @@ export function createOpenClawCodingTools(options?: {
   hasRepliedRef?: { value: boolean };
   /** If true, the model has native vision capability */
   modelHasVision?: boolean;
+  /** Require explicit message targets (no implicit last-route sends). */
+  requireExplicitMessageTarget?: boolean;
+  /** If true, omit the message tool from the tool list. */
+  disableMessageTool?: boolean;
+  /** Whether the sender is an owner (required for owner-only tools). */
+  senderIsOwner?: boolean;
 }): AnyAgentTool[] {
   const execToolName = "exec";
   const sandbox = options?.sandbox?.enabled ? options.sandbox : undefined;
@@ -205,7 +217,10 @@ export function createOpenClawCodingTools(options?: {
     providerProfilePolicy,
     providerProfileAlsoAllow,
   );
-  const scopeKey = options?.exec?.scopeKey ?? (agentId ? `agent:${agentId}` : undefined);
+  // Prefer sessionKey for process isolation scope to prevent cross-session process visibility/killing.
+  // Fallback to agentId if no sessionKey is available (e.g. legacy or global contexts).
+  const scopeKey =
+    options?.exec?.scopeKey ?? options?.sessionKey ?? (agentId ? `agent:${agentId}` : undefined);
   const subagentPolicy =
     isSubagentSessionKey(options?.sessionKey) && options?.sessionKey
       ? resolveSubagentToolPolicy(options.config)
@@ -221,8 +236,9 @@ export function createOpenClawCodingTools(options?: {
     sandbox?.tools,
     subagentPolicy,
   ]);
-  const execConfig = resolveExecConfig(options?.config);
+  const execConfig = resolveExecConfig({ cfg: options?.config, agentId });
   const sandboxRoot = sandbox?.workspaceDir;
+  const sandboxFsBridge = sandbox?.fsBridge;
   const allowWorkspaceWrites = sandbox?.workspaceAccess !== "ro";
   const workspaceRoot = options?.workspaceDir ?? process.cwd();
   const applyPatchConfig = options?.config?.tools?.exec?.applyPatch;
@@ -235,10 +251,19 @@ export function createOpenClawCodingTools(options?: {
       allowModels: applyPatchConfig?.allowModels,
     });
 
+  if (sandboxRoot && !sandboxFsBridge) {
+    throw new Error("Sandbox filesystem bridge is unavailable.");
+  }
+
   const base = (codingTools as unknown as AnyAgentTool[]).flatMap((tool) => {
     if (tool.name === readTool.name) {
       if (sandboxRoot) {
-        return [createSandboxedReadTool(sandboxRoot)];
+        return [
+          createSandboxedReadTool({
+            root: sandboxRoot,
+            bridge: sandboxFsBridge!,
+          }),
+        ];
       }
       const freshReadTool = createReadTool(workspaceRoot);
       return [createOpenClawReadTool(freshReadTool)];
@@ -302,13 +327,19 @@ export function createOpenClawCodingTools(options?: {
       ? null
       : createApplyPatchTool({
           cwd: sandboxRoot ?? workspaceRoot,
-          sandboxRoot: sandboxRoot && allowWorkspaceWrites ? sandboxRoot : undefined,
+          sandbox:
+            sandboxRoot && allowWorkspaceWrites
+              ? { root: sandboxRoot, bridge: sandboxFsBridge! }
+              : undefined,
         });
   const tools: AnyAgentTool[] = [
     ...base,
     ...(sandboxRoot
       ? allowWorkspaceWrites
-        ? [createSandboxedEditTool(sandboxRoot), createSandboxedWriteTool(sandboxRoot)]
+        ? [
+            createSandboxedEditTool({ root: sandboxRoot, bridge: sandboxFsBridge! }),
+            createSandboxedWriteTool({ root: sandboxRoot, bridge: sandboxFsBridge! }),
+          ]
         : []
       : []),
     ...(applyPatchTool ? [applyPatchTool as unknown as AnyAgentTool] : []),
@@ -329,6 +360,7 @@ export function createOpenClawCodingTools(options?: {
       agentGroupSpace: options?.groupSpace ?? null,
       agentDir: options?.agentDir,
       sandboxRoot,
+      sandboxFsBridge,
       workspaceDir: options?.workspaceDir,
       sandboxed: !!sandbox,
       config: options?.config,
@@ -348,17 +380,22 @@ export function createOpenClawCodingTools(options?: {
       replyToMode: options?.replyToMode,
       hasRepliedRef: options?.hasRepliedRef,
       modelHasVision: options?.modelHasVision,
+      requireExplicitMessageTarget: options?.requireExplicitMessageTarget,
+      disableMessageTool: options?.disableMessageTool,
       requesterAgentIdOverride: agentId,
     }),
   ];
+  // Security: treat unknown/undefined as unauthorized (opt-in, not opt-out)
+  const senderIsOwner = options?.senderIsOwner === true;
+  const toolsByAuthorization = applyOwnerOnlyToolPolicy(tools, senderIsOwner);
   const coreToolNames = new Set(
-    tools
+    toolsByAuthorization
       .filter((tool) => !getPluginToolMeta(tool))
       .map((tool) => normalizeToolName(tool.name))
       .filter(Boolean),
   );
   const pluginGroups = buildPluginToolGroups({
-    tools,
+    tools: toolsByAuthorization,
     toolMeta: (tool) => getPluginToolMeta(tool),
   });
   const resolvePolicy = (policy: typeof profilePolicy, label: string) => {
@@ -395,8 +432,8 @@ export function createOpenClawCodingTools(options?: {
   const subagentPolicyExpanded = expandPolicyWithPluginGroups(subagentPolicy, pluginGroups);
 
   const toolsFiltered = profilePolicyExpanded
-    ? filterToolsByPolicy(tools, profilePolicyExpanded)
-    : tools;
+    ? filterToolsByPolicy(toolsByAuthorization, profilePolicyExpanded)
+    : toolsByAuthorization;
   const providerProfileFiltered = providerProfileExpanded
     ? filterToolsByPolicy(toolsFiltered, providerProfileExpanded)
     : toolsFiltered;

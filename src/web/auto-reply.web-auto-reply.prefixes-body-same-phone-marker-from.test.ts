@@ -33,7 +33,7 @@ const rmDirWithRetries = async (dir: string): Promise<void> => {
           ? String((err as { code?: unknown }).code)
           : null;
       if (code === "ENOTEMPTY" || code === "EBUSY" || code === "EPERM") {
-        await new Promise((resolve) => setTimeout(resolve, 25));
+        await new Promise((resolve) => setTimeout(resolve, 5));
         continue;
       }
       throw err;
@@ -77,7 +77,7 @@ const _makeSessionStore = async (
             ? String((err as { code?: unknown }).code)
             : null;
         if (code === "ENOTEMPTY" || code === "EBUSY" || code === "EPERM") {
-          await new Promise((resolve) => setTimeout(resolve, 25));
+          await new Promise((resolve) => setTimeout(resolve, 5));
           continue;
         }
         throw err;
@@ -256,6 +256,44 @@ describe("web auto-reply", () => {
 
     // Reply should have responsePrefix prepended
     expect(reply).toHaveBeenCalledWith("🦞 hello there");
+    resetLoadConfigMock();
+  });
+  it("applies channel responsePrefix override to replies", async () => {
+    setLoadConfigMock(() => ({
+      channels: { whatsapp: { allowFrom: ["*"], responsePrefix: "[WA]" } },
+      messages: {
+        messagePrefix: undefined,
+        responsePrefix: "[Global]",
+      },
+    }));
+
+    let capturedOnMessage:
+      | ((msg: import("./inbound.js").WebInboundMessage) => Promise<void>)
+      | undefined;
+    const reply = vi.fn();
+    const listenerFactory = async (opts: {
+      onMessage: (msg: import("./inbound.js").WebInboundMessage) => Promise<void>;
+    }) => {
+      capturedOnMessage = opts.onMessage;
+      return { close: vi.fn() };
+    };
+
+    const resolver = vi.fn().mockResolvedValue({ text: "hello there" });
+
+    await monitorWebChannel(false, listenerFactory, false, resolver);
+    expect(capturedOnMessage).toBeDefined();
+
+    await capturedOnMessage?.({
+      body: "hi",
+      from: "+1555",
+      to: "+2666",
+      id: "msg1",
+      sendComposing: vi.fn(),
+      reply,
+      sendMedia: vi.fn(),
+    });
+
+    expect(reply).toHaveBeenCalledWith("[WA] hello there");
     resetLoadConfigMock();
   });
   it("defaults responsePrefix for self-chat replies when unset", async () => {

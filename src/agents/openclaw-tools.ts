@@ -1,5 +1,6 @@
 import type { OpenClawConfig } from "../config/config.js";
 import type { GatewayMessageChannel } from "../utils/message-channel.js";
+import type { SandboxFsBridge } from "./sandbox/fs-bridge.js";
 import type { AnyAgentTool } from "./tools/common.js";
 import { resolvePluginTools } from "../plugins/tools.js";
 import { resolveSessionAgentId } from "./agent-scope.js";
@@ -17,7 +18,6 @@ import { createSessionsHistoryTool } from "./tools/sessions-history-tool.js";
 import { createSessionsListTool } from "./tools/sessions-list-tool.js";
 import { createSessionsSendTool } from "./tools/sessions-send-tool.js";
 import { createSessionsSpawnTool } from "./tools/sessions-spawn-tool.js";
-import { createSokosumiTools } from "./tools/sokosumi-tools.js";
 import { createTtsTool } from "./tools/tts-tool.js";
 import { createWebFetchTool, createWebSearchTool } from "./tools/web-tools.js";
 
@@ -39,6 +39,7 @@ export function createOpenClawTools(options?: {
   agentGroupSpace?: string | null;
   agentDir?: string;
   sandboxRoot?: string;
+  sandboxFsBridge?: SandboxFsBridge;
   workspaceDir?: string;
   sandboxed?: boolean;
   config?: OpenClawConfig;
@@ -55,12 +56,19 @@ export function createOpenClawTools(options?: {
   modelHasVision?: boolean;
   /** Explicit agent ID override for cron/hook sessions. */
   requesterAgentIdOverride?: string;
+  /** Require explicit message targets (no implicit last-route sends). */
+  requireExplicitMessageTarget?: boolean;
+  /** If true, omit the message tool from the tool list. */
+  disableMessageTool?: boolean;
 }): AnyAgentTool[] {
   const imageTool = options?.agentDir?.trim()
     ? createImageTool({
         config: options?.config,
         agentDir: options.agentDir,
-        sandboxRoot: options?.sandboxRoot,
+        sandbox:
+          options?.sandboxRoot && options?.sandboxFsBridge
+            ? { root: options.sandboxRoot, bridge: options.sandboxFsBridge }
+            : undefined,
         modelHasVision: options?.modelHasVision,
       })
     : null;
@@ -72,6 +80,20 @@ export function createOpenClawTools(options?: {
     config: options?.config,
     sandboxed: options?.sandboxed,
   });
+  const messageTool = options?.disableMessageTool
+    ? null
+    : createMessageTool({
+        agentAccountId: options?.agentAccountId,
+        agentSessionKey: options?.agentSessionKey,
+        config: options?.config,
+        currentChannelId: options?.currentChannelId,
+        currentChannelProvider: options?.agentChannel,
+        currentThreadTs: options?.currentThreadTs,
+        replyToMode: options?.replyToMode,
+        hasRepliedRef: options?.hasRepliedRef,
+        sandboxRoot: options?.sandboxRoot,
+        requireExplicitTarget: options?.requireExplicitMessageTarget,
+      });
   const tools: AnyAgentTool[] = [
     createBrowserTool({
       sandboxBridgeUrl: options?.sandboxBrowserBridgeUrl,
@@ -85,17 +107,7 @@ export function createOpenClawTools(options?: {
     createCronTool({
       agentSessionKey: options?.agentSessionKey,
     }),
-    createMessageTool({
-      agentAccountId: options?.agentAccountId,
-      agentSessionKey: options?.agentSessionKey,
-      config: options?.config,
-      currentChannelId: options?.currentChannelId,
-      currentChannelProvider: options?.agentChannel,
-      currentThreadTs: options?.currentThreadTs,
-      replyToMode: options?.replyToMode,
-      hasRepliedRef: options?.hasRepliedRef,
-      sandboxRoot: options?.sandboxRoot,
-    }),
+    ...(messageTool ? [messageTool] : []),
     createTtsTool({
       agentChannel: options?.agentChannel,
       config: options?.config,
@@ -140,7 +152,6 @@ export function createOpenClawTools(options?: {
     ...(webSearchTool ? [webSearchTool] : []),
     ...(webFetchTool ? [webFetchTool] : []),
     ...(imageTool ? [imageTool] : []),
-    ...createSokosumiTools(options?.config),
     ...createCardanoTools(options?.config),
   ];
 

@@ -1,6 +1,11 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { OpenClawConfig } from "openclaw/plugin-sdk";
-import { resolveMentionGatingWithBypass } from "openclaw/plugin-sdk";
+import {
+  createReplyPrefixOptions,
+  readJsonBodyWithLimit,
+  requestBodyErrorToText,
+  resolveMentionGatingWithBypass,
+} from "openclaw/plugin-sdk";
 import type {
   GoogleChatAnnotation,
   GoogleChatAttachment,
@@ -84,46 +89,6 @@ function resolveWebhookPath(webhookPath?: string, webhookUrl?: string): string |
   return "/googlechat";
 }
 
-async function readJsonBody(req: IncomingMessage, maxBytes: number) {
-  const chunks: Buffer[] = [];
-  let total = 0;
-  return await new Promise<{ ok: boolean; value?: unknown; error?: string }>((resolve) => {
-    let resolved = false;
-    const doResolve = (value: { ok: boolean; value?: unknown; error?: string }) => {
-      if (resolved) {
-        return;
-      }
-      resolved = true;
-      req.removeAllListeners();
-      resolve(value);
-    };
-    req.on("data", (chunk: Buffer) => {
-      total += chunk.length;
-      if (total > maxBytes) {
-        doResolve({ ok: false, error: "payload too large" });
-        req.destroy();
-        return;
-      }
-      chunks.push(chunk);
-    });
-    req.on("end", () => {
-      try {
-        const raw = Buffer.concat(chunks).toString("utf8");
-        if (!raw.trim()) {
-          doResolve({ ok: false, error: "empty payload" });
-          return;
-        }
-        doResolve({ ok: true, value: JSON.parse(raw) as unknown });
-      } catch (err) {
-        doResolve({ ok: false, error: err instanceof Error ? err.message : String(err) });
-      }
-    });
-    req.on("error", (err) => {
-      doResolve({ ok: false, error: err instanceof Error ? err.message : String(err) });
-    });
-  });
-}
-
 export function registerGoogleChatWebhookTarget(target: WebhookTarget): () => void {
   const key = normalizeWebhookPath(target.path);
   const normalizedTarget = { ...target, path: key };
@@ -178,10 +143,19 @@ export async function handleGoogleChatWebhookRequest(
     ? authHeader.slice("bearer ".length)
     : "";
 
-  const body = await readJsonBody(req, 1024 * 1024);
+  const body = await readJsonBodyWithLimit(req, {
+    maxBytes: 1024 * 1024,
+    timeoutMs: 30_000,
+    emptyObjectOnEmpty: false,
+  });
   if (!body.ok) {
-    res.statusCode = body.error === "payload too large" ? 413 : 400;
-    res.end(body.error ?? "invalid payload");
+    res.statusCode =
+      body.code === "PAYLOAD_TOO_LARGE" ? 413 : body.code === "REQUEST_BODY_TIMEOUT" ? 408 : 400;
+    res.end(
+      body.code === "REQUEST_BODY_TIMEOUT"
+        ? requestBodyErrorToText("REQUEST_BODY_TIMEOUT")
+        : body.error,
+    );
     return true;
   }
 
@@ -615,7 +589,7 @@ async function processMessageWithPipeline(params: {
     channel: "googlechat",
     accountId: account.accountId,
     peer: {
-      kind: isGroup ? "group" : "dm",
+      kind: isGroup ? "group" : "direct",
       id: spaceId,
     },
   });
@@ -655,6 +629,7 @@ async function processMessageWithPipeline(params: {
 
   const ctxPayload = core.channel.reply.finalizeInboundContext({
     Body: body,
+    BodyForAgent: rawBody,
     RawBody: rawBody,
     CommandBody: rawBody,
     From: `googlechat:${senderId}`,
@@ -725,10 +700,18 @@ async function processMessageWithPipeline(params: {
     }
   }
 
+  const { onModelSelected, ...prefixOptions } = createReplyPrefixOptions({
+    cfg: config,
+    agentId: route.agentId,
+    channel: "googlechat",
+    accountId: route.accountId,
+  });
+
   await core.channel.reply.dispatchReplyWithBufferedBlockDispatcher({
     ctx: ctxPayload,
     cfg: config,
     dispatcherOptions: {
+      ...prefixOptions,
       deliver: async (payload) => {
         await deliverGoogleChatReply({
           payload,
@@ -748,6 +731,9 @@ async function processMessageWithPipeline(params: {
           `[${account.accountId}] Google Chat ${info.kind} reply failed: ${String(err)}`,
         );
       },
+    },
+    replyOptions: {
+      onModelSelected,
     },
   });
 }
@@ -824,7 +810,8 @@ async function deliverGoogleChatReply(params: {
       const caption = first && !suppressCaption ? payload.text : undefined;
       first = false;
       try {
-        const loaded = await core.channel.media.fetchRemoteMedia(mediaUrl, {
+        const loaded = await core.channel.media.fetchRemoteMedia({
+          url: mediaUrl,
           maxBytes: (account.config.mediaMaxMb ?? 20) * 1024 * 1024,
         });
         const upload = await uploadAttachmentForReply({
@@ -832,7 +819,7 @@ async function deliverGoogleChatReply(params: {
           spaceId,
           buffer: loaded.buffer,
           contentType: loaded.contentType,
-          filename: loaded.filename ?? "attachment",
+          filename: loaded.fileName ?? "attachment",
         });
         if (!upload.attachmentUploadToken) {
           throw new Error("missing attachment upload token");
@@ -843,7 +830,7 @@ async function deliverGoogleChatReply(params: {
           text: caption,
           thread: payload.replyToId,
           attachments: [
-            { attachmentUploadToken: upload.attachmentUploadToken, contentName: loaded.filename },
+            { attachmentUploadToken: upload.attachmentUploadToken, contentName: loaded.fileName },
           ],
         });
         statusSink?.({ lastOutboundAt: Date.now() });

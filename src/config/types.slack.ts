@@ -73,6 +73,8 @@ export type SlackThreadConfig = {
   historyScope?: "thread" | "channel";
   /** If true, thread sessions inherit the parent channel transcript. Default: false. */
   inheritParent?: boolean;
+  /** Maximum number of thread messages to fetch as context when starting a new thread session (default: 20). Set to 0 to disable thread history fetching. */
+  initialHistoryLimit?: number;
 };
 
 export type SlackAccountConfig = {
@@ -142,6 +144,8 @@ export type SlackAccountConfig = {
   channels?: Record<string, SlackChannelConfig>;
   /** Heartbeat visibility settings for this channel. */
   heartbeat?: ChannelHeartbeatVisibilityConfig;
+  /** Outbound response prefix override for this channel/account. */
+  responsePrefix?: string;
 };
 
 export type SlackConfig = {
