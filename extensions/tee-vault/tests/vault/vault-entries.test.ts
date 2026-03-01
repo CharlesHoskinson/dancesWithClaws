@@ -1,4 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
+import type { VaultEnvelope } from "../../src/types.js";
+import { generateVmk, zeroBuffer } from "../../src/crypto/key-hierarchy.js";
 import {
   addEntry,
   retrieveEntry,
@@ -8,8 +10,6 @@ import {
   rotateAllEntries,
 } from "../../src/vault/vault-entries.js";
 import { createEmptyEnvelope } from "../../src/vault/vault-store.js";
-import { generateVmk, zeroBuffer } from "../../src/crypto/key-hierarchy.js";
-import type { VaultEnvelope } from "../../src/types.js";
 
 describe("vault-entries", () => {
   let vmk: Buffer;
@@ -48,7 +48,11 @@ describe("vault-entries", () => {
         value: Buffer.from("value1"),
       });
       await expect(
-        addEntry(updated, vmk, { label: "dup", type: "secret", value: Buffer.from("value2") }),
+        addEntry(updated, vmk, {
+          label: "dup",
+          type: "secret",
+          value: Buffer.from("value2"),
+        }),
       ).rejects.toThrow("already exists");
     });
 
@@ -80,7 +84,9 @@ describe("vault-entries", () => {
     });
 
     it("throws for nonexistent entry", async () => {
-      await expect(retrieveEntry(envelope, vmk, "nope")).rejects.toThrow("not found");
+      await expect(retrieveEntry(envelope, vmk, "nope")).rejects.toThrow(
+        "not found",
+      );
     });
 
     it("throws for HSM-resident entries", async () => {
@@ -91,7 +97,9 @@ describe("vault-entries", () => {
         hsmResident: true,
         hsmObjectId: 1,
       });
-      await expect(retrieveEntry(updated, vmk, "hsm")).rejects.toThrow("HSM-resident");
+      await expect(retrieveEntry(updated, vmk, "hsm")).rejects.toThrow(
+        "HSM-resident",
+      );
     });
   });
 

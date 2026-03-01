@@ -6,13 +6,13 @@
  * dynamic import() so graphene-pk11 is only loaded when needed.
  */
 
+import type { YubiHsmConfig } from "../types.js";
 import {
   YUBIHSM_DEFAULT_PKCS11_PATH,
   YUBIHSM_DEFAULT_CONNECTOR_URL,
   YUBIHSM_DEFAULT_SLOT,
   VMK_KEY_LENGTH,
 } from "../constants.js";
-import type { YubiHsmConfig } from "../types.js";
 
 // Types from graphene-pk11 (declared here to avoid hard dependency)
 interface GrapheneModule {
@@ -32,14 +32,23 @@ interface GrapheneSession {
   close(): void;
   generateKey(mechanism: unknown, template: unknown): GrapheneKey;
   createSign(mechanism: unknown, key: unknown): GrapheneSigner;
-  generateKeyPair(mechanism: unknown, pubTemplate: unknown, privTemplate: unknown): {
+  generateKeyPair(
+    mechanism: unknown,
+    pubTemplate: unknown,
+    privTemplate: unknown,
+  ): {
     publicKey: GrapheneKey;
     privateKey: GrapheneKey;
   };
   findObjects(template: unknown): GrapheneKey[];
   destroy(obj: unknown): void;
   wrapKey(mechanism: unknown, wrappingKey: unknown, key: unknown): Buffer;
-  unwrapKey(mechanism: unknown, unwrappingKey: unknown, wrappedKey: Buffer, template: unknown): GrapheneKey;
+  unwrapKey(
+    mechanism: unknown,
+    unwrappingKey: unknown,
+    wrappedKey: Buffer,
+    template: unknown,
+  ): GrapheneKey;
 }
 
 interface GrapheneKey {
@@ -59,7 +68,9 @@ let activeSession: GrapheneSession | null = null;
 
 /** Attempt to load graphene-pk11 dynamically. Returns null if unavailable. */
 async function loadGraphene(): Promise<GrapheneModule | null> {
-  if (grapheneModule) return grapheneModule;
+  if (grapheneModule) {
+    return grapheneModule;
+  }
   try {
     const graphene = await import("graphene-pk11");
     grapheneModule = graphene.Module as unknown as GrapheneModule;
@@ -70,9 +81,13 @@ async function loadGraphene(): Promise<GrapheneModule | null> {
 }
 
 /** Check if YubiHSM 2 is available (graphene-pk11 installed + device connected). */
-export async function isYubiHsmAvailable(config?: Partial<YubiHsmConfig>): Promise<boolean> {
+export async function isYubiHsmAvailable(
+  config?: Partial<YubiHsmConfig>,
+): Promise<boolean> {
   const graphene = await loadGraphene();
-  if (!graphene) return false;
+  if (!graphene) {
+    return false;
+  }
   try {
     const pkcs11Path = config?.pkcs11Library ?? YUBIHSM_DEFAULT_PKCS11_PATH;
     const mod = graphene.load(pkcs11Path);
@@ -90,14 +105,21 @@ export async function openSession(
   config: YubiHsmConfig,
   pin: string,
 ): Promise<void> {
-  if (activeSession) return;
+  if (activeSession) {
+    return;
+  }
   const graphene = await loadGraphene();
-  if (!graphene) throw new Error("graphene-pk11 is not installed");
+  if (!graphene) {
+    throw new Error("graphene-pk11 is not installed");
+  }
 
   // Set connector URL via environment for the PKCS#11 library
-  process.env.YUBIHSM_CONNECTOR_URL = config.connectorUrl ?? YUBIHSM_DEFAULT_CONNECTOR_URL;
+  process.env.YUBIHSM_CONNECTOR_URL =
+    config.connectorUrl ?? YUBIHSM_DEFAULT_CONNECTOR_URL;
 
-  const mod = graphene.load(config.pkcs11Library ?? YUBIHSM_DEFAULT_PKCS11_PATH);
+  const mod = graphene.load(
+    config.pkcs11Library ?? YUBIHSM_DEFAULT_PKCS11_PATH,
+  );
   mod.initialize();
   const slot = mod.getSlots(config.slot ?? YUBIHSM_DEFAULT_SLOT);
   // SessionFlag.RW_SESSION | SessionFlag.SERIAL_SESSION = 0x06
@@ -110,7 +132,9 @@ export async function openSession(
 
 /** Close the active PKCS#11 session. */
 export function closeSession(): void {
-  if (!activeSession) return;
+  if (!activeSession) {
+    return;
+  }
   try {
     activeSession.logout();
     activeSession.close();
@@ -122,7 +146,9 @@ export function closeSession(): void {
 
 /** Generate a 256-bit AES VMK inside the HSM (non-extractable). */
 export async function generateHsmVmk(label: string): Promise<number> {
-  if (!activeSession) throw new Error("YubiHSM session not open");
+  if (!activeSession) {
+    throw new Error("YubiHSM session not open");
+  }
   const key = activeSession.generateKey(
     { mechanism: "AES_KEY_GEN" },
     {
@@ -146,8 +172,12 @@ export async function generateHsmVmk(label: string): Promise<number> {
 }
 
 /** Generate an Ed25519 key pair inside the HSM. Returns the object ID. */
-export async function generateHsmEd25519Key(label: string): Promise<{ objectId: number; publicKey: Buffer }> {
-  if (!activeSession) throw new Error("YubiHSM session not open");
+export async function generateHsmEd25519Key(
+  label: string,
+): Promise<{ objectId: number; publicKey: Buffer }> {
+  if (!activeSession) {
+    throw new Error("YubiHSM session not open");
+  }
   const { publicKey, privateKey } = activeSession.generateKeyPair(
     { mechanism: "EDDSA" },
     {
@@ -178,10 +208,13 @@ export async function generateHsmEcdsaKey(
   label: string,
   curve: "P-256" | "P-384",
 ): Promise<{ objectId: number; publicKey: Buffer }> {
-  if (!activeSession) throw new Error("YubiHSM session not open");
-  const ecParams = curve === "P-256"
-    ? Buffer.from("06082a8648ce3d030107", "hex")  // OID 1.2.840.10045.3.1.7
-    : Buffer.from("06052b81040022", "hex");         // OID 1.3.132.0.34
+  if (!activeSession) {
+    throw new Error("YubiHSM session not open");
+  }
+  const ecParams =
+    curve === "P-256"
+      ? Buffer.from("06082a8648ce3d030107", "hex") // OID 1.2.840.10045.3.1.7
+      : Buffer.from("06052b81040022", "hex"); // OID 1.3.132.0.34
   const { publicKey, privateKey } = activeSession.generateKeyPair(
     { mechanism: "ECDSA" },
     {
@@ -212,7 +245,9 @@ export async function generateHsmRsaKey(
   label: string,
   bits: 2048 | 4096,
 ): Promise<{ objectId: number; publicKey: Buffer }> {
-  if (!activeSession) throw new Error("YubiHSM session not open");
+  if (!activeSession) {
+    throw new Error("YubiHSM session not open");
+  }
   const { publicKey, privateKey } = activeSession.generateKeyPair(
     { mechanism: "RSA_PKCS_KEY_PAIR_GEN" },
     {
@@ -246,49 +281,81 @@ export async function hsmSign(
   data: Buffer,
   mechanism: string,
 ): Promise<Buffer> {
-  if (!activeSession) throw new Error("YubiHSM session not open");
+  if (!activeSession) {
+    throw new Error("YubiHSM session not open");
+  }
   const keys = activeSession.findObjects({
     class: "PRIVATE_KEY",
     id: objectId,
   });
-  if (keys.length === 0) throw new Error(`HSM key object ${objectId} not found`);
+  if (keys.length === 0) {
+    throw new Error(`HSM key object ${objectId} not found`);
+  }
   const signer = activeSession.createSign({ mechanism }, keys[0]);
   return signer.once(data);
 }
 
 /** Wrap (encrypt) a key using the HSM VMK via AES key wrap. */
-export async function hsmWrapKey(vmkObjectId: number, keyData: Buffer): Promise<Buffer> {
-  if (!activeSession) throw new Error("YubiHSM session not open");
+export async function hsmWrapKey(
+  vmkObjectId: number,
+  keyData: Buffer,
+): Promise<Buffer> {
+  if (!activeSession) {
+    throw new Error("YubiHSM session not open");
+  }
   const vmkKeys = activeSession.findObjects({
     class: "SECRET_KEY",
     id: vmkObjectId,
   });
-  if (vmkKeys.length === 0) throw new Error(`HSM VMK object ${vmkObjectId} not found`);
+  if (vmkKeys.length === 0) {
+    throw new Error(`HSM VMK object ${vmkObjectId} not found`);
+  }
   // Import the key data temporarily, wrap it, then destroy the temp object
   const tempKey = activeSession.unwrapKey(
     { mechanism: "AES_KEY_WRAP" },
     vmkKeys[0],
     keyData,
-    { class: "SECRET_KEY", keyType: "AES", extractable: true, token: false },
+    {
+      class: "SECRET_KEY",
+      keyType: "AES",
+      extractable: true,
+      token: false,
+    },
   );
-  const wrapped = activeSession.wrapKey({ mechanism: "AES_KEY_WRAP" }, vmkKeys[0], tempKey);
+  const wrapped = activeSession.wrapKey(
+    { mechanism: "AES_KEY_WRAP" },
+    vmkKeys[0],
+    tempKey,
+  );
   activeSession.destroy(tempKey);
   return wrapped;
 }
 
 /** Unwrap (decrypt) a key using the HSM VMK. */
-export async function hsmUnwrapKey(vmkObjectId: number, wrappedKey: Buffer): Promise<Buffer> {
-  if (!activeSession) throw new Error("YubiHSM session not open");
+export async function hsmUnwrapKey(
+  vmkObjectId: number,
+  wrappedKey: Buffer,
+): Promise<Buffer> {
+  if (!activeSession) {
+    throw new Error("YubiHSM session not open");
+  }
   const vmkKeys = activeSession.findObjects({
     class: "SECRET_KEY",
     id: vmkObjectId,
   });
-  if (vmkKeys.length === 0) throw new Error(`HSM VMK object ${vmkObjectId} not found`);
+  if (vmkKeys.length === 0) {
+    throw new Error(`HSM VMK object ${vmkObjectId} not found`);
+  }
   const key = activeSession.unwrapKey(
     { mechanism: "AES_KEY_WRAP" },
     vmkKeys[0],
     wrappedKey,
-    { class: "SECRET_KEY", keyType: "AES", extractable: true, token: false },
+    {
+      class: "SECRET_KEY",
+      keyType: "AES",
+      extractable: true,
+      token: false,
+    },
   );
   const value = key.getAttribute({ value: null }) as Buffer;
   activeSession.destroy(key);
@@ -296,8 +363,13 @@ export async function hsmUnwrapKey(vmkObjectId: number, wrappedKey: Buffer): Pro
 }
 
 /** Get firmware version info from the HSM. */
-export async function getHsmInfo(): Promise<{ firmware: string; serial: string } | null> {
-  if (!activeSession) return null;
+export async function getHsmInfo(): Promise<{
+  firmware: string;
+  serial: string;
+} | null> {
+  if (!activeSession) {
+    return null;
+  }
   try {
     // This would normally query slot/token info
     return { firmware: "unknown", serial: "unknown" };

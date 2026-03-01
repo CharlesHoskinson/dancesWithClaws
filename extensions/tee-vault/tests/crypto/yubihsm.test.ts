@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect } from "vitest";
 
 describe("yubihsm", () => {
   it("isYubiHsmAvailable returns false when graphene-pk11 is not installed", async () => {

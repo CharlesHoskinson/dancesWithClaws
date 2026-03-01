@@ -11,10 +11,10 @@
  */
 
 import { execFile, spawn } from "node:child_process";
-import { promisify } from "node:util";
 import fs from "node:fs/promises";
-import path from "node:path";
 import os from "node:os";
+import path from "node:path";
+import { promisify } from "node:util";
 import { YUBIHSM_DEFAULT_PKCS11_PATH } from "../constants.js";
 
 const execFileAsync = promisify(execFile);
@@ -105,10 +105,14 @@ export async function upsertSshHostConfig(host: SshHostConfig): Promise<void> {
 export async function removeSshHostConfig(hostAlias: string): Promise<boolean> {
   const configPath = getSshConfigPath();
   const existing = await readSshConfig();
-  if (!existing) return false;
+  if (!existing) {
+    return false;
+  }
 
   const updated = replaceHostBlock(existing, hostAlias, "");
-  if (updated === existing) return false;
+  if (updated === existing) {
+    return false;
+  }
 
   await fs.writeFile(configPath, updated, "utf8");
   return true;
@@ -185,7 +189,7 @@ export async function loadPkcs11IntoAgent(
   } catch (err) {
     throw new Error(
       `Failed to load PKCS#11 into ssh-agent: ${err instanceof Error ? err.message : err}. ` +
-      `Ensure ssh-agent is running and yubihsm-connector is active.`,
+        `Ensure ssh-agent is running and yubihsm-connector is active.`,
     );
   }
 }
@@ -234,7 +238,10 @@ export async function isConnectorRunning(
       clearTimeout(timer);
       resolve(res.statusCode === 200);
     });
-    req.on("error", () => { clearTimeout(timer); resolve(false); });
+    req.on("error", () => {
+      clearTimeout(timer);
+      resolve(false);
+    });
     req.end();
   });
 }
@@ -253,10 +260,16 @@ export function generateMcpSshConfig(opts: {
     type: "stdio",
     command: "cmd",
     args: [
-      "/c", "npx", "-y", "@fangjunjie/ssh-mcp-server",
-      "--host", opts.host,
-      "--port", String(opts.port ?? 22),
-      "--username", opts.username,
+      "/c",
+      "npx",
+      "-y",
+      "@fangjunjie/ssh-mcp-server",
+      "--host",
+      opts.host,
+      "--port",
+      String(opts.port ?? 22),
+      "--username",
+      opts.username,
       // No --privateKey — ssh-agent handles auth via PKCS#11
     ],
     env: {},
@@ -267,32 +280,40 @@ export function generateMcpSshConfig(opts: {
 export async function getHsmPublicKeySsh(
   objectId: number,
   connectorUrl?: string,
-  pin?: string,
+  _pin?: string,
 ): Promise<string> {
-  const shellPath = process.platform === "win32"
-    ? "C:\\Program Files\\Yubico\\YubiHSM Shell\\bin\\yubihsm-shell.exe"
-    : "yubihsm-shell";
+  const shellPath =
+    process.platform === "win32"
+      ? "C:\\Program Files\\Yubico\\YubiHSM Shell\\bin\\yubihsm-shell.exe"
+      : "yubihsm-shell";
 
   const { stdout } = await execFileAsync(
     shellPath,
     [
-      "--connector", connectorUrl ?? "http://localhost:12345",
-      "-a", "get-public-key",
-      "-i", String(objectId),
-      "--outformat", "PEM",
+      "--connector",
+      connectorUrl ?? "http://localhost:12345",
+      "-a",
+      "get-public-key",
+      "-i",
+      String(objectId),
+      "--outformat",
+      "PEM",
     ],
     { timeout: TIMEOUT_MS, encoding: "utf8" },
   );
   // The PEM output can be converted to SSH format via ssh-keygen
   const pemKey = stdout.trim();
-  const sshKeygen = process.platform === "win32" ? "ssh-keygen.exe" : "ssh-keygen";
+  const sshKeygen =
+    process.platform === "win32" ? "ssh-keygen.exe" : "ssh-keygen";
 
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve, _reject) => {
     const child = spawn(sshKeygen, ["-i", "-m", "PKCS8", "-f", "/dev/stdin"], {
       stdio: ["pipe", "pipe", "pipe"],
     });
     let out = "";
-    child.stdout?.on("data", (d) => { out += d.toString(); });
+    child.stdout?.on("data", (d) => {
+      out += d.toString();
+    });
     child.on("close", (code) => {
       if (code !== 0) {
         // Return the PEM key as fallback

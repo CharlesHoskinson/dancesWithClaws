@@ -2,15 +2,20 @@
  * tee_crypto tool: generic encrypt/decrypt/sign/verify using vault keys.
  */
 
-import { Type } from "@sinclair/typebox";
 import { createSign, createVerify } from "node:crypto";
+import { Type } from "@sinclair/typebox";
 import type { OpenClawPluginApi } from "../../../../src/plugins/types.js";
+import type { CryptoOperation } from "../types.js";
+import { appendAuditLog } from "../audit/tee-audit.js";
+import {
+  aesGcmEncrypt,
+  aesGcmDecrypt,
+  deriveEntryKey,
+  zeroBuffer,
+} from "../crypto/key-hierarchy.js";
+import * as vaultEntries from "../vault/vault-entries.js";
 import * as vaultLock from "../vault/vault-lock.js";
 import * as vaultStore from "../vault/vault-store.js";
-import * as vaultEntries from "../vault/vault-entries.js";
-import { aesGcmEncrypt, aesGcmDecrypt, deriveEntryKey, zeroBuffer } from "../crypto/key-hierarchy.js";
-import { appendAuditLog } from "../audit/tee-audit.js";
-import type { CryptoOperation } from "../types.js";
 
 export function createTeeCryptoTool(api: OpenClawPluginApi, stateDir: string) {
   return {
@@ -27,19 +32,30 @@ export function createTeeCryptoTool(api: OpenClawPluginApi, stateDir: string) {
       label: Type.String({ description: "Label of the vault key to use" }),
       data: Type.String({ description: "Base64-encoded input data" }),
       signature: Type.Optional(
-        Type.String({ description: "Base64-encoded signature (for verify operation)" }),
+        Type.String({
+          description: "Base64-encoded signature (for verify operation)",
+        }),
       ),
     }),
     async execute(_id: string, params: Record<string, unknown>) {
       const operation = String(params.operation ?? "") as CryptoOperation;
       const label = String(params.label ?? "").trim();
       const dataB64 = String(params.data ?? "");
-      const signatureB64 = typeof params.signature === "string" ? params.signature : undefined;
+      const signatureB64 =
+        typeof params.signature === "string" ? params.signature : undefined;
 
-      if (!label) throw new Error("label is required");
-      if (!dataB64) throw new Error("data is required");
-      if (!operation) throw new Error("operation is required");
-      if (operation === "verify" && !signatureB64) throw new Error("signature required for verify");
+      if (!label) {
+        throw new Error("label is required");
+      }
+      if (!dataB64) {
+        throw new Error("data is required");
+      }
+      if (!operation) {
+        throw new Error("operation is required");
+      }
+      if (operation === "verify" && !signatureB64) {
+        throw new Error("signature required for verify");
+      }
       if (!vaultLock.isUnlocked()) {
         throw new Error("Vault is locked. Run `openclaw tee unlock` first.");
       }
@@ -54,7 +70,9 @@ export function createTeeCryptoTool(api: OpenClawPluginApi, stateDir: string) {
         case "encrypt": {
           // Use the entry's EEK to encrypt arbitrary data
           const entry = envelope.entries.find((e) => e.label === label);
-          if (!entry) throw new Error(`Entry "${label}" not found`);
+          if (!entry) {
+            throw new Error(`Entry "${label}" not found`);
+          }
           const eek = await deriveEntryKey(vmk, entry.id, entry.version);
           try {
             const { iv, ciphertext, authTag } = aesGcmEncrypt(eek, data);
@@ -74,10 +92,14 @@ export function createTeeCryptoTool(api: OpenClawPluginApi, stateDir: string) {
           try {
             parsed = JSON.parse(data.toString("utf8"));
           } catch {
-            throw new Error("For decrypt, data must be base64-encoded JSON with iv, ciphertext, authTag");
+            throw new Error(
+              "For decrypt, data must be base64-encoded JSON with iv, ciphertext, authTag",
+            );
           }
           const entry = envelope.entries.find((e) => e.label === label);
-          if (!entry) throw new Error(`Entry "${label}" not found`);
+          if (!entry) {
+            throw new Error(`Entry "${label}" not found`);
+          }
           const eek = await deriveEntryKey(vmk, entry.id, entry.version);
           try {
             const plaintext = aesGcmDecrypt(
@@ -93,12 +115,13 @@ export function createTeeCryptoTool(api: OpenClawPluginApi, stateDir: string) {
           break;
         }
         case "sign": {
-          const { entry, value: privateKeyBuf } = await vaultEntries.retrieveEntry(
-            envelope, vmk, label,
-          );
+          const { entry, value: privateKeyBuf } =
+            await vaultEntries.retrieveEntry(envelope, vmk, label);
           try {
             const privateKeyPem = privateKeyBuf.toString("utf8");
-            const algorithm = entry.tags.find((t) => t.startsWith("algorithm:"))?.split(":")[1];
+            const algorithm = entry.tags
+              .find((t) => t.startsWith("algorithm:"))
+              ?.split(":")[1];
             const digestAlg = algorithm === "ed25519" ? undefined : "sha256";
             const signer = createSign(digestAlg ?? "sha256");
             signer.update(data);
@@ -112,17 +135,21 @@ export function createTeeCryptoTool(api: OpenClawPluginApi, stateDir: string) {
           break;
         }
         case "verify": {
-          const { entry, value: privateKeyBuf } = await vaultEntries.retrieveEntry(
-            envelope, vmk, label,
-          );
+          const { entry, value: privateKeyBuf } =
+            await vaultEntries.retrieveEntry(envelope, vmk, label);
           try {
             // For verification we need the public key; derive from private
             const privateKeyPem = privateKeyBuf.toString("utf8");
-            const algorithm = entry.tags.find((t) => t.startsWith("algorithm:"))?.split(":")[1];
+            const algorithm = entry.tags
+              .find((t) => t.startsWith("algorithm:"))
+              ?.split(":")[1];
             const digestAlg = algorithm === "ed25519" ? undefined : "sha256";
             const verifier = createVerify(digestAlg ?? "sha256");
             verifier.update(data);
-            const valid = verifier.verify(privateKeyPem, Buffer.from(signatureB64!, "base64"));
+            const valid = verifier.verify(
+              privateKeyPem,
+              Buffer.from(signatureB64!, "base64"),
+            );
             result = { valid };
           } finally {
             privateKeyBuf.fill(0);

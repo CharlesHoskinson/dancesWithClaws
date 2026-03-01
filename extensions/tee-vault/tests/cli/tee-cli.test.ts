@@ -1,11 +1,14 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import fs from "node:fs/promises";
-import path from "node:path";
 import os from "node:os";
-import { generateVmk, sealVmkWithPassphrase } from "../../src/crypto/key-hierarchy.js";
-import * as vaultStore from "../../src/vault/vault-store.js";
-import * as vaultLock from "../../src/vault/vault-lock.js";
+import path from "node:path";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import {
+  generateVmk,
+  sealVmkWithPassphrase,
+} from "../../src/crypto/key-hierarchy.js";
 import * as vaultEntries from "../../src/vault/vault-entries.js";
+import * as vaultLock from "../../src/vault/vault-lock.js";
+import * as vaultStore from "../../src/vault/vault-store.js";
 
 describe("tee-cli", () => {
   let tmpDir: string;
@@ -69,7 +72,11 @@ describe("tee-cli", () => {
     expect(list[0]!.type).toBe("secret");
 
     // Export (retrieve)
-    const { value } = await vaultEntries.retrieveEntry(updated, vmk, "test-secret");
+    const { value } = await vaultEntries.retrieveEntry(
+      updated,
+      vmk,
+      "test-secret",
+    );
     expect(value.toString("utf8")).toBe("my-value-123");
 
     // Lock

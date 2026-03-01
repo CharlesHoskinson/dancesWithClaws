@@ -12,7 +12,8 @@ describe("openbao", () => {
   describe("generateSealConfig", () => {
     it("generates valid HCL seal stanza", () => {
       const config = generateSealConfig({
-        pkcs11Library: "C:\\Program Files\\Yubico\\YubiHSM2\\bin\\yubihsm_pkcs11.dll",
+        pkcs11Library:
+          "C:\\Program Files\\Yubico\\YubiHSM2\\bin\\yubihsm_pkcs11.dll",
       });
       expect(config).toContain('seal "pkcs11"');
       expect(config).toContain("lib");
@@ -43,7 +44,9 @@ describe("openbao", () => {
       const config = generateSealConfig({
         pkcs11Library: "C:\\Program Files\\Yubico\\yubihsm_pkcs11.dll",
       });
-      expect(config).toContain("C:\\\\Program Files\\\\Yubico\\\\yubihsm_pkcs11.dll");
+      expect(config).toContain(
+        "C:\\\\Program Files\\\\Yubico\\\\yubihsm_pkcs11.dll",
+      );
     });
   });
 

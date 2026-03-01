@@ -8,13 +8,13 @@
  */
 
 import { randomUUID } from "node:crypto";
+import type { VaultEntry, VaultEnvelope, EntryType } from "../types.js";
 import {
   deriveEntryKey,
   aesGcmEncrypt,
   aesGcmDecrypt,
   zeroBuffer,
 } from "../crypto/key-hierarchy.js";
-import type { VaultEntry, VaultEnvelope, EntryType } from "../types.js";
 import { touchEnvelope } from "./vault-store.js";
 
 export interface StoreEntryParams {
@@ -108,12 +108,14 @@ export async function retrieveEntry(
   label: string,
 ): Promise<{ entry: VaultEntry; value: Buffer }> {
   const entry = envelope.entries.find((e) => e.label === label);
-  if (!entry) throw new Error(`Entry "${label}" not found`);
+  if (!entry) {
+    throw new Error(`Entry "${label}" not found`);
+  }
 
   if (entry.hsmResident) {
     throw new Error(
       `Entry "${label}" is HSM-resident (object ID: ${entry.hsmObjectId}). ` +
-      "Use HSM operations directly for this key.",
+        "Use HSM operations directly for this key.",
     );
   }
 
@@ -166,7 +168,9 @@ export function deleteEntry(
   label: string,
 ): VaultEnvelope {
   const idx = envelope.entries.findIndex((e) => e.label === label);
-  if (idx === -1) throw new Error(`Entry "${label}" not found`);
+  if (idx === -1) {
+    throw new Error(`Entry "${label}" not found`);
+  }
   const entries = [...envelope.entries];
   entries.splice(idx, 1);
   return touchEnvelope({ ...envelope, entries }, vmk);
@@ -179,7 +183,9 @@ export async function rotateEntry(
   label: string,
 ): Promise<VaultEnvelope> {
   const idx = envelope.entries.findIndex((e) => e.label === label);
-  if (idx === -1) throw new Error(`Entry "${label}" not found`);
+  if (idx === -1) {
+    throw new Error(`Entry "${label}" not found`);
+  }
 
   const entry = envelope.entries[idx]!;
   if (entry.hsmResident) {

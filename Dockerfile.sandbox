@@ -11,7 +11,16 @@ RUN apt-get update \
     jq \
     python3 \
     ripgrep \
-  && rm -rf /var/lib/apt/lists/*
+  && rm -rf /var/lib/apt/lists/* \
+  && rm -f /usr/bin/apt* /usr/bin/dpkg* \
+  && rm -rf /usr/share/doc /usr/share/man
+
+RUN useradd -r -s /bin/bash -d /workspace sandboxuser
+
+ENV http_proxy=http://proxy:3128
+ENV https_proxy=http://proxy:3128
+ENV no_proxy=localhost,127.0.0.1
+USER sandboxuser
 
 RUN useradd --create-home --shell /bin/bash sandbox
 USER sandbox

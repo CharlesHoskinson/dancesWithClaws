@@ -38,7 +38,10 @@ export async function generateSshKeyPair(
   return await generateViaSshKeygen(args, algorithm);
 }
 
-function buildKeygenArgs(algorithm: SshKeyAlgorithm, comment?: string): string[] {
+function buildKeygenArgs(
+  algorithm: SshKeyAlgorithm,
+  comment?: string,
+): string[] {
   const args: string[] = ["-t"];
   switch (algorithm) {
     case "ed25519":
@@ -86,7 +89,9 @@ async function generateViaSshKeygen(
       });
 
       let stderr = "";
-      child.stderr?.on("data", (d) => { stderr += d.toString(); });
+      child.stderr?.on("data", (d) => {
+        stderr += d.toString();
+      });
 
       child.on("close", async (code) => {
         if (code !== 0) {
@@ -111,7 +116,9 @@ async function generateViaSshKeygen(
   });
 }
 
-async function generateViaOpenssl(algorithm: SshKeyAlgorithm): Promise<SshKeyPair> {
+async function generateViaOpenssl(
+  algorithm: SshKeyAlgorithm,
+): Promise<SshKeyPair> {
   let privateKey: string;
   let publicKey: string;
 
@@ -136,7 +143,13 @@ async function generateViaOpenssl(algorithm: SshKeyAlgorithm): Promise<SshKeyPai
       const curve = algorithm === "ecdsa-p256" ? "prime256v1" : "secp384r1";
       const { stdout: privPem } = await execFileAsync(
         resolveOpenssl(),
-        ["genpkey", "-algorithm", "EC", "-pkeyopt", `ec_paramgen_curve:${curve}`],
+        [
+          "genpkey",
+          "-algorithm",
+          "EC",
+          "-pkeyopt",
+          `ec_paramgen_curve:${curve}`,
+        ],
         { timeout: TIMEOUT_MS, encoding: "utf8" },
       );
       privateKey = privPem;
@@ -182,18 +195,29 @@ async function spawnWithInput(
     });
     let stdout = "";
     let stderr = "";
-    child.stdout?.on("data", (d) => { stdout += d.toString(); });
-    child.stderr?.on("data", (d) => { stderr += d.toString(); });
+    child.stdout?.on("data", (d) => {
+      stdout += d.toString();
+    });
+    child.stderr?.on("data", (d) => {
+      stderr += d.toString();
+    });
     child.on("error", reject);
     child.on("close", (code) => {
-      if (code !== 0) reject(new Error(`${command} failed (${code}): ${stderr}`));
-      else resolve(stdout);
+      if (code !== 0) {
+        reject(new Error(`${command} failed (${code}): ${stderr}`));
+      } else {
+        resolve(stdout);
+      }
     });
     child.stdin?.write(input);
     child.stdin?.end();
 
     setTimeout(() => {
-      try { child.kill("SIGKILL"); } catch { /* ignore */ }
+      try {
+        child.kill("SIGKILL");
+      } catch {
+        /* ignore */
+      }
       reject(new Error(`${command} timed out`));
     }, TIMEOUT_MS);
   });
@@ -205,10 +229,11 @@ export async function opensslSign(
   data: Buffer,
   algorithm: SshKeyAlgorithm,
 ): Promise<Buffer> {
-  const digestAlg = algorithm.startsWith("ed25519") ? "null" : "sha256";
-  const args = algorithm === "ed25519"
-    ? ["pkeyutl", "-sign", "-inkey", "/dev/stdin"]
-    : ["dgst", `-sha256`, "-sign", "/dev/stdin"];
+  const _digestAlg = algorithm.startsWith("ed25519") ? "null" : "sha256";
+  const args =
+    algorithm === "ed25519"
+      ? ["pkeyutl", "-sign", "-inkey", "/dev/stdin"]
+      : ["dgst", `-sha256`, "-sign", "/dev/stdin"];
 
   return new Promise((resolve, reject) => {
     const child = spawn(resolveOpenssl(), args, {
@@ -217,18 +242,27 @@ export async function opensslSign(
     const chunks: Buffer[] = [];
     let stderr = "";
     child.stdout?.on("data", (d) => chunks.push(d));
-    child.stderr?.on("data", (d) => { stderr += d.toString(); });
+    child.stderr?.on("data", (d) => {
+      stderr += d.toString();
+    });
     child.on("error", reject);
     child.on("close", (code) => {
-      if (code !== 0) reject(new Error(`openssl sign failed (${code}): ${stderr}`));
-      else resolve(Buffer.concat(chunks));
+      if (code !== 0) {
+        reject(new Error(`openssl sign failed (${code}): ${stderr}`));
+      } else {
+        resolve(Buffer.concat(chunks));
+      }
     });
     child.stdin?.write(privateKeyPem);
     child.stdin?.write(data);
     child.stdin?.end();
 
     setTimeout(() => {
-      try { child.kill("SIGKILL"); } catch { /* ignore */ }
+      try {
+        child.kill("SIGKILL");
+      } catch {
+        /* ignore */
+      }
       reject(new Error("openssl sign timed out"));
     }, TIMEOUT_MS);
   });

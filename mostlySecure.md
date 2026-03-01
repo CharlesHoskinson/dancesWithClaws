@@ -386,11 +386,13 @@ Power on
 ### Step 1: Install YubiHSM 2 Software
 
 Download and install from Yubico:
+
 - yubihsm-connector (the USB daemon)
 - yubihsm-shell (CLI management tool)
 - yubihsm-pkcs11.dll (PKCS#11 driver)
 
 Start the connector:
+
 ```
 yubihsm-connector -d
 ```
@@ -592,10 +594,18 @@ go through ssh-agent with the PKCS#11 provider loaded:
     "ssh": {
       "type": "stdio",
       "command": "cmd",
-      "args": ["/c", "npx", "-y", "@fangjunjie/ssh-mcp-server",
-               "--host", "20.245.79.3",
-               "--port", "22",
-               "--username", "hoskinson"]
+      "args": [
+        "/c",
+        "npx",
+        "-y",
+        "@fangjunjie/ssh-mcp-server",
+        "--host",
+        "20.245.79.3",
+        "--port",
+        "22",
+        "--username",
+        "hoskinson"
+      ]
     }
   }
 }
@@ -693,16 +703,16 @@ The old IronKey's contents are:
 
 ## Threat Model: What This Protects Against
 
-| Attack Vector                  | Protection                                     |
-|--------------------------------|------------------------------------------------|
-| Malware reads key files        | No key files on disk                           |
-| Memory dumping (Mimikatz)      | Credential Guard isolates LSASS; HSM keys never in host memory |
-| Stolen/cloned disk             | BitLocker encryption; no plaintext keys to find |
-| Compromised OS (root shell)    | Attacker can use HSM while present, but cannot extract keys for later use |
-| Physical laptop theft           | BitLocker + Credential Guard + HSM auth required |
-| Backup exfiltration            | Backups contain only wrapped blobs, useless without HSM |
-| USB sniffing                   | SCP03 encrypts all HSM communication           |
-| Insider with file access       | No files contain secrets                       |
+| Attack Vector               | Protection                                                                |
+| --------------------------- | ------------------------------------------------------------------------- |
+| Malware reads key files     | No key files on disk                                                      |
+| Memory dumping (Mimikatz)   | Credential Guard isolates LSASS; HSM keys never in host memory            |
+| Stolen/cloned disk          | BitLocker encryption; no plaintext keys to find                           |
+| Compromised OS (root shell) | Attacker can use HSM while present, but cannot extract keys for later use |
+| Physical laptop theft       | BitLocker + Credential Guard + HSM auth required                          |
+| Backup exfiltration         | Backups contain only wrapped blobs, useless without HSM                   |
+| USB sniffing                | SCP03 encrypts all HSM communication                                      |
+| Insider with file access    | No files contain secrets                                                  |
 
 ---
 

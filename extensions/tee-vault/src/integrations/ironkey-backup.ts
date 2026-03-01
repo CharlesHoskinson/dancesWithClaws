@@ -20,13 +20,12 @@
  */
 
 import { execFile, spawn } from "node:child_process";
-import { promisify } from "node:util";
 import { randomBytes } from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
-import { zeroBuffer } from "../crypto/key-hierarchy.js";
+import { promisify } from "node:util";
 
-const execFileAsync = promisify(execFile);
+const _execFileAsync = promisify(execFile);
 const TIMEOUT_MS = 30_000;
 
 const DEFAULT_WRAP_KEY_ID = 200;
@@ -62,8 +61,10 @@ async function yubihsmShell(
 ): Promise<string> {
   const shellPath = resolveYubihsmShell();
   const fullArgs = [
-    "--connector", connectorUrl ?? "http://localhost:12345",
-    "--authkey", "0002", // admin auth key (not default)
+    "--connector",
+    connectorUrl ?? "http://localhost:12345",
+    "--authkey",
+    "0002", // admin auth key (not default)
     ...args,
   ];
 
@@ -74,19 +75,32 @@ async function yubihsmShell(
     });
     let stdout = "";
     let stderr = "";
-    child.stdout?.on("data", (d) => { stdout += d.toString(); });
-    child.stderr?.on("data", (d) => { stderr += d.toString(); });
+    child.stdout?.on("data", (d) => {
+      stdout += d.toString();
+    });
+    child.stderr?.on("data", (d) => {
+      stderr += d.toString();
+    });
     child.on("error", reject);
     child.on("close", (code) => {
-      if (code !== 0) reject(new Error(`yubihsm-shell failed (${code}): ${stderr || stdout}`));
-      else resolve(stdout);
+      if (code !== 0) {
+        reject(
+          new Error(`yubihsm-shell failed (${code}): ${stderr || stdout}`),
+        );
+      } else {
+        resolve(stdout);
+      }
     });
     // Send password when prompted
     child.stdin?.write(`${pin}\n`);
     child.stdin?.end();
 
     setTimeout(() => {
-      try { child.kill("SIGKILL"); } catch { /* ignore */ }
+      try {
+        child.kill("SIGKILL");
+      } catch {
+        /* ignore */
+      }
       reject(new Error("yubihsm-shell timed out"));
     }, TIMEOUT_MS);
   });
@@ -110,10 +124,9 @@ export async function createWrapKey(
 
   // Generate 32 random bytes for the wrap key
   const rawKey = randomBytes(32);
-  const rawKeyPath = opts?.outputPath ?? path.join(
-    process.env.TEMP ?? "/tmp",
-    `wrap-key-raw-${Date.now()}.bin`,
-  );
+  const rawKeyPath =
+    opts?.outputPath ??
+    path.join(process.env.TEMP ?? "/tmp", `wrap-key-raw-${Date.now()}.bin`);
 
   await fs.writeFile(rawKeyPath, rawKey);
 
@@ -122,14 +135,22 @@ export async function createWrapKey(
     // put wrapkey <session> <id> <label> <domains> <capabilities> <delegated-capabilities> <algorithm> <key-file>
     await yubihsmShell(
       [
-        "-a", "put-wrap-key",
-        "-i", String(wrapKeyId),
-        "-l", label,
-        "-d", "1",
-        "-c", "export-wrapped,import-wrapped",
-        "--delegated", "all",
-        "-A", "aes256-ccm-wrap",
-        "--in", rawKeyPath,
+        "-a",
+        "put-wrap-key",
+        "-i",
+        String(wrapKeyId),
+        "-l",
+        label,
+        "-d",
+        "1",
+        "-c",
+        "export-wrapped,import-wrapped",
+        "--delegated",
+        "all",
+        "-A",
+        "aes256-ccm-wrap",
+        "--in",
+        rawKeyPath,
       ],
       pin,
       opts?.connectorUrl,
@@ -157,11 +178,16 @@ export async function exportWrappedObject(
 ): Promise<void> {
   await yubihsmShell(
     [
-      "-a", "get-wrapped",
-      "--wrap-id", String(wrapKeyId),
-      "--object-id", String(objectId),
-      "--object-type", objectType,
-      "--out", outputPath,
+      "-a",
+      "get-wrapped",
+      "--wrap-id",
+      String(wrapKeyId),
+      "--object-id",
+      String(objectId),
+      "--object-type",
+      objectType,
+      "--out",
+      outputPath,
     ],
     pin,
     connectorUrl,
@@ -179,11 +205,7 @@ export async function importWrappedObject(
   connectorUrl?: string,
 ): Promise<void> {
   await yubihsmShell(
-    [
-      "-a", "put-wrapped",
-      "--wrap-id", String(wrapKeyId),
-      "--in", inputPath,
-    ],
+    ["-a", "put-wrapped", "--wrap-id", String(wrapKeyId), "--in", inputPath],
     pin,
     connectorUrl,
   );
@@ -204,14 +226,22 @@ export async function importRawWrapKey(
 
   await yubihsmShell(
     [
-      "-a", "put-wrap-key",
-      "-i", String(wrapKeyId),
-      "-l", label,
-      "-d", "1",
-      "-c", "export-wrapped,import-wrapped",
-      "--delegated", "all",
-      "-A", "aes256-ccm-wrap",
-      "--in", rawKeyPath,
+      "-a",
+      "put-wrap-key",
+      "-i",
+      String(wrapKeyId),
+      "-l",
+      label,
+      "-d",
+      "1",
+      "-c",
+      "export-wrapped,import-wrapped",
+      "--delegated",
+      "all",
+      "-A",
+      "aes256-ccm-wrap",
+      "--in",
+      rawKeyPath,
     ],
     pin,
     opts?.connectorUrl,
@@ -228,7 +258,12 @@ export async function createFullBackup(
   opts?: {
     wrapKeyId?: number;
     connectorUrl?: string;
-    objectIds?: Array<{ id: number; type: string; label: string; algorithm: string }>;
+    objectIds?: Array<{
+      id: number;
+      type: string;
+      label: string;
+      algorithm: string;
+    }>;
   },
 ): Promise<BackupManifest> {
   const wrapKeyId = opts?.wrapKeyId ?? DEFAULT_WRAP_KEY_ID;
@@ -246,7 +281,14 @@ export async function createFullBackup(
   for (const obj of objects) {
     const filename = `${obj.label}-${obj.id}.wrap`;
     const outPath = path.join(outputDir, filename);
-    await exportWrappedObject(pin, wrapKeyId, obj.id, obj.type, outPath, opts?.connectorUrl);
+    await exportWrappedObject(
+      pin,
+      wrapKeyId,
+      obj.id,
+      obj.type,
+      outPath,
+      opts?.connectorUrl,
+    );
     manifest.wrappedObjects.push({
       objectId: obj.id,
       objectType: obj.type,
@@ -288,7 +330,12 @@ export async function restoreFullBackup(
   // Import each wrapped blob
   for (const obj of manifest.wrappedObjects) {
     const blobPath = path.join(backupDir, obj.filename);
-    await importWrappedObject(pin, manifest.wrapKeyId, blobPath, opts?.connectorUrl);
+    await importWrappedObject(
+      pin,
+      manifest.wrapKeyId,
+      blobPath,
+      opts?.connectorUrl,
+    );
   }
 
   return manifest;
@@ -303,7 +350,11 @@ async function secureDelete(filePath: string): Promise<void> {
     await fs.unlink(filePath);
   } catch {
     // Best-effort; try plain delete
-    try { await fs.unlink(filePath); } catch { /* ignore */ }
+    try {
+      await fs.unlink(filePath);
+    } catch {
+      /* ignore */
+    }
   }
 }
 
