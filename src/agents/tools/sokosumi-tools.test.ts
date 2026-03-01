@@ -17,6 +17,15 @@ function makeConfig(overrides?: { apiKey?: string; apiEndpoint?: string }): Open
   } as OpenClawConfig;
 }
 
+function getTool(cfg: OpenClawConfig, name: string) {
+  const tools = createSokosumiTools(cfg);
+  const tool = tools.find((t) => t.name === name);
+  if (!tool) {
+    throw new Error(`Tool ${name} not found`);
+  }
+  return tool;
+}
+
 function mockFetchOk(data: unknown) {
   fetchMock.mockResolvedValueOnce({
     ok: true,
@@ -62,8 +71,8 @@ describe("sokosumi tools", () => {
 
   describe("API key resolution", () => {
     it("returns error when no API key is configured", async () => {
-      const tools = createSokosumiTools({} as OpenClawConfig);
-      const result = await tools[0]!.execute("call1", {});
+      const tool = getTool({} as OpenClawConfig, "sokosumi_list_agents");
+      const result = await tool.execute("call1", {});
       expect(result.details).toMatchObject({
         error: "SOKOSUMI_API_KEY not set.",
       });
@@ -72,8 +81,8 @@ describe("sokosumi tools", () => {
 
     it("reads API key from config", async () => {
       mockFetchOk([]);
-      const tools = createSokosumiTools(makeConfig({ apiKey: "cfg-key" }));
-      await tools[0]!.execute("call1", {});
+      const tool = getTool(makeConfig({ apiKey: "cfg-key" }), "sokosumi_list_agents");
+      await tool.execute("call1", {});
       expect(fetchMock).toHaveBeenCalledTimes(1);
       const headers = fetchMock.mock.calls[0]?.[1]?.headers as Record<string, string>;
       expect(headers.Authorization).toBe("Bearer cfg-key");
@@ -82,16 +91,16 @@ describe("sokosumi tools", () => {
     it("falls back to SOKOSUMI_API_KEY env var", async () => {
       process.env.SOKOSUMI_API_KEY = "env-key";
       mockFetchOk([]);
-      const tools = createSokosumiTools({} as OpenClawConfig);
-      await tools[0]!.execute("call1", {});
+      const tool = getTool({} as OpenClawConfig, "sokosumi_list_agents");
+      await tool.execute("call1", {});
       const headers = fetchMock.mock.calls[0]?.[1]?.headers as Record<string, string>;
       expect(headers.Authorization).toBe("Bearer env-key");
     });
 
     it("trims whitespace from API key", async () => {
       mockFetchOk([]);
-      const tools = createSokosumiTools(makeConfig({ apiKey: "  trimmed-key  " }));
-      await tools[0]!.execute("call1", {});
+      const tool = getTool(makeConfig({ apiKey: "  trimmed-key  " }), "sokosumi_list_agents");
+      await tool.execute("call1", {});
       const headers = fetchMock.mock.calls[0]?.[1]?.headers as Record<string, string>;
       expect(headers.Authorization).toBe("Bearer trimmed-key");
     });
@@ -100,18 +109,19 @@ describe("sokosumi tools", () => {
   describe("custom API endpoint", () => {
     it("uses default endpoint when not configured", async () => {
       mockFetchOk([]);
-      const tools = createSokosumiTools(makeConfig());
-      await tools[0]!.execute("call1", {});
+      const tool = getTool(makeConfig(), "sokosumi_list_agents");
+      await tool.execute("call1", {});
       const url = fetchMock.mock.calls[0]?.[0] as string;
       expect(url).toBe("https://api.sokosumi.com/v1/agents");
     });
 
     it("uses custom endpoint from config", async () => {
       mockFetchOk([]);
-      const tools = createSokosumiTools(
+      const tool = getTool(
         makeConfig({ apiEndpoint: "https://custom.example.com/v2" }),
+        "sokosumi_list_agents",
       );
-      await tools[0]!.execute("call1", {});
+      await tool.execute("call1", {});
       const url = fetchMock.mock.calls[0]?.[0] as string;
       expect(url).toBe("https://custom.example.com/v2/agents");
     });
@@ -121,15 +131,15 @@ describe("sokosumi tools", () => {
     it("returns agent list on success", async () => {
       const agents = [{ id: "a1", name: "Agent One" }];
       mockFetchOk(agents);
-      const tools = createSokosumiTools(makeConfig());
-      const result = await tools[0]!.execute("call1", {});
+      const tool = getTool(makeConfig(), "sokosumi_list_agents");
+      const result = await tool.execute("call1", {});
       expect(result.details).toEqual(agents);
     });
 
     it("returns error on API failure", async () => {
       mockFetchError(500, "Internal Server Error");
-      const tools = createSokosumiTools(makeConfig());
-      const result = await tools[0]!.execute("call1", {});
+      const tool = getTool(makeConfig(), "sokosumi_list_agents");
+      const result = await tool.execute("call1", {});
       expect(result.details).toMatchObject({
         error: "500: Internal Server Error",
       });
@@ -140,8 +150,8 @@ describe("sokosumi tools", () => {
     it("fetches agent by ID", async () => {
       const agent = { id: "agent-42", name: "Research Bot" };
       mockFetchOk(agent);
-      const tools = createSokosumiTools(makeConfig());
-      const result = await tools[1]!.execute("call1", { agentId: "agent-42" });
+      const tool = getTool(makeConfig(), "sokosumi_get_agent");
+      const result = await tool.execute("call1", { agentId: "agent-42" });
       expect(result.details).toEqual(agent);
       const url = fetchMock.mock.calls[0]?.[0] as string;
       expect(url).toContain("/agents/agent-42");
@@ -149,8 +159,8 @@ describe("sokosumi tools", () => {
 
     it("URL-encodes agent IDs", async () => {
       mockFetchOk({});
-      const tools = createSokosumiTools(makeConfig());
-      await tools[1]!.execute("call1", { agentId: "id with spaces/slashes" });
+      const tool = getTool(makeConfig(), "sokosumi_get_agent");
+      await tool.execute("call1", { agentId: "id with spaces/slashes" });
       const url = fetchMock.mock.calls[0]?.[0] as string;
       expect(url).toContain("/agents/id%20with%20spaces%2Fslashes");
     });
@@ -163,8 +173,8 @@ describe("sokosumi tools", () => {
         properties: { query: { type: "string" } },
       };
       mockFetchOk(schema);
-      const tools = createSokosumiTools(makeConfig());
-      const result = await tools[2]!.execute("call1", { agentId: "agent-1" });
+      const tool = getTool(makeConfig(), "sokosumi_get_input_schema");
+      const result = await tool.execute("call1", { agentId: "agent-1" });
       expect(result.details).toEqual(schema);
       const url = fetchMock.mock.calls[0]?.[0] as string;
       expect(url).toContain("/agents/agent-1/input-schema");
@@ -175,8 +185,8 @@ describe("sokosumi tools", () => {
     it("lists jobs for an agent", async () => {
       const jobs = [{ id: "job-1", status: "completed" }];
       mockFetchOk(jobs);
-      const tools = createSokosumiTools(makeConfig());
-      const result = await tools[3]!.execute("call1", { agentId: "agent-1" });
+      const tool = getTool(makeConfig(), "sokosumi_list_jobs");
+      const result = await tool.execute("call1", { agentId: "agent-1" });
       expect(result.details).toEqual(jobs);
       const url = fetchMock.mock.calls[0]?.[0] as string;
       expect(url).toContain("/agents/agent-1/jobs");
@@ -187,8 +197,8 @@ describe("sokosumi tools", () => {
     it("creates a job with valid JSON input", async () => {
       const job = { id: "job-new", status: "started" };
       mockFetchOk(job);
-      const tools = createSokosumiTools(makeConfig());
-      const result = await tools[4]!.execute("call1", {
+      const tool = getTool(makeConfig(), "sokosumi_create_job");
+      const result = await tool.execute("call1", {
         agentId: "agent-1",
         input: '{"query": "hello"}',
       });
@@ -200,12 +210,12 @@ describe("sokosumi tools", () => {
         body?: string;
       };
       expect(opts.method).toBe("POST");
-      expect(JSON.parse(opts.body!)).toEqual({ query: "hello" });
+      expect(JSON.parse(opts.body ?? "{}")).toEqual({ query: "hello" });
     });
 
     it("returns error for invalid JSON input", async () => {
-      const tools = createSokosumiTools(makeConfig());
-      const result = await tools[4]!.execute("call1", {
+      const tool = getTool(makeConfig(), "sokosumi_create_job");
+      const result = await tool.execute("call1", {
         agentId: "agent-1",
         input: "not valid json",
       });
@@ -217,8 +227,8 @@ describe("sokosumi tools", () => {
 
     it("sends Authorization header and Content-Type", async () => {
       mockFetchOk({});
-      const tools = createSokosumiTools(makeConfig({ apiKey: "my-key" }));
-      await tools[4]!.execute("call1", {
+      const tool = getTool(makeConfig({ apiKey: "my-key" }), "sokosumi_create_job");
+      await tool.execute("call1", {
         agentId: "agent-1",
         input: '{"data": true}',
       });
@@ -231,8 +241,8 @@ describe("sokosumi tools", () => {
   describe("network error handling", () => {
     it("returns error on fetch failure", async () => {
       fetchMock.mockRejectedValueOnce(new Error("Network unreachable"));
-      const tools = createSokosumiTools(makeConfig());
-      const result = await tools[0]!.execute("call1", {});
+      const tool = getTool(makeConfig(), "sokosumi_list_agents");
+      const result = await tool.execute("call1", {});
       expect(result.details).toMatchObject({ error: "Network unreachable" });
     });
   });
