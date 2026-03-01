@@ -1,0 +1,68 @@
+#include <tunables/global>
+
+profile openclaw-sandbox flags=(attach_disconnected,mediate_deleted) {
+  #include <abstractions/base>
+  #include <abstractions/nameservice>
+
+  # Deny dangerous proc/sys paths
+  deny /proc/*/mem rwklx,
+  deny /proc/kcore rwklx,
+  deny /proc/sysrq-trigger rwklx,
+  deny /sys/** w,
+
+  # Deny /dev except safe devices
+  deny /dev/** rwklx,
+  /dev/null rw,
+  /dev/zero r,
+  /dev/urandom r,
+  /dev/random r,
+  /dev/stdin r,
+  /dev/stdout w,
+  /dev/stderr w,
+  /dev/fd/** rw,
+  /dev/pts/** rw,
+
+  # Workspace and temp directories
+  /workspace/** rw,
+  /tmp/** rw,
+  /var/tmp/** rw,
+  /run/** rw,
+
+  # System libraries and binaries (read-only)
+  /usr/** r,
+  /lib/** r,
+  /etc/** r,
+  /bin/** r,
+  /sbin/** r,
+
+  # Executable paths
+  /bin/** ix,
+  /usr/bin/** ix,
+  /usr/lib/** mr,
+
+  # Deny execution from workspace and tmp (prevent dropped payload execution)
+  deny /workspace/** mx,
+  deny /tmp/** mx,
+  deny /var/tmp/** mx,
+
+  # Network restrictions
+  deny network raw,
+  deny network packet,
+  network tcp,
+  network udp,
+
+  # Deny dangerous operations
+  deny mount,
+  deny umount,
+  deny pivot_root,
+  deny ptrace,
+
+  # Allow reading own proc info
+  /proc/sys/kernel/hostname r,
+  /proc/sys/kernel/osrelease r,
+  /proc/self/** r,
+  /proc/[0-9]*/stat r,
+  /proc/[0-9]*/status r,
+  /proc/[0-9]*/fd/** rw,
+  /proc/[0-9]*/cmdline r,
+}

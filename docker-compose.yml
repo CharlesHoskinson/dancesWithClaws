@@ -1,15 +1,9 @@
 networks:
-  openclaw-internal:
+  oc-sandbox-net:
     driver: bridge
     ipam:
       config:
-        - subnet: 172.28.0.0/24
-  openclaw-isolated:
-    driver: bridge
-    internal: true
-    ipam:
-      config:
-        - subnet: 172.29.0.0/24
+        - subnet: 172.30.0.0/24
 
 services:
   openclaw-proxy:
@@ -17,12 +11,12 @@ services:
       context: .
       dockerfile: Dockerfile.proxy
     networks:
-      openclaw-internal:
-        ipv4_address: 172.28.0.10
-      openclaw-isolated:
-        ipv4_address: 172.29.0.10
+      oc-sandbox-net:
+        ipv4_address: 172.30.0.10
     cap_add:
       - NET_ADMIN
+      - SETUID
+      - SETGID
     cap_drop:
       - ALL
     security_opt:

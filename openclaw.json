@@ -50,15 +50,14 @@
           "docker": {
             "readOnlyRoot": true,
             "tmpfs": ["/tmp", "/var/tmp", "/run"],
-            "network": "openclaw-isolated",
+            "network": "oc-sandbox-net",
             "capDrop": ["ALL"],
             "pidsLimit": 256,
             "memory": "512m",
             "cpus": 1,
             "seccompProfile": "./security/seccomp-sandbox.json",
-            "apparmorProfile": "openclaw-sandbox",
-            "dns": ["172.29.0.10"],
-            "extraHosts": ["proxy:172.29.0.10"],
+            "dns": ["172.30.0.10"],
+            "extraHosts": ["proxy:172.30.0.10"],
             "user": "sandboxuser"
           }
         },

@@ -23,10 +23,7 @@ export interface SecurityAuditFinding {
 }
 
 /** Append an entry to the audit JSONL log. */
-export async function appendAuditLog(
-  stateDir: string,
-  entry: AuditLogEntry,
-): Promise<void> {
+export async function appendAuditLog(stateDir: string, entry: AuditLogEntry): Promise<void> {
   const auditDir = path.join(stateDir, VAULT_DIR_NAME);
   await fs.mkdir(auditDir, { recursive: true });
   const logPath = path.join(auditDir, AUDIT_LOG_FILE_NAME);
@@ -55,9 +52,7 @@ export async function collectContainerHardeningFindings(
   }
 
   // Navigate to sandbox.docker config
-  const agents = (config as Record<string, unknown>).agents as
-    | Record<string, unknown>
-    | undefined;
+  const agents = (config as Record<string, unknown>).agents as Record<string, unknown> | undefined;
   const list = (agents?.list as Array<Record<string, unknown>>) ?? [];
   const agent = list[0];
   const sandbox = agent?.sandbox as Record<string, unknown> | undefined;
@@ -84,8 +79,7 @@ export async function collectContainerHardeningFindings(
       title: "AppArmor profile not configured",
       detail:
         "No AppArmor profile set in sandbox.docker config. File and capability restrictions are not enforced.",
-      remediation:
-        'Add "apparmorProfile": "openclaw-sandbox" to sandbox.docker in openclaw.json.',
+      remediation: 'Add "apparmorProfile": "openclaw-sandbox" to sandbox.docker in openclaw.json.',
     });
   }
 
@@ -136,20 +130,14 @@ export async function collectContainerHardeningFindings(
       severity: "critical",
       title: "Cannot check proxy sidecar status",
       detail: "Failed to query Docker for proxy container status.",
-      remediation:
-        "Ensure Docker is running and the proxy container is started.",
+      remediation: "Ensure Docker is running and the proxy container is started.",
     });
   }
 
   // tee.proxy_allowlist_too_broad
   try {
     const configDir = path.dirname(configPath);
-    const allowlistPath = path.join(
-      configDir,
-      "security",
-      "proxy",
-      "allowed-domains.txt",
-    );
+    const allowlistPath = path.join(configDir, "security", "proxy", "allowed-domains.txt");
     const allowlist = await fs.readFile(allowlistPath, "utf8");
     const domains = allowlist.split("\n").filter((l) => l.trim().length > 0);
     if (domains.length > 10) {
@@ -158,8 +146,7 @@ export async function collectContainerHardeningFindings(
         severity: "warn",
         title: "Proxy allowlist has too many domains",
         detail: `${domains.length} domains in allowlist. A broad allowlist increases exfiltration risk.`,
-        remediation:
-          "Review security/proxy/allowed-domains.txt and remove unnecessary domains.",
+        remediation: "Review security/proxy/allowed-domains.txt and remove unnecessary domains.",
       });
     }
   } catch {
@@ -172,9 +159,7 @@ export async function collectContainerHardeningFindings(
       const wslConf = await fs.readFile("/etc/wsl.conf", "utf8");
       const interopMatch = wslConf.match(/^\s*enabled\s*=\s*(.+)$/m);
       // Check if we're in WSL and interop is not explicitly disabled
-      const procVersion = await fs
-        .readFile("/proc/version", "utf8")
-        .catch(() => "");
+      const procVersion = await fs.readFile("/proc/version", "utf8").catch(() => "");
       if (procVersion.toLowerCase().includes("microsoft")) {
         if (!interopMatch || interopMatch[1].trim().toLowerCase() !== "false") {
           findings.push({
@@ -183,8 +168,7 @@ export async function collectContainerHardeningFindings(
             title: "WSL2 interop is enabled",
             detail:
               "Windows executable interop is not disabled. A compromised container could escape to Windows via cmd.exe/powershell.exe.",
-            remediation:
-              "Set [interop] enabled=false in /etc/wsl.conf and restart WSL.",
+            remediation: "Set [interop] enabled=false in /etc/wsl.conf and restart WSL.",
           });
         }
       }
@@ -228,8 +212,7 @@ export async function collectContainerHardeningFindings(
           severity: "warn",
           title: "Windows Firewall rules not configured",
           detail: `Expected at least 3 OpenClaw firewall rules, found ${isNaN(count) ? 0 : count}.`,
-          remediation:
-            "Run security/windows-firewall-rules.ps1 as Administrator.",
+          remediation: "Run security/windows-firewall-rules.ps1 as Administrator.",
         });
       }
     } catch {
@@ -238,8 +221,7 @@ export async function collectContainerHardeningFindings(
         severity: "warn",
         title: "Cannot verify Windows Firewall rules",
         detail: "Failed to query Windows Firewall for OpenClaw rules.",
-        remediation:
-          "Run security/windows-firewall-rules.ps1 as Administrator.",
+        remediation: "Run security/windows-firewall-rules.ps1 as Administrator.",
       });
     }
   }
@@ -276,13 +258,9 @@ export async function collectTeeVaultFindings(
   // tee.vault_permissions_too_open (Windows)
   if (process.platform === "win32") {
     try {
-      const { inspectWindowsAcl } =
-        await import("../../../../src/security/windows-acl.js");
+      const { inspectWindowsAcl } = await import("../../../../src/security/windows-acl.js");
       const acl = await inspectWindowsAcl(vaultDir);
-      if (
-        acl.ok &&
-        (acl.untrustedWorld.length > 0 || acl.untrustedGroup.length > 0)
-      ) {
+      if (acl.ok && (acl.untrustedWorld.length > 0 || acl.untrustedGroup.length > 0)) {
         findings.push({
           checkId: "tee.vault_permissions_too_open",
           severity: "critical",
@@ -336,8 +314,7 @@ export async function collectTeeVaultFindings(
         title: "Vault using portable backend on Windows",
         detail:
           "Using openssl-pbkdf2 backend when DPAPI is available. DPAPI provides stronger platform-bound protection.",
-        remediation:
-          "Re-initialize vault with `openclaw tee init --backend dpapi`.",
+        remediation: "Re-initialize vault with `openclaw tee init --backend dpapi`.",
       });
     }
   }
@@ -351,8 +328,7 @@ export async function collectTeeVaultFindings(
       severity: "info",
       title: "VMK has not been rotated recently",
       detail: `VMK was created ${Math.floor(ageDays)} days ago (version ${envelope.metadata.vmkVersion}). Consider rotating.`,
-      remediation:
-        "Run `openclaw tee rotate-vmk` to re-generate the vault master key.",
+      remediation: "Run `openclaw tee rotate-vmk` to re-generate the vault master key.",
     });
   }
 
@@ -362,8 +338,7 @@ export async function collectTeeVaultFindings(
       checkId: "tee.vault_no_auto_lock",
       severity: "warn",
       title: "Auto-lock is disabled",
-      detail:
-        "The vault will remain unlocked indefinitely. Set autoLockTimeoutMs > 0.",
+      detail: "The vault will remain unlocked indefinitely. Set autoLockTimeoutMs > 0.",
     });
   }
 
@@ -430,8 +405,7 @@ export async function collectTeeVaultFindings(
         checkId: "tee.yubihsm_not_connected",
         severity: "warn",
         title: "YubiHSM 2 check failed",
-        detail:
-          "Could not verify YubiHSM connectivity. Ensure yubihsm-connector is running.",
+        detail: "Could not verify YubiHSM connectivity. Ensure yubihsm-connector is running.",
       });
     }
 
@@ -443,18 +417,13 @@ export async function collectTeeVaultFindings(
         title: "Using default YubiHSM auth key",
         detail:
           "Auth key ID 0001 is the factory default. An attacker with physical access could authenticate.",
-        remediation:
-          "Create a new auth key on the YubiHSM and update your configuration.",
+        remediation: "Create a new auth key on the YubiHSM and update your configuration.",
       });
     }
 
     // tee.yubihsm_connector_remote
     const connUrl = opts.yubiHsmConfig?.connectorUrl ?? "";
-    if (
-      connUrl &&
-      !connUrl.includes("localhost") &&
-      !connUrl.includes("127.0.0.1")
-    ) {
+    if (connUrl && !connUrl.includes("localhost") && !connUrl.includes("127.0.0.1")) {
       findings.push({
         checkId: "tee.yubihsm_connector_remote",
         severity: "critical",
@@ -489,16 +458,14 @@ export async function collectTeeVaultFindings(
   // tee.connector_not_running
   if (opts?.checkIntegrations) {
     try {
-      const { isConnectorRunning } =
-        await import("../integrations/ssh-config.js");
+      const { isConnectorRunning } = await import("../integrations/ssh-config.js");
       const running = await isConnectorRunning();
       if (!running) {
         findings.push({
           checkId: "tee.connector_not_running",
           severity: "warn",
           title: "yubihsm-connector is not running",
-          detail:
-            "The YubiHSM connector service is not reachable on localhost:12345.",
+          detail: "The YubiHSM connector service is not reachable on localhost:12345.",
           remediation: "Start connector: yubihsm-connector -d",
         });
       }
@@ -515,10 +482,8 @@ export async function collectTeeVaultFindings(
           checkId: "tee.openbao_not_ready",
           severity: "warn",
           title: "OpenBao is not reachable or is sealed",
-          detail:
-            "OpenBao is not responding on http://127.0.0.1:8200 or is in sealed state.",
-          remediation:
-            "Start OpenBao and ensure auto-unseal via PKCS#11 is configured.",
+          detail: "OpenBao is not responding on http://127.0.0.1:8200 or is in sealed state.",
+          remediation: "Start OpenBao and ensure auto-unseal via PKCS#11 is configured.",
         });
       }
     } catch {
@@ -528,8 +493,7 @@ export async function collectTeeVaultFindings(
     // tee.credential_manager_empty
     if (process.platform === "win32") {
       try {
-        const { listCredentials } =
-          await import("../integrations/credential-manager.js");
+        const { listCredentials } = await import("../integrations/credential-manager.js");
         const creds = await listCredentials();
         const hasPinCred = creds.some((c) => c.includes("YubiHSM-PIN"));
         if (!hasPinCred) {
