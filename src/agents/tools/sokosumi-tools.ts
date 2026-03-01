@@ -8,7 +8,9 @@ function resolveApiKey(cfg?: OpenClawConfig): string | undefined {
   const sk = cfg?.tools?.sokosumi;
   if (sk && typeof sk === "object" && "apiKey" in sk) {
     const key = (sk as { apiKey?: string }).apiKey?.trim();
-    if (key) return key;
+    if (key) {
+      return key;
+    }
   }
   return (process.env.SOKOSUMI_API_KEY ?? "").trim() || undefined;
 }
@@ -29,10 +31,14 @@ function createSokosumiListAgentsTool(cfg?: OpenClawConfig): AnyAgentTool {
     parameters: Type.Object({}),
     execute: async () => {
       const apiKey = resolveApiKey(cfg);
-      if (!apiKey) return jsonResult({ error: "SOKOSUMI_API_KEY not set." });
+      if (!apiKey) {
+        return jsonResult({ error: "SOKOSUMI_API_KEY not set." });
+      }
       const client = createSokosumiClient(apiKey, resolveBaseUrl(cfg));
       const res = await client.listAgents();
-      if (!res.ok) return jsonResult({ error: res.error });
+      if (!res.ok) {
+        return jsonResult({ error: res.error });
+      }
       return jsonResult(res.data.data);
     },
   };
@@ -48,12 +54,16 @@ function createSokosumiGetAgentTool(cfg?: OpenClawConfig): AnyAgentTool {
     }),
     execute: async (_id, args) => {
       const apiKey = resolveApiKey(cfg);
-      if (!apiKey) return jsonResult({ error: "SOKOSUMI_API_KEY not set." });
+      if (!apiKey) {
+        return jsonResult({ error: "SOKOSUMI_API_KEY not set." });
+      }
       const params = args as Record<string, unknown>;
       const agentId = readStringParam(params, "agentId", { required: true });
       const client = createSokosumiClient(apiKey, resolveBaseUrl(cfg));
       const res = await client.getAgent(agentId);
-      if (!res.ok) return jsonResult({ error: res.error });
+      if (!res.ok) {
+        return jsonResult({ error: res.error });
+      }
       return jsonResult(res.data.data);
     },
   };
@@ -70,12 +80,16 @@ function createSokosumiGetInputSchemaTool(cfg?: OpenClawConfig): AnyAgentTool {
     }),
     execute: async (_id, args) => {
       const apiKey = resolveApiKey(cfg);
-      if (!apiKey) return jsonResult({ error: "SOKOSUMI_API_KEY not set." });
+      if (!apiKey) {
+        return jsonResult({ error: "SOKOSUMI_API_KEY not set." });
+      }
       const params = args as Record<string, unknown>;
       const agentId = readStringParam(params, "agentId", { required: true });
       const client = createSokosumiClient(apiKey, resolveBaseUrl(cfg));
       const res = await client.getInputSchema(agentId);
-      if (!res.ok) return jsonResult({ error: res.error });
+      if (!res.ok) {
+        return jsonResult({ error: res.error });
+      }
       return jsonResult(res.data.data);
     },
   };
@@ -91,12 +105,16 @@ function createSokosumiListJobsTool(cfg?: OpenClawConfig): AnyAgentTool {
     }),
     execute: async (_id, args) => {
       const apiKey = resolveApiKey(cfg);
-      if (!apiKey) return jsonResult({ error: "SOKOSUMI_API_KEY not set." });
+      if (!apiKey) {
+        return jsonResult({ error: "SOKOSUMI_API_KEY not set." });
+      }
       const params = args as Record<string, unknown>;
       const agentId = readStringParam(params, "agentId", { required: true });
       const client = createSokosumiClient(apiKey, resolveBaseUrl(cfg));
       const res = await client.listJobs(agentId);
-      if (!res.ok) return jsonResult({ error: res.error });
+      if (!res.ok) {
+        return jsonResult({ error: res.error });
+      }
       return jsonResult(res.data.data);
     },
   };
@@ -116,7 +134,9 @@ function createSokosumiCreateJobTool(cfg?: OpenClawConfig): AnyAgentTool {
     }),
     execute: async (_id, args) => {
       const apiKey = resolveApiKey(cfg);
-      if (!apiKey) return jsonResult({ error: "SOKOSUMI_API_KEY not set." });
+      if (!apiKey) {
+        return jsonResult({ error: "SOKOSUMI_API_KEY not set." });
+      }
       const params = args as Record<string, unknown>;
       const agentId = readStringParam(params, "agentId", { required: true });
       const inputStr = readStringParam(params, "input", { required: true });
@@ -130,7 +150,9 @@ function createSokosumiCreateJobTool(cfg?: OpenClawConfig): AnyAgentTool {
 
       const client = createSokosumiClient(apiKey, resolveBaseUrl(cfg));
       const res = await client.createJob(agentId, input);
-      if (!res.ok) return jsonResult({ error: res.error });
+      if (!res.ok) {
+        return jsonResult({ error: res.error });
+      }
       return jsonResult(res.data.data);
     },
   };

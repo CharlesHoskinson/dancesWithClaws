@@ -17,7 +17,9 @@ export function createSokosumiClient(apiKey: string, baseUrl = DEFAULT_BASE) {
       const headers: Record<string, string> = {
         Authorization: `Bearer ${apiKey}`,
       };
-      if (body) headers["Content-Type"] = "application/json";
+      if (body) {
+        headers["Content-Type"] = "application/json";
+      }
 
       const res = await fetch(url, {
         method,
