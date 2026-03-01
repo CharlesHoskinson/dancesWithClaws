@@ -34,17 +34,20 @@ Essential Cardano is maintained by the Cardano Foundation and IOG, providing a r
 Intersect is a member-based organization established to support and coordinate Cardano's decentralized governance:
 
 **Structure and Mission:**
+
 - Over 1,000 members including individual ADA holders, stake pool operators, dApp developers, and organizations.
 - Operates as a coordinating body for governance processes introduced by the Chang hard fork and the CIP-1694 governance framework.
 - Does not control Cardano but facilitates decision-making processes, technical coordination, and community collaboration.
 
 **Key Functions:**
+
 - **Governance Coordination:** Supports the on-chain governance process including Constitutional Committee operations, DRep (Delegated Representative) coordination, and governance action tracking.
 - **Technical Steering:** Hosts committees and working groups that provide input on Cardano's technical roadmap, including the Technical Steering Committee (TSC) and various Special Interest Groups (SIGs).
 - **Budget and Treasury:** Facilitates community input into how Cardano's treasury funds are allocated for development, marketing, and ecosystem growth.
 - **Open Source Stewardship:** Oversees the open-source development of Cardano's core software, ensuring contributions are coordinated and quality-controlled.
 
 **Membership:**
+
 - Open to individuals and organizations.
 - Members can participate in committees, working groups, and governance discussions.
 - Different membership tiers may provide different levels of participation and voting rights within Intersect's internal governance.
@@ -93,19 +96,23 @@ Project Catalyst is Cardano's decentralized innovation fund:
 ### Social Channels and Community Platforms
 
 **Reddit:**
+
 - r/cardano: The primary Cardano subreddit for general discussion, news, and community engagement.
 - r/CardanoDevelopers: A developer-focused subreddit for technical discussions.
 
 **Twitter/X:**
+
 - @Cardano_CF (Cardano Foundation), @InputOutputHK (IOG), @emaborgo (EMURGO) are official accounts.
 - Active community of developers, SPOs, and enthusiasts sharing updates and analysis.
 
 **Discord and Telegram:**
+
 - Multiple community-run Discord servers for different topics (development, trading, NFTs, specific projects).
 - Telegram groups for various Cardano communities and regional chapters.
 - IOG Technical Discord for developer support and discussions.
 
 **YouTube:**
+
 - IOG YouTube channel for technical presentations, monthly updates, and educational content.
 - Community creators providing tutorials, analysis, and ecosystem coverage.
 - Cardano Foundation channel for official announcements and event recordings.

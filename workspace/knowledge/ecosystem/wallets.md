@@ -23,6 +23,7 @@ Cardano wallets must handle the unique aspects of the eUTXO model, including UTX
 Eternl is widely regarded as the most feature-rich wallet in the Cardano ecosystem:
 
 **Core Features:**
+
 - Multi-account support: Users can create and manage multiple accounts within a single wallet, each with its own set of addresses and delegation preferences.
 - dApp Browser: A built-in browser for interacting with Cardano dApps directly within the wallet interface.
 - UTXO Management: Advanced tools for viewing and managing individual UTXOs, which is useful for power users and developers working with the eUTXO model.
@@ -30,11 +31,13 @@ Eternl is widely regarded as the most feature-rich wallet in the Cardano ecosyst
 - Native Asset Management: Full support for viewing, sending, and receiving Cardano native tokens and NFTs.
 
 **Staking Features:**
+
 - Multi-pool delegation: Eternl supports delegating to multiple stake pools from a single wallet, distributing stake across different pools. This leverages Cardano's account-based staking model where different payment addresses within a wallet can delegate to different pools.
 - Staking rewards tracking: Detailed views of rewards earned per epoch, including historical data.
 - Pool comparison tools: Built-in metrics for evaluating and comparing stake pools.
 
 **Security:**
+
 - Hardware wallet integration with Ledger and Trezor.
 - Spending password protection.
 - Seed phrase backup and recovery.
@@ -81,18 +84,21 @@ Lace is IOG's (Input Output Global) lightweight wallet project:
 Hardware wallets provide the highest level of security for key storage by keeping private keys on a dedicated device that never exposes them to potentially compromised computers:
 
 **Ledger (Nano S, Nano S Plus, Nano X, Stax):**
+
 - Full support for ADA and Cardano native assets.
 - Transaction signing on-device with details displayed on the Ledger screen.
 - Compatible with Eternl, Typhon, Lace, and other Cardano wallets.
 - Supports staking delegation from hardware wallet.
 
 **Trezor (Model T, Model One, Safe 3):**
+
 - ADA support with on-device transaction verification.
 - Compatible with multiple Cardano software wallets.
 - Open-source firmware for transparency and auditability.
 - Supports basic Cardano operations including sending, receiving, and staking.
 
 **Best Practices:**
+
 - Use hardware wallets for storing significant amounts of ADA.
 - Keep firmware updated to the latest version.
 - Store seed phrase backup securely offline.
@@ -103,6 +109,7 @@ Hardware wallets provide the highest level of security for key storage by keepin
 CIP-30 defines the standard interface for communication between web-based decentralized applications and Cardano wallets:
 
 **How It Works:**
+
 1. A dApp detects available CIP-30-compatible wallets injected into the browser's `window.cardano` object.
 2. The dApp requests to connect to a specific wallet using `window.cardano.[walletName].enable()`.
 3. The user approves the connection in their wallet interface.
@@ -113,6 +120,7 @@ CIP-30 defines the standard interface for communication between web-based decent
    - Provide collateral UTXOs for script interactions.
 
 **Developer Benefits:**
+
 - Write dApp frontend code once and have it work with any CIP-30-compatible wallet.
 - No need to implement wallet-specific integrations.
 - Users choose their preferred wallet; the dApp does not dictate wallet choice.

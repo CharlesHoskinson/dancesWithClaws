@@ -71,14 +71,14 @@ Votes are recorded on-chain as transactions. The weight of a vote is proportiona
 
 ## Comparison Points
 
-| Feature | Cardano Voltaire | Ethereum Governance | Bitcoin Governance |
-|---|---|---|---|
-| On-chain voting | Yes, protocol-level | Limited (off-chain signaling common) | No formal on-chain governance |
-| Delegation | Liquid democracy via DReps | No native delegation for governance | N/A |
-| Constitution | Ratified document | No formal constitution | No formal constitution |
-| Treasury | On-chain, community-governed | No protocol treasury | No protocol treasury |
-| Governance bodies | Three (DReps, SPOs, CC) | Informal (core devs, EF, community) | Informal (core devs, miners, nodes) |
-| Checks and balances | Constitutional Committee review | No formal mechanism | No formal mechanism |
+| Feature             | Cardano Voltaire                | Ethereum Governance                  | Bitcoin Governance                  |
+| ------------------- | ------------------------------- | ------------------------------------ | ----------------------------------- |
+| On-chain voting     | Yes, protocol-level             | Limited (off-chain signaling common) | No formal on-chain governance       |
+| Delegation          | Liquid democracy via DReps      | No native delegation for governance  | N/A                                 |
+| Constitution        | Ratified document               | No formal constitution               | No formal constitution              |
+| Treasury            | On-chain, community-governed    | No protocol treasury                 | No protocol treasury                |
+| Governance bodies   | Three (DReps, SPOs, CC)         | Informal (core devs, EF, community)  | Informal (core devs, miners, nodes) |
+| Checks and balances | Constitutional Committee review | No formal mechanism                  | No formal mechanism                 |
 
 Compared to other blockchain governance systems, Voltaire is notable for its formalized structure. Many blockchains rely on informal governance through social consensus, developer influence, or foundation decisions. Cardano's approach attempts to codify governance rules directly into the protocol, reducing ambiguity about how decisions are made and who has authority.
 

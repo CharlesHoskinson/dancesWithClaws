@@ -26,6 +26,7 @@ PlutusV3 was subsequently deployed to mainnet as part of the broader protocol up
 The Chang hard fork was the most consequential governance upgrade in Cardano's history. It activated the CIP-1694 on-chain governance framework on mainnet, fundamentally changing how protocol decisions are made.
 
 Key governance features activated by Chang:
+
 - **Delegated Representatives (DReps).** Ada holders can register as DReps or delegate their voting power to a DRep of their choice. This creates a liquid democracy model where participants can vote directly or delegate to representatives with relevant expertise.
 - **Constitutional Committee.** A body responsible for ensuring that governance actions comply with the Cardano Constitution. The Constitutional Committee can approve or reject governance actions based on constitutional conformance.
 - **Governance Actions.** Six types of on-chain governance actions became available: protocol parameter changes, hard fork initiation, treasury withdrawals, motion of no confidence (in the Constitutional Committee), update to the Constitutional Committee, and constitutional amendments.
@@ -42,6 +43,7 @@ Within weeks of the Chang hard fork, the Cardano community conducted its first f
 **Midnight Launch (December 2024)**
 
 Midnight, a data-protection-focused partner chain, launched in December 2024. Key characteristics of Midnight include:
+
 - **Zero-Knowledge Smart Contracts.** Midnight uses zero-knowledge proof technology to enable smart contracts that can process confidential data without revealing it on-chain. This addresses a critical limitation of transparent blockchains for enterprise and regulatory use cases.
 - **Regulatory Compliance.** Midnight is designed to support selective disclosure, meaning users can prove compliance with regulatory requirements without exposing all underlying data.
 - **Cardano Heritage.** While Midnight operates as a separate chain, it shares research heritage, development expertise, and ecosystem connections with Cardano. It was developed by IOG and benefits from Cardano's formal methods approach.
@@ -65,6 +67,7 @@ The DeFi growth is particularly notable because it occurred alongside the govern
 **Hydra Gaming Demo (1.04 Million TPS)**
 
 A Hydra-based gaming demonstration achieved a throughput of 1.04 million transactions per second, showcasing the potential of Cardano's layer-2 scaling approach for high-frequency, low-latency applications. Key context for this figure:
+
 - This throughput was achieved within a Hydra Head specifically optimized for the gaming use case.
 - The transactions were lightweight game-state updates, not complex smart contract interactions.
 - The demonstration illustrates the theoretical ceiling for Hydra throughput under favorable conditions, not typical mainnet usage.
@@ -77,6 +80,7 @@ The gaming demo is significant because it demonstrates that Cardano's scaling ar
 **PlutusV3 Performance Impact**
 
 The 20-30% cost reduction in PlutusV3 is achieved through multiple optimizations:
+
 - Sums-of-products encoding reduces the number of operations needed to construct and deconstruct data types.
 - New built-in functions replace patterns that previously required expensive on-chain computation.
 - BLS12-381 primitives are implemented as optimized native code rather than interpreted Plutus scripts.
@@ -101,13 +105,13 @@ The voting thresholds vary by action type. Critical actions like hard fork initi
 
 ## Comparison Points
 
-| Development | Cardano (2024) | Broader Context |
-|---|---|---|
-| On-chain governance | Chang fork (CIP-1694) | Few L1s have binding on-chain governance |
-| Smart contract cost reduction | 20-30% (PlutusV3) | Ethereum L2s also reducing costs via blobs |
-| L2 scaling demo | 1.04M TPS (Hydra) | Solana targets high L1 throughput instead |
-| Privacy chain | Midnight (ZK-based) | Zcash, Secret Network also focus on privacy |
-| Stablecoin growth | +66% market cap | Industry-wide stablecoin expansion in 2024 |
+| Development                   | Cardano (2024)        | Broader Context                             |
+| ----------------------------- | --------------------- | ------------------------------------------- |
+| On-chain governance           | Chang fork (CIP-1694) | Few L1s have binding on-chain governance    |
+| Smart contract cost reduction | 20-30% (PlutusV3)     | Ethereum L2s also reducing costs via blobs  |
+| L2 scaling demo               | 1.04M TPS (Hydra)     | Solana targets high L1 throughput instead   |
+| Privacy chain                 | Midnight (ZK-based)   | Zcash, Secret Network also focus on privacy |
+| Stablecoin growth             | +66% market cap       | Industry-wide stablecoin expansion in 2024  |
 
 ## Sources
 

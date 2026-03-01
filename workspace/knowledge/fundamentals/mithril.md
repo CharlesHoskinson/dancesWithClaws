@@ -36,6 +36,7 @@ The Mithril protocol operates through three types of participants:
 
 **1. Signers (Stake Pool Operators):**
 SPOs run a Mithril signer process alongside their Cardano node. At regular intervals (each epoch), the signer:
+
 - Registers its verification key and stake with the Mithril network.
 - Produces signature shares for each snapshot that reflect its proportion of the total stake.
 - Submits these shares to an aggregator.
@@ -49,6 +50,7 @@ The aggregator also stores and serves certified snapshots and other signed artif
 
 **3. Client:**
 Any party that wants to verify Cardano blockchain data. The client:
+
 - Downloads a certified snapshot or other signed artifact from an aggregator.
 - Verifies the aggregate multi-signature against the known stake distribution.
 - If the signature is valid, the client can trust that the data was attested to by a sufficient fraction of the Cardano stake.
@@ -119,14 +121,14 @@ While bootstrapping is the most visible use case, Mithril's certified snapshots 
 
 ## Comparison Points
 
-| Feature | Mithril (Cardano) | SPV (Bitcoin) | Sync Committees (Ethereum) |
-|---|---|---|---|
-| Trust basis | Stake-weighted multi-sig | Block header chain | 512-validator committee |
-| Verification size | ~100MB (snapshot) | ~50MB (headers) | ~few KB per period |
-| Smart contract state | Yes (full snapshot) | No (headers only) | Yes (with proofs) |
-| Non-interactive signing | Yes | N/A | No (committee protocol) |
-| Bootstrapping speed | Minutes | Minutes (headers only) | Minutes |
-| Full state verification | Yes | No | With additional proofs |
+| Feature                 | Mithril (Cardano)        | SPV (Bitcoin)          | Sync Committees (Ethereum) |
+| ----------------------- | ------------------------ | ---------------------- | -------------------------- |
+| Trust basis             | Stake-weighted multi-sig | Block header chain     | 512-validator committee    |
+| Verification size       | ~100MB (snapshot)        | ~50MB (headers)        | ~few KB per period         |
+| Smart contract state    | Yes (full snapshot)      | No (headers only)      | Yes (with proofs)          |
+| Non-interactive signing | Yes                      | N/A                    | No (committee protocol)    |
+| Bootstrapping speed     | Minutes                  | Minutes (headers only) | Minutes                    |
+| Full state verification | Yes                      | No                     | With additional proofs     |
 
 ## Sources
 

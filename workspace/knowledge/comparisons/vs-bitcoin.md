@@ -68,19 +68,19 @@ This comparison is factual but should be understood in context: Bitcoin's energy
 
 ## Comparison Points
 
-| Feature | Bitcoin | Cardano |
-|---|---|---|
-| Primary Purpose | Store of value / digital money | Smart contract platform |
-| Launch | 2009 | 2017 (smart contracts 2021) |
-| Consensus | Proof of Work (Nakamoto) | Proof of Stake (Ouroboros) |
-| Energy Use | ~120 TWh/year | ~0.001 TWh/year |
-| Block Time | ~10 minutes | ~20 seconds |
-| Max Supply | 21 million BTC | 45 billion ADA |
-| Programmability | Limited script (+ Taproot) | Full smart contracts (Plutus/Aiken) |
-| Development Philosophy | Ultra-conservative | Research-driven, formal methods |
-| Decentralization | Highest in the space | Strong (3,000+ validators) |
-| L2 Scaling | Lightning Network | Hydra |
-| Governance | Off-chain, social consensus | On-chain (CIP-1694) |
+| Feature                | Bitcoin                        | Cardano                             |
+| ---------------------- | ------------------------------ | ----------------------------------- |
+| Primary Purpose        | Store of value / digital money | Smart contract platform             |
+| Launch                 | 2009                           | 2017 (smart contracts 2021)         |
+| Consensus              | Proof of Work (Nakamoto)       | Proof of Stake (Ouroboros)          |
+| Energy Use             | ~120 TWh/year                  | ~0.001 TWh/year                     |
+| Block Time             | ~10 minutes                    | ~20 seconds                         |
+| Max Supply             | 21 million BTC                 | 45 billion ADA                      |
+| Programmability        | Limited script (+ Taproot)     | Full smart contracts (Plutus/Aiken) |
+| Development Philosophy | Ultra-conservative             | Research-driven, formal methods     |
+| Decentralization       | Highest in the space           | Strong (3,000+ validators)          |
+| L2 Scaling             | Lightning Network              | Hydra                               |
+| Governance             | Off-chain, social consensus    | On-chain (CIP-1694)                 |
 
 ## Sources
 

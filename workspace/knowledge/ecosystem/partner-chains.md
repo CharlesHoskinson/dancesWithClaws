@@ -21,11 +21,13 @@ The partner chain strategy acknowledges that no single blockchain can optimally 
 Midnight is the most high-profile partner chain in the Cardano ecosystem, designed to address the growing demand for data protection and regulatory compliance in blockchain applications.
 
 **Zero-Knowledge Cryptography:** Midnight uses ZK proofs to enable transactions and computations that protect sensitive data. Users can prove certain properties about their data (e.g., "I am over 18" or "my account balance exceeds X") without revealing the underlying data. This has applications in:
+
 - Regulatory compliance (KYC/AML) without exposing personal data publicly.
 - Private business transactions where contract terms should not be visible to competitors.
 - Healthcare and identity applications where data privacy is legally required.
 
 **Launch and Ecosystem (December 2024):**
+
 - Midnight launched its initial network in December 2024.
 - Over 100 partnerships have been established, including a notable collaboration with Google Cloud for infrastructure and developer tooling.
 - More than 1,000 developers have been active on the testnet, building privacy-preserving applications.
@@ -40,17 +42,20 @@ Midnight is the most high-profile partner chain in the Cardano ecosystem, design
 Milkomeda C1 has been operational since April 2022, providing EVM (Ethereum Virtual Machine) compatibility within the Cardano ecosystem.
 
 **How It Works:**
+
 - Milkomeda C1 runs a modified EVM that processes Solidity smart contracts.
 - Users bridge ADA from the Cardano mainnet to Milkomeda, where it serves as the gas token (wrapped as milkADA).
 - Developers can deploy existing Solidity contracts (originally written for Ethereum) on Milkomeda with minimal or no modifications.
 - The chain uses its own validator set and consensus mechanism while maintaining a bridge to Cardano mainnet.
 
 **Value Proposition:**
+
 - Allows the Cardano ecosystem to access the large library of existing EVM-based DeFi protocols, tools, and developer knowledge.
 - Provides an entry point for Solidity developers who want to build within the Cardano ecosystem without learning Plutus or Aiken.
 - Enables cross-pollination between Cardano-native and EVM-based applications.
 
 **Considerations:**
+
 - Milkomeda C1 has its own security model that is separate from the Cardano mainnet. Users should understand the trust assumptions of the bridge and validator set.
 - EVM compatibility means inheriting both the benefits (tooling, developer familiarity) and limitations (account-based model, MEV vulnerability) of the EVM architecture.
 
@@ -59,16 +64,19 @@ Milkomeda C1 has been operational since April 2022, providing EVM (Ethereum Virt
 Multiple bridge solutions connect Cardano to other blockchain ecosystems:
 
 **ChainPort:**
+
 - A cross-chain bridge platform that supports asset transfers between Cardano and multiple other blockchains including Ethereum, BNB Chain, Polygon, and others.
 - Uses a custodial model with security measures including multi-signature validation and audited smart contracts.
 - Enables tokens from other ecosystems to enter the Cardano DeFi ecosystem and vice versa.
 
 **Rosen Bridge:**
+
 - A bridge solution focused on connecting Cardano with Ergo and potentially other UTXO-based chains.
 - Designed with the specific characteristics of the UTXO model in mind, potentially offering better integration with Cardano's eUTXO architecture.
 - Community-driven development with a focus on decentralization.
 
 **Wanchain:**
+
 - A cross-chain infrastructure provider that has integrated Cardano into its network of supported blockchains.
 - Uses a combination of secure multi-party computation (sMPC) and a decentralized network of bridge nodes.
 - Supports cross-chain asset transfers and cross-chain messaging.

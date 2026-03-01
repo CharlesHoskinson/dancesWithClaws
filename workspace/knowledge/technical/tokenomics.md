@@ -92,15 +92,15 @@ All allocations were defined at genesis and are transparently verifiable on-chai
 
 Both Cardano and Bitcoin have fixed maximum supplies, but their distribution mechanisms differ significantly:
 
-| Aspect | Cardano | Bitcoin |
-|--------|---------|---------|
-| Total supply | 45 billion ADA | 21 million BTC |
-| Distribution curve | Smooth exponential decay | Discrete halvings (~4 years) |
-| Halving events | None | Yes (block reward halves) |
-| Current inflation | ~1.5-2% annually, decreasing | ~1.7% annually, halving in cycles |
-| Long-term rewards | Transaction fees + diminishing reserve | Transaction fees only |
-| Treasury | Yes (20% of rewards) | No protocol-level treasury |
-| Security mechanism | Proof of stake | Proof of work |
+| Aspect             | Cardano                                | Bitcoin                           |
+| ------------------ | -------------------------------------- | --------------------------------- |
+| Total supply       | 45 billion ADA                         | 21 million BTC                    |
+| Distribution curve | Smooth exponential decay               | Discrete halvings (~4 years)      |
+| Halving events     | None                                   | Yes (block reward halves)         |
+| Current inflation  | ~1.5-2% annually, decreasing           | ~1.7% annually, halving in cycles |
+| Long-term rewards  | Transaction fees + diminishing reserve | Transaction fees only             |
+| Treasury           | Yes (20% of rewards)                   | No protocol-level treasury        |
+| Security mechanism | Proof of stake                         | Proof of work                     |
 
 Bitcoin's halving creates sharp, predictable changes in miner economics every four years. Cardano's smooth decay avoids these discontinuities, providing a more predictable transition for stake pool operators.
 

@@ -65,20 +65,20 @@ Neither network is perfectly decentralized, but Cardano's lower hardware require
 
 ## Comparison Points
 
-| Feature | Cardano | Solana |
-|---|---|---|
-| Validators | 3,000+ SPOs | ~500 consensus validators |
-| Uptime | 100% since 2017 | Multiple outages (improving) |
-| Consensus | Ouroboros Praos (formally proven) | Tower BFT + Proof of History (novel) |
-| L1 Throughput | ~7-10 TPS (L2 scaling planned) | ~2,000-4,000 TPS real-world |
-| Fees | ~$0.17 deterministic | <$0.01 base, variable priority fees |
-| Block Time | ~20 seconds | ~400 milliseconds |
-| Smart Contract Language | Plutus / Aiken (Haskell-based) | Rust / Anchor |
-| State Model | eUTXO (deterministic) | Account-based (Sealevel parallel) |
-| TVL | ~$231M | ~$5B |
-| Hardware Requirements | Moderate (commodity server) | High (enterprise-grade) |
-| Formal Verification | Core protocol property | Not a primary focus |
-| Governance | On-chain (CIP-1694) | Off-chain (Solana Foundation-led) |
+| Feature                 | Cardano                           | Solana                               |
+| ----------------------- | --------------------------------- | ------------------------------------ |
+| Validators              | 3,000+ SPOs                       | ~500 consensus validators            |
+| Uptime                  | 100% since 2017                   | Multiple outages (improving)         |
+| Consensus               | Ouroboros Praos (formally proven) | Tower BFT + Proof of History (novel) |
+| L1 Throughput           | ~7-10 TPS (L2 scaling planned)    | ~2,000-4,000 TPS real-world          |
+| Fees                    | ~$0.17 deterministic              | <$0.01 base, variable priority fees  |
+| Block Time              | ~20 seconds                       | ~400 milliseconds                    |
+| Smart Contract Language | Plutus / Aiken (Haskell-based)    | Rust / Anchor                        |
+| State Model             | eUTXO (deterministic)             | Account-based (Sealevel parallel)    |
+| TVL                     | ~$231M                            | ~$5B                                 |
+| Hardware Requirements   | Moderate (commodity server)       | High (enterprise-grade)              |
+| Formal Verification     | Core protocol property            | Not a primary focus                  |
+| Governance              | On-chain (CIP-1694)               | Off-chain (Solana Foundation-led)    |
 
 ## Sources
 

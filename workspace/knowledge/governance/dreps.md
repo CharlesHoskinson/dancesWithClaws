@@ -97,15 +97,15 @@ The specific reward structure and amounts are governed by protocol parameters an
 
 ## Comparison Points
 
-| Feature | Cardano DReps | Polkadot OpenGov | Cosmos Governance |
-|---|---|---|---|
-| Delegation model | Liquid democracy (revocable anytime) | Delegation to tracks/referenda | Delegation to validators (inheritable votes) |
-| Registration | Open, on-chain, deposit required | N/A (direct voting with delegation) | N/A (validators vote by default) |
-| Delegation scope | Governance only (separate from staking) | Per-referendum delegation possible | Governance follows staking delegation |
-| Activity requirement | Yes (activity period) | No formal DRep activity requirement | No formal activity requirement |
-| Special options | Abstain, No Confidence | Abstain | Abstain, No With Veto |
-| Token custody | Tokens stay with delegator | Tokens may be locked during voting | Tokens stay with delegator |
-| Vote weight | Proportional to delegated ADA | Proportional to locked DOT | Proportional to delegated ATOM |
+| Feature              | Cardano DReps                           | Polkadot OpenGov                    | Cosmos Governance                            |
+| -------------------- | --------------------------------------- | ----------------------------------- | -------------------------------------------- |
+| Delegation model     | Liquid democracy (revocable anytime)    | Delegation to tracks/referenda      | Delegation to validators (inheritable votes) |
+| Registration         | Open, on-chain, deposit required        | N/A (direct voting with delegation) | N/A (validators vote by default)             |
+| Delegation scope     | Governance only (separate from staking) | Per-referendum delegation possible  | Governance follows staking delegation        |
+| Activity requirement | Yes (activity period)                   | No formal DRep activity requirement | No formal activity requirement               |
+| Special options      | Abstain, No Confidence                  | Abstain                             | Abstain, No With Veto                        |
+| Token custody        | Tokens stay with delegator              | Tokens may be locked during voting  | Tokens stay with delegator                   |
+| Vote weight          | Proportional to delegated ADA           | Proportional to locked DOT          | Proportional to delegated ATOM               |
 
 Cardano's DRep system is notable for its clean separation between staking delegation and governance delegation, and for its explicit liquid democracy model where delegation changes are immediate and frictionless.
 

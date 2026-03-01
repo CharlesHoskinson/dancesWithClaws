@@ -53,6 +53,7 @@ This document catalogs the most significant milestones in Cardano's history, fro
 The hard fork combinator (HFC) is the mechanism that enables all of these transitions. Developed by IOG, the HFC allows the Cardano node to understand the rules of multiple eras simultaneously. When a hard fork boundary is reached (at a specific epoch), the node seamlessly switches from the old era's rules to the new era's rules without requiring a network restart, chain split, or manual intervention by node operators.
 
 Each hard fork is preceded by:
+
 1. Research specification in peer-reviewed papers or CIPs (Cardano Improvement Proposals).
 2. Implementation and internal testing.
 3. Deployment to public testnets (preview and pre-production).
@@ -73,14 +74,14 @@ The cumulative result of eight-plus hard forks with zero network splits is a tes
 
 ## Comparison Points
 
-| Milestone Category | Cardano | Notable Comparison |
-|---|---|---|
-| Mainnet launch | Sep 2017 | Ethereum: Jul 2015, Solana: Mar 2020 |
-| Full decentralization | Mar 2021 (d=0) | Ethereum: PoS merge Sep 2022 |
-| Smart contracts | Sep 2021 (Alonzo) | Ethereum: at genesis (2015) |
-| Layer-2 scaling | May 2023 (Hydra) | Ethereum: various rollups 2021-2023 |
-| On-chain governance | Sep 2024 (Chang) | Tezos: at genesis (2018) |
-| Hard forks without splits | 8+ consecutive | Ethereum: ETH/ETC split (2016) |
+| Milestone Category        | Cardano           | Notable Comparison                   |
+| ------------------------- | ----------------- | ------------------------------------ |
+| Mainnet launch            | Sep 2017          | Ethereum: Jul 2015, Solana: Mar 2020 |
+| Full decentralization     | Mar 2021 (d=0)    | Ethereum: PoS merge Sep 2022         |
+| Smart contracts           | Sep 2021 (Alonzo) | Ethereum: at genesis (2015)          |
+| Layer-2 scaling           | May 2023 (Hydra)  | Ethereum: various rollups 2021-2023  |
+| On-chain governance       | Sep 2024 (Chang)  | Tezos: at genesis (2018)             |
+| Hard forks without splits | 8+ consecutive    | Ethereum: ETH/ETC split (2016)       |
 
 ## Sources
 
