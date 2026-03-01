@@ -1,9 +1,9 @@
-import JSON5 from "json5";
 import fs from "node:fs";
 import path from "node:path";
-import type { CronStoreFile } from "./types.js";
+import JSON5 from "json5";
 import { expandHomePrefix } from "../infra/home-dir.js";
 import { CONFIG_DIR } from "../utils.js";
+import type { CronStoreFile } from "./types.js";
 
 export const DEFAULT_CRON_DIR = path.join(CONFIG_DIR, "cron");
 export const DEFAULT_CRON_STORE_PATH = path.join(DEFAULT_CRON_DIR, "jobs.json");
@@ -49,13 +49,27 @@ export async function loadCronStore(storePath: string): Promise<CronStoreFile> {
 
 export async function saveCronStore(storePath: string, store: CronStoreFile) {
   await fs.promises.mkdir(path.dirname(storePath), { recursive: true });
-  const tmp = `${storePath}.${process.pid}.${Math.random().toString(16).slice(2)}.tmp`;
+  const { randomBytes } = await import("node:crypto");
   const json = JSON.stringify(store, null, 2);
-  await fs.promises.writeFile(tmp, json, "utf-8");
-  await fs.promises.rename(tmp, storePath);
+  let previous: string | null = null;
   try {
-    await fs.promises.copyFile(storePath, `${storePath}.bak`);
-  } catch {
-    // best-effort
+    previous = await fs.promises.readFile(storePath, "utf-8");
+  } catch (err) {
+    if ((err as { code?: unknown }).code !== "ENOENT") {
+      throw err;
+    }
   }
+  if (previous === json) {
+    return;
+  }
+  const tmp = `${storePath}.${process.pid}.${randomBytes(8).toString("hex")}.tmp`;
+  await fs.promises.writeFile(tmp, json, "utf-8");
+  if (previous !== null) {
+    try {
+      await fs.promises.copyFile(storePath, `${storePath}.bak`);
+    } catch {
+      // best-effort
+    }
+  }
+  await fs.promises.rename(tmp, storePath);
 }

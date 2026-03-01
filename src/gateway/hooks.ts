@@ -1,10 +1,11 @@
-import type { IncomingMessage } from "node:http";
 import { randomUUID } from "node:crypto";
-import type { ChannelId } from "../channels/plugins/types.js";
-import type { OpenClawConfig } from "../config/config.js";
+import type { IncomingMessage } from "node:http";
 import { listAgentIds, resolveDefaultAgentId } from "../agents/agent-scope.js";
 import { listChannelPlugins } from "../channels/plugins/index.js";
-import { normalizeAgentId } from "../routing/session-key.js";
+import type { ChannelId } from "../channels/plugins/types.js";
+import type { OpenClawConfig } from "../config/config.js";
+import { readJsonBodyWithLimit, requestBodyErrorToText } from "../infra/http-body.js";
+import { normalizeAgentId, parseAgentSessionKey } from "../routing/session-key.js";
 import { normalizeMessageChannel } from "../utils/message-channel.js";
 import { type HookMappingResolved, resolveHookMappings } from "./hooks-mapping.js";
 
@@ -177,48 +178,20 @@ export async function readJsonBody(
   req: IncomingMessage,
   maxBytes: number,
 ): Promise<{ ok: true; value: unknown } | { ok: false; error: string }> {
-  return await new Promise((resolve) => {
-    let done = false;
-    let total = 0;
-    const chunks: Buffer[] = [];
-    req.on("data", (chunk: Buffer) => {
-      if (done) {
-        return;
-      }
-      total += chunk.length;
-      if (total > maxBytes) {
-        done = true;
-        resolve({ ok: false, error: "payload too large" });
-        req.destroy();
-        return;
-      }
-      chunks.push(chunk);
-    });
-    req.on("end", () => {
-      if (done) {
-        return;
-      }
-      done = true;
-      const raw = Buffer.concat(chunks).toString("utf-8").trim();
-      if (!raw) {
-        resolve({ ok: true, value: {} });
-        return;
-      }
-      try {
-        const parsed = JSON.parse(raw) as unknown;
-        resolve({ ok: true, value: parsed });
-      } catch (err) {
-        resolve({ ok: false, error: String(err) });
-      }
-    });
-    req.on("error", (err) => {
-      if (done) {
-        return;
-      }
-      done = true;
-      resolve({ ok: false, error: String(err) });
-    });
-  });
+  const result = await readJsonBodyWithLimit(req, { maxBytes, emptyObjectOnEmpty: true });
+  if (result.ok) {
+    return result;
+  }
+  if (result.code === "PAYLOAD_TOO_LARGE") {
+    return { ok: false, error: "payload too large" };
+  }
+  if (result.code === "REQUEST_BODY_TIMEOUT") {
+    return { ok: false, error: "request body timeout" };
+  }
+  if (result.code === "CONNECTION_CLOSED") {
+    return { ok: false, error: requestBodyErrorToText("CONNECTION_CLOSED") };
+  }
+  return { ok: false, error: result.error };
 }
 
 export function normalizeHookHeaders(req: IncomingMessage) {
@@ -258,6 +231,11 @@ export type HookAgentPayload = {
   model?: string;
   thinking?: string;
   timeoutSeconds?: number;
+};
+
+export type HookAgentDispatchPayload = Omit<HookAgentPayload, "sessionKey"> & {
+  sessionKey: string;
+  allowUnsafeExternalContent?: boolean;
 };
 
 const listHookChannelValues = () => ["last", ...listChannelPlugins().map((plugin) => plugin.id)];
@@ -352,6 +330,25 @@ export function resolveHookSessionKey(params: {
     return { ok: false, error: getHookSessionKeyPrefixError(allowedPrefixes) };
   }
   return { ok: true, value: generated };
+}
+
+export function normalizeHookDispatchSessionKey(params: {
+  sessionKey: string;
+  targetAgentId: string | undefined;
+}): string {
+  const trimmed = params.sessionKey.trim();
+  if (!trimmed || !params.targetAgentId) {
+    return trimmed;
+  }
+  const parsed = parseAgentSessionKey(trimmed);
+  if (!parsed) {
+    return trimmed;
+  }
+  const targetAgentId = normalizeAgentId(params.targetAgentId);
+  if (parsed.agentId !== targetAgentId) {
+    return `agent:${parsed.agentId}:${parsed.rest}`;
+  }
+  return parsed.rest;
 }
 
 export function normalizeAgentPayload(payload: Record<string, unknown>):

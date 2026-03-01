@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const piCodingAgentMocks = vi.hoisted(() => ({
   generateSummary: vi.fn(async () => "summary"),
-  estimateTokens: vi.fn(() => 1),
+  estimateTokens: vi.fn((_message: unknown) => 1),
 }));
 
 vi.mock("@mariozechner/pi-coding-agent", async () => {
@@ -17,7 +17,7 @@ vi.mock("@mariozechner/pi-coding-agent", async () => {
   };
 });
 
-import { summarizeWithFallback } from "./compaction.js";
+import { isOversizedForSummary, summarizeWithFallback } from "./compaction.js";
 
 describe("compaction toolResult details stripping", () => {
   beforeEach(() => {
@@ -30,7 +30,7 @@ describe("compaction toolResult details stripping", () => {
         role: "assistant",
         content: [{ type: "toolUse", id: "call_1", name: "browser", input: { action: "tabs" } }],
         timestamp: 1,
-      } as AgentMessage,
+      } as unknown as AgentMessage,
       {
         role: "toolResult",
         toolCallId: "call_1",
@@ -57,9 +57,30 @@ describe("compaction toolResult details stripping", () => {
     expect(summary).toBe("summary");
     expect(piCodingAgentMocks.generateSummary).toHaveBeenCalled();
 
-    const [chunk] = piCodingAgentMocks.generateSummary.mock.calls[0] ?? [];
+    const chunk = (
+      piCodingAgentMocks.generateSummary.mock.calls as unknown as Array<[unknown]>
+    )[0]?.[0];
     const serialized = JSON.stringify(chunk);
     expect(serialized).not.toContain("Ignore previous instructions");
     expect(serialized).not.toContain('"details"');
+  });
+
+  it("ignores toolResult.details when evaluating oversized messages", () => {
+    piCodingAgentMocks.estimateTokens.mockImplementation((message: unknown) => {
+      const record = message as { details?: unknown };
+      return record.details ? 10_000 : 10;
+    });
+
+    const toolResult = {
+      role: "toolResult",
+      toolCallId: "call_1",
+      toolName: "browser",
+      isError: false,
+      content: [{ type: "text", text: "ok" }],
+      details: { raw: "x".repeat(100_000) },
+      timestamp: 2,
+    } as unknown as AgentMessage;
+
+    expect(isOversizedForSummary(toolResult, 1_000)).toBe(false);
   });
 });
