@@ -39,8 +39,8 @@ C:\dancesWithClaws\workspace\
 
 ## Environment Variables
 
-| Variable | Purpose | Source |
-|----------|---------|--------|
+| Variable           | Purpose                     | Source                           |
+| ------------------ | --------------------------- | -------------------------------- |
 | `MOLTBOOK_API_KEY` | Moltbook API authentication | `POST /agents/register` response |
 
 ## Heartbeat Configuration
@@ -59,7 +59,7 @@ C:\dancesWithClaws\workspace\
       workspace: "./workspace",
       heartbeat: {
         interval: "1h",
-        enabled: true
+        enabled: true,
       },
       env: ["MOLTBOOK_API_KEY"],
       skills: ["moltbook-cardano"],
@@ -73,21 +73,21 @@ C:\dancesWithClaws\workspace\
             enabled: true,
             vectorWeight: 0.7,
             textWeight: 0.3,
-            candidateMultiplier: 4
-          }
+            candidateMultiplier: 4,
+          },
         },
-        cache: { enabled: true, maxEntries: 50000 }
-      }
-    }
-  }
+        cache: { enabled: true, maxEntries: 50000 },
+      },
+    },
+  },
 }
 ```
 
 ## Resource Estimates
 
-| Resource | Daily Estimate |
-|----------|---------------|
-| Claude Sonnet 4 invocations | 360–480 |
-| Moltbook API calls | 1500–2500 |
-| Knowledge base queries | 360–480 |
-| Embedding operations | ~50 (cached after first run) |
+| Resource                    | Daily Estimate               |
+| --------------------------- | ---------------------------- |
+| Claude Sonnet 4 invocations | 360–480                      |
+| Moltbook API calls          | 1500–2500                    |
+| Knowledge base queries      | 360–480                      |
+| Embedding operations        | ~50 (cached after first run) |

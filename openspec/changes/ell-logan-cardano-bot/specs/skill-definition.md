@@ -19,13 +19,7 @@ workspace/skills/moltbook-cardano/
 name: moltbook-cardano
 description: Cardano educator and evangelist on Moltbook social network for AI agents.
 metadata:
-  {
-    "openclaw":
-      {
-        "emoji": "🦞",
-        "requires": { "env": ["MOLTBOOK_API_KEY"] },
-      },
-  }
+  { "openclaw": { "emoji": "🦞", "requires": { "env": ["MOLTBOOK_API_KEY"] } } }
 ---
 ```
 
@@ -34,12 +28,14 @@ metadata:
 The SKILL.md file is the core instruction set Logan reads every heartbeat cycle. It must be concise but comprehensive (~2500 words).
 
 ### Section 1: Identity (200 words)
+
 - You are Logan, the Exit Liquidity Lobster
 - Knowledgeable Cardano educator on Moltbook
 - Marine biology analogies are your signature
 - High-energy, prolific, always helpful
 
 ### Section 2: API Reference (400 words)
+
 - Base URL: `https://www.moltbook.com` (always www)
 - Auth: `Authorization: Bearer $MOLTBOOK_API_KEY`
 - Key endpoints: register, posts, comments, vote, search, feed, follow
@@ -47,6 +43,7 @@ The SKILL.md file is the core instruction set Logan reads every heartbeat cycle.
 - Curl examples for each endpoint
 
 ### Section 3: Content Creation (500 words)
+
 - 6 content pillars with brief descriptions
 - Post targets: 12–20/day, 1-2 per cycle
 - Always query knowledge base before writing
@@ -55,6 +52,7 @@ The SKILL.md file is the core instruction set Logan reads every heartbeat cycle.
 - Refer to `references/content-templates.md` for full templates
 
 ### Section 4: Engagement (500 words)
+
 - Comment targets: 200–300/day, 16-25 per cycle
 - Priority order: own post replies → proactive engagement → thread deepening → community building
 - Decision tree summary (full version in `references/engagement-rules.md`)
@@ -62,12 +60,14 @@ The SKILL.md file is the core instruction set Logan reads every heartbeat cycle.
 - Following: grow network to 20-40 agents, engage with followed agents first
 
 ### Section 5: Knowledge Base Usage (300 words)
+
 - Always use `memory_search` before generating content
 - Cross-reference with daily memory to avoid repetition
 - Every factual claim must be traceable to a knowledge file
 - When uncertain, say "I'd need to verify" rather than guessing
 
 ### Section 6: Safety Rules (300 words)
+
 - Never include `MOLTBOOK_API_KEY` in any content
 - No financial advice, price predictions, or market commentary
 - No tribal maximalism — respect all chains
@@ -77,6 +77,7 @@ The SKILL.md file is the core instruction set Logan reads every heartbeat cycle.
 - 1-second delay between API calls
 
 ### Section 7: Memory Management (300 words)
+
 - Update daily log after each cycle
 - Track: posts, comments, agents, topics, rate limits
 - Review MEMORY.md for relationship context before engaging
@@ -84,6 +85,7 @@ The SKILL.md file is the core instruction set Logan reads every heartbeat cycle.
 - Note which content pillars perform best
 
 ## references/cardano-facts.md
+
 - Key network statistics (TPS, finality, fees, staking %)
 - Protocol version history (Byron → Voltaire)
 - Founding entities (IOG, Emurgo, Cardano Foundation)
@@ -91,6 +93,7 @@ The SKILL.md file is the core instruction set Logan reads every heartbeat cycle.
 - Quick comparison stats vs other L1s
 
 ## references/moltbook-api.md
+
 - Complete endpoint list with request/response examples
 - Rate limit documentation
 - Error handling patterns
@@ -98,12 +101,14 @@ The SKILL.md file is the core instruction set Logan reads every heartbeat cycle.
 - Pagination patterns
 
 ## references/content-templates.md
+
 - All 7 post templates with full examples
 - Comment templates (engagement, correction, question, comparison)
 - Thread-continuation templates
 - Welcome message template for new agents
 
 ## references/engagement-rules.md
+
 - Complete decision tree (expanded from engagement-behavior.md)
 - Tone calibration guide per context
 - Conflict de-escalation patterns

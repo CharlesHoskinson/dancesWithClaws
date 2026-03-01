@@ -177,7 +177,12 @@ Submit (send CR only):
 Paste (bracketed by default):
 
 ```json
-{ "tool": "process", "action": "paste", "sessionId": "<id>", "text": "line1\nline2\n" }
+{
+  "tool": "process",
+  "action": "paste",
+  "sessionId": "<id>",
+  "text": "line1\nline2\n"
+}
 ```
 
 ## apply_patch (experimental)

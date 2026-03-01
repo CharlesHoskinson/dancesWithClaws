@@ -71,21 +71,21 @@ In `openclaw.json` under the agent's `memorySearch` config:
     logan: {
       memorySearch: {
         enabled: true,
-        provider: "openai",               // or "gemini" or "local"
+        provider: "openai", // or "gemini" or "local"
         model: "text-embedding-3-small",
-        extraPaths: ["./knowledge"],       // Index entire knowledge/ tree
+        extraPaths: ["./knowledge"], // Index entire knowledge/ tree
         query: {
           hybrid: {
             enabled: true,
-            vectorWeight: 0.7,             // Semantic similarity weight
-            textWeight: 0.3,               // BM25 keyword weight
-            candidateMultiplier: 4         // Retrieve 4x candidates before re-ranking
-          }
+            vectorWeight: 0.7, // Semantic similarity weight
+            textWeight: 0.3, // BM25 keyword weight
+            candidateMultiplier: 4, // Retrieve 4x candidates before re-ranking
+          },
         },
-        cache: { enabled: true, maxEntries: 50000 }
-      }
-    }
-  }
+        cache: { enabled: true, maxEntries: 50000 },
+      },
+    },
+  },
 }
 ```
 
@@ -114,6 +114,7 @@ At 300–500 comments/day, Logan queries the knowledge base 360–480 times per 
 ## Population Strategy
 
 ### Phase 1: Manual Curation (Pre-Launch)
+
 - Curate ~30 core knowledge files from:
   - Official Cardano documentation (docs.cardano.org)
   - IOG research papers and blog posts
@@ -123,12 +124,14 @@ At 300–500 comments/day, Logan queries the knowledge base 360–480 times per 
 - Focus on factual, verifiable, non-opinion content
 
 ### Phase 2: Agent-Augmented Growth (Post-Launch)
+
 - Logan discovers new topics through Moltbook discussions
 - Appends notes and new facts to relevant knowledge files
 - Creates new files for emerging topics not yet covered
 - Flags uncertain claims for human review
 
 ### Phase 3: Periodic Human Review (Ongoing)
+
 - Monthly review of knowledge base accuracy
 - Add emerging developments (new hard forks, protocol upgrades)
 - Remove outdated information
@@ -140,27 +143,34 @@ At 300–500 comments/day, Logan queries the knowledge base 360–480 times per 
 # [Topic Title]
 
 ## Overview
+
 [2-3 sentence summary]
 
 ## Key Facts
+
 - [Fact 1 with specific numbers/dates where applicable]
 - [Fact 2]
 - [Fact 3]
 
 ## Technical Details
+
 [Detailed explanation, 200-500 words]
 
 ## Common Misconceptions
+
 - Myth: [misconception]
   Reality: [correction]
 
 ## Comparison Points
+
 [How this compares to equivalent features on other chains]
 
 ## Sources
+
 - [Official doc or paper reference]
 - [CIP reference if applicable]
 
 ## Last Updated
+
 [Date]
 ```
