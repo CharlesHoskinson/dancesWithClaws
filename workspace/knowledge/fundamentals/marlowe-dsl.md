@@ -112,16 +112,16 @@ While individual Marlowe constructs are simple, they can be composed to create s
 
 ## Comparison Points
 
-| Feature | Marlowe | Plutus | Solidity |
-|---|---|---|---|
-| Target audience | Business/finance professionals | Developers | Developers |
-| Language type | Domain-specific (financial) | General-purpose | General-purpose |
-| Guaranteed termination | Yes | No | No |
-| No asset trapping | Yes (by construction) | Developer responsibility | Developer responsibility |
-| Static analysis | Full path enumeration | Partial | Partial |
-| Visual authoring | Yes (Blockly) | No | No |
-| Turing complete | No | Yes | Yes |
-| Expressiveness | Financial contracts | Arbitrary logic | Arbitrary logic |
+| Feature                | Marlowe                        | Plutus                   | Solidity                 |
+| ---------------------- | ------------------------------ | ------------------------ | ------------------------ |
+| Target audience        | Business/finance professionals | Developers               | Developers               |
+| Language type          | Domain-specific (financial)    | General-purpose          | General-purpose          |
+| Guaranteed termination | Yes                            | No                       | No                       |
+| No asset trapping      | Yes (by construction)          | Developer responsibility | Developer responsibility |
+| Static analysis        | Full path enumeration          | Partial                  | Partial                  |
+| Visual authoring       | Yes (Blockly)                  | No                       | No                       |
+| Turing complete        | No                             | Yes                      | Yes                      |
+| Expressiveness         | Financial contracts            | Arbitrary logic          | Arbitrary logic          |
 
 ## Sources
 

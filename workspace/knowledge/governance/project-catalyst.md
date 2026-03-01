@@ -87,15 +87,15 @@ This system represents a significant improvement over the earlier model where fu
 
 ## Comparison Points
 
-| Feature | Project Catalyst | Ethereum Grants (EF, Gitcoin) | Polkadot Treasury |
-|---|---|---|---|
-| Funding source | Cardano treasury (protocol-level) | Foundation endowment / quadratic funding | On-chain treasury (inflation) |
-| Decision mechanism | Community vote (stake-weighted) | Committee review (EF) / quadratic voting (Gitcoin) | Council and community vote |
-| Scale | $150M+ distributed | Varies by program | Significant treasury balance |
-| Proposal process | Open submission, community review | Application-based (EF) / open (Gitcoin) | On-chain proposal |
-| Voter rewards | Yes, ADA rewards for participation | No direct rewards for Gitcoin voters | No direct voter rewards |
-| Recurring rounds | Every ~4 months | Ongoing (EF) / periodic (Gitcoin rounds) | Continuous (proposals anytime) |
-| Milestone tracking | Yes (later funds) | Varies by program | Limited |
+| Feature            | Project Catalyst                   | Ethereum Grants (EF, Gitcoin)                      | Polkadot Treasury              |
+| ------------------ | ---------------------------------- | -------------------------------------------------- | ------------------------------ |
+| Funding source     | Cardano treasury (protocol-level)  | Foundation endowment / quadratic funding           | On-chain treasury (inflation)  |
+| Decision mechanism | Community vote (stake-weighted)    | Committee review (EF) / quadratic voting (Gitcoin) | Council and community vote     |
+| Scale              | $150M+ distributed                 | Varies by program                                  | Significant treasury balance   |
+| Proposal process   | Open submission, community review  | Application-based (EF) / open (Gitcoin)            | On-chain proposal              |
+| Voter rewards      | Yes, ADA rewards for participation | No direct rewards for Gitcoin voters               | No direct voter rewards        |
+| Recurring rounds   | Every ~4 months                    | Ongoing (EF) / periodic (Gitcoin rounds)           | Continuous (proposals anytime) |
+| Milestone tracking | Yes (later funds)                  | Varies by program                                  | Limited                        |
 
 Project Catalyst is distinguished by its scale, recurring cadence, and community-driven evaluation process. While other ecosystems have grant programs, few combine protocol-level treasury funding with open community voting at the scale that Catalyst has achieved.
 

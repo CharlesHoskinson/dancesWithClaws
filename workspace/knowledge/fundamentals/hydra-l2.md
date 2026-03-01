@@ -30,6 +30,7 @@ Each participant commits UTXOs from Layer 1 into the Head by posting commit tran
 Once all participants have committed, the Head opens. Participants can now submit transactions to the Head, which are validated using the same rules as Cardano mainnet (including Plutus script execution). Transactions are confirmed via a lightweight consensus protocol among the Head participants, achieving confirmation in as little as a network round trip.
 
 Inside an open Head:
+
 - Transactions follow the same eUTXO model as mainnet.
 - Native tokens and NFTs work identically.
 - Plutus validators execute with the same semantics.
@@ -106,15 +107,15 @@ If a participant goes offline or becomes unresponsive, the Head can be closed by
 
 ## Comparison Points
 
-| Feature | Hydra (Cardano) | Lightning (Bitcoin) | Optimistic Rollups (Ethereum) |
-|---|---|---|---|
-| Type | Isomorphic state channels | Payment channels | Rollup |
-| Smart contracts in L2 | Full Plutus support | No | Yes (EVM) |
-| Participant model | Fixed group, unanimous | Pairwise channels | Open access |
-| Finality | Instant (within Head) | Instant (within channel) | 7-day challenge period |
-| Native multi-asset | Yes | No | Depends on implementation |
-| Throughput | Very high (per Head) | Moderate (per channel) | High (aggregated) |
-| Trust assumption | Participants only | Channel counterparty | Sequencer + fraud proofs |
+| Feature               | Hydra (Cardano)           | Lightning (Bitcoin)      | Optimistic Rollups (Ethereum) |
+| --------------------- | ------------------------- | ------------------------ | ----------------------------- |
+| Type                  | Isomorphic state channels | Payment channels         | Rollup                        |
+| Smart contracts in L2 | Full Plutus support       | No                       | Yes (EVM)                     |
+| Participant model     | Fixed group, unanimous    | Pairwise channels        | Open access                   |
+| Finality              | Instant (within Head)     | Instant (within channel) | 7-day challenge period        |
+| Native multi-asset    | Yes                       | No                       | Depends on implementation     |
+| Throughput            | Very high (per Head)      | Moderate (per channel)   | High (aggregated)             |
+| Trust assumption      | Participants only         | Channel counterparty     | Sequencer + fraud proofs      |
 
 ## Sources
 

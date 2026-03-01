@@ -32,6 +32,7 @@ Aiken has emerged as the preferred framework for writing Cardano smart contracts
 ### API and Data Access
 
 **Blockfrost** provides a managed, hosted API service for Cardano:
+
 - RESTful endpoints for querying blocks, transactions, addresses, assets, and protocol parameters.
 - IPFS pinning service for NFT and metadata storage.
 - Webhook support for event-driven applications.
@@ -40,6 +41,7 @@ Aiken has emerged as the preferred framework for writing Cardano smart contracts
 - Eliminates the need to run and maintain a full Cardano node for read operations.
 
 **Koios** offers a decentralized alternative:
+
 - Community-operated, distributed query layer with multiple independent API instances.
 - PostgreSQL-based queries against the Cardano db-sync database.
 - Open-source and permissionless — anyone can run a Koios instance.
@@ -50,6 +52,7 @@ Aiken has emerged as the preferred framework for writing Cardano smart contracts
 ### Off-Chain Transaction Building
 
 **Lucid** (and its successor Lucid Evolution) is the most widely used JavaScript/TypeScript library for Cardano transaction construction:
+
 - Build, sign, and submit transactions from browser-based or Node.js applications.
 - Wallet integration via CIP-30 dApp connector standard.
 - Support for Plutus script interactions, including datum construction and redeemer attachment.
@@ -58,6 +61,7 @@ Aiken has emerged as the preferred framework for writing Cardano smart contracts
 - Used by the majority of Cardano web dApps for frontend-to-blockchain interaction.
 
 **Atlas** provides an off-chain framework in Haskell:
+
 - Transaction building and submission for Haskell-based backends.
 - Integration with Plutus scripts.
 - Suitable for server-side applications and automated systems.
@@ -66,6 +70,7 @@ Aiken has emerged as the preferred framework for writing Cardano smart contracts
 ### Node Interaction
 
 **Ogmios** serves as a WebSocket bridge to a running Cardano node:
+
 - Lightweight JSON/WebSocket interface to the Cardano node's mini-protocols.
 - Chain synchronization (following the chain tip and historical blocks).
 - Transaction submission.
@@ -76,6 +81,7 @@ Aiken has emerged as the preferred framework for writing Cardano smart contracts
 ### Development Environment
 
 **Demeter** is a cloud-based platform that simplifies the Cardano development workflow:
+
 - Browser-based IDE with pre-configured environments for Cardano development.
 - Managed infrastructure including Cardano nodes, db-sync instances, and Ogmios endpoints.
 - One-click deployment of development and staging environments.

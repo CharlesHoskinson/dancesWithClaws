@@ -101,15 +101,15 @@ In Plutus, on-chain validators are deliberately minimal — they verify that a t
 
 ## Comparison Points
 
-| Feature | Plutus (Cardano) | Solidity (Ethereum) | Move (Aptos/Sui) |
-|---|---|---|---|
-| Base language | Haskell | JavaScript-like | Rust-like |
-| Execution model | Validator (verify) | State mutation | Resource-oriented |
-| On-chain state | Datum on UTXO | Contract storage | Global objects |
-| Reentrancy risk | None (by design) | Yes (mitigable) | None (by design) |
-| Formal verification | Strong (Haskell tooling) | Limited | Medium (Move Prover) |
-| Fee determinism | Exact pre-submission | Estimated | Estimated |
-| Alternative frontends | Aiken, Helios, OpShin | Vyper, Yul | None |
+| Feature               | Plutus (Cardano)         | Solidity (Ethereum) | Move (Aptos/Sui)     |
+| --------------------- | ------------------------ | ------------------- | -------------------- |
+| Base language         | Haskell                  | JavaScript-like     | Rust-like            |
+| Execution model       | Validator (verify)       | State mutation      | Resource-oriented    |
+| On-chain state        | Datum on UTXO            | Contract storage    | Global objects       |
+| Reentrancy risk       | None (by design)         | Yes (mitigable)     | None (by design)     |
+| Formal verification   | Strong (Haskell tooling) | Limited             | Medium (Move Prover) |
+| Fee determinism       | Exact pre-submission     | Estimated           | Estimated            |
+| Alternative frontends | Aiken, Helios, OpShin    | Vyper, Yul          | None                 |
 
 ## Sources
 

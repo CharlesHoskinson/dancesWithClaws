@@ -16,12 +16,12 @@ The eUTXO model introduces deterministic transaction execution, meaning users kn
 
 ### Top Protocols by TVL (Q4 2024)
 
-| Protocol | TVL | QoQ Growth | Category |
-|----------|-----|------------|----------|
-| Liqwid Finance | $113.6M | +141% | Lending/Borrowing |
-| Minswap | $98.9M | +69% | DEX |
-| Splash | $59.6M | N/A | DEX |
-| Aada Finance | $30.2M | N/A | Lending |
+| Protocol       | TVL     | QoQ Growth | Category          |
+| -------------- | ------- | ---------- | ----------------- |
+| Liqwid Finance | $113.6M | +141%      | Lending/Borrowing |
+| Minswap        | $98.9M  | +69%       | DEX               |
+| Splash         | $59.6M  | N/A        | DEX               |
+| Aada Finance   | $30.2M  | N/A        | Lending           |
 
 ## Technical Details
 

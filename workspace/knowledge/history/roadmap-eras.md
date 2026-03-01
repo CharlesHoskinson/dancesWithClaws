@@ -36,13 +36,13 @@ The consensus protocol itself has evolved across eras: Ouroboros Classic (Byron)
 
 ## Comparison Points
 
-| Aspect | Cardano Eras | Ethereum Upgrades |
-|---|---|---|
-| Upgrade mechanism | Hard Fork Combinator (seamless) | Traditional hard forks (require coordination) |
-| Research basis | Peer-reviewed papers per era | EIPs with varying formality |
-| Smart contract model | eUTXO (Goguen) | Account-based (since genesis) |
-| Governance | On-chain voting (Voltaire) | Off-chain signaling + core dev calls |
-| Scaling approach | Hydra L2 + Mithril (Basho) | Rollup-centric roadmap |
+| Aspect               | Cardano Eras                    | Ethereum Upgrades                             |
+| -------------------- | ------------------------------- | --------------------------------------------- |
+| Upgrade mechanism    | Hard Fork Combinator (seamless) | Traditional hard forks (require coordination) |
+| Research basis       | Peer-reviewed papers per era    | EIPs with varying formality                   |
+| Smart contract model | eUTXO (Goguen)                  | Account-based (since genesis)                 |
+| Governance           | On-chain voting (Voltaire)      | Off-chain signaling + core dev calls          |
+| Scaling approach     | Hydra L2 + Mithril (Basho)      | Rollup-centric roadmap                        |
 
 ## Sources
 

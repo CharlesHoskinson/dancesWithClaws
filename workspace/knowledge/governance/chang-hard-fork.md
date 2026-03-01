@@ -35,6 +35,7 @@ This mechanism has been used successfully for all of Cardano's previous era tran
 One of the most significant technical changes in the Chang hard fork was the introduction of PlutusV3, the third generation of Cardano's smart contract execution platform. Key improvements include:
 
 **Cost Reductions (20-30%)**
+
 - Optimized execution costs for common smart contract operations.
 - Reduced memory and CPU budgets required for typical DeFi transactions.
 - Lower costs make complex smart contract interactions more economically viable, benefiting DeFi protocols, DEXes, and other on-chain applications.
@@ -49,6 +50,7 @@ PlutusV3 introduced several new built-in functions that expand smart contract ca
 
 **Sums of Products (SOPs)**
 PlutusV3 introduced a new data encoding scheme called Sums of Products, which more efficiently represents algebraic data types in Plutus scripts. This results in:
+
 - Smaller script sizes for contracts that use complex data structures.
 - Faster execution of pattern matching and data destructuring operations.
 - Overall reduction in transaction costs for contracts using structured data.
@@ -58,23 +60,27 @@ PlutusV3 introduced a new data encoding scheme called Sums of Products, which mo
 The Chang hard fork deployed the on-chain governance mechanisms defined in CIP-1694. This was the largest structural change to the Cardano ledger since the introduction of smart contracts in the Alonzo hard fork. The governance changes include:
 
 **DRep System**
+
 - On-chain DRep registration and deregistration.
 - Vote delegation certificates allowing ADA holders to delegate governance power to DReps.
 - Special delegation options: Abstain and No Confidence.
 - DRep activity tracking to identify inactive representatives.
 
 **Constitutional Committee**
+
 - On-chain representation of CC members with their credentials and term expiration epochs.
 - CC voting mechanism for governance actions.
 - Governance actions to update CC membership and express no confidence.
 
 **Governance Actions**
+
 - On-chain submission of governance actions with deposits.
 - Seven types of governance actions: treasury withdrawals, protocol parameter changes, hard fork initiation, CC updates, no-confidence motions, constitutional updates, and info actions.
 - Voting periods with defined expiration.
 - Ratification logic implementing the required approval thresholds for each action type.
 
 **On-Chain Voting**
+
 - Vote transaction types for DReps, SPOs, and CC members.
 - Stake-weighted vote tallying.
 - Configurable thresholds via protocol parameters.
@@ -124,15 +130,15 @@ The hard fork required SPOs to upgrade their nodes to a Conway-compatible versio
 
 ## Comparison Points
 
-| Feature | Chang Hard Fork (Cardano) | The Merge (Ethereum) | Typical Cosmos Chain Upgrade |
-|---|---|---|---|
-| Date | September 1, 2024 | September 15, 2022 | Varies |
-| Primary purpose | Governance + smart contract improvements | Consensus change (PoW to PoS) | Feature additions |
-| User action required | None | None | Sometimes (depending on upgrade) |
-| Chain split risk | None (HFC mechanism) | Minimal (ETC/ETH split was earlier) | Low (coordinated upgrades) |
-| Smart contract impact | Full backward compatibility + PlutusV3 | No direct smart contract changes | Varies |
-| Governance changes | Full on-chain governance system | None (governance remained off-chain) | Varies |
-| Transition mechanism | Hard Fork Combinator | Difficulty bomb + beacon chain merge | Coordinated halt + restart |
+| Feature               | Chang Hard Fork (Cardano)                | The Merge (Ethereum)                 | Typical Cosmos Chain Upgrade     |
+| --------------------- | ---------------------------------------- | ------------------------------------ | -------------------------------- |
+| Date                  | September 1, 2024                        | September 15, 2022                   | Varies                           |
+| Primary purpose       | Governance + smart contract improvements | Consensus change (PoW to PoS)        | Feature additions                |
+| User action required  | None                                     | None                                 | Sometimes (depending on upgrade) |
+| Chain split risk      | None (HFC mechanism)                     | Minimal (ETC/ETH split was earlier)  | Low (coordinated upgrades)       |
+| Smart contract impact | Full backward compatibility + PlutusV3   | No direct smart contract changes     | Varies                           |
+| Governance changes    | Full on-chain governance system          | None (governance remained off-chain) | Varies                           |
+| Transition mechanism  | Hard Fork Combinator                     | Difficulty bomb + beacon chain merge | Coordinated halt + restart       |
 
 The Chang hard fork is notable for simultaneously introducing both governance infrastructure and significant smart contract improvements in a single, seamless upgrade, demonstrating the maturity of Cardano's hard fork combinator approach.
 

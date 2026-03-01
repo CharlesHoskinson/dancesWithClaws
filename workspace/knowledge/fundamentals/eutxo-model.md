@@ -82,16 +82,16 @@ eUTXO does support state, but it is managed differently than in account-based mo
 
 ## Comparison Points
 
-| Feature | eUTXO (Cardano) | Account Model (Ethereum) | UTXO (Bitcoin) |
-|---|---|---|---|
-| State representation | Datum on UTXO | Global contract storage | Script on UTXO (limited) |
-| Fee predictability | Exact, pre-submission | Estimated, variable gas | Exact, pre-submission |
-| Failed transaction cost | None (usually) | Full gas consumed | None |
-| Parallel validation | Natural (independent UTXOs) | Sequential (shared state) | Natural (independent UTXOs) |
-| Native multi-asset | Yes | No (ERC-20 contracts) | No |
-| Smart contracts | Plutus validators + datums | Solidity/Vyper contracts | Bitcoin Script (limited) |
-| Shared state access | Requires design patterns | Direct | N/A |
-| Transaction determinism | Full | State-dependent | Full |
+| Feature                 | eUTXO (Cardano)             | Account Model (Ethereum)  | UTXO (Bitcoin)              |
+| ----------------------- | --------------------------- | ------------------------- | --------------------------- |
+| State representation    | Datum on UTXO               | Global contract storage   | Script on UTXO (limited)    |
+| Fee predictability      | Exact, pre-submission       | Estimated, variable gas   | Exact, pre-submission       |
+| Failed transaction cost | None (usually)              | Full gas consumed         | None                        |
+| Parallel validation     | Natural (independent UTXOs) | Sequential (shared state) | Natural (independent UTXOs) |
+| Native multi-asset      | Yes                         | No (ERC-20 contracts)     | No                          |
+| Smart contracts         | Plutus validators + datums  | Solidity/Vyper contracts  | Bitcoin Script (limited)    |
+| Shared state access     | Requires design patterns    | Direct                    | N/A                         |
+| Transaction determinism | Full                        | State-dependent           | Full                        |
 
 ## Sources
 

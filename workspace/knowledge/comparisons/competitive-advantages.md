@@ -67,6 +67,7 @@ The Haskell implementation of the Cardano node facilitates property-based testin
 **What it is**: Cardano transaction fees are calculated using a fixed formula based on transaction size (in bytes) and computational resources (execution units). The formula is defined by protocol parameters that can only be changed through governance. A typical transaction costs approximately **$0.17 USD equivalent**.
 
 **How it differs**: Most other blockchain platforms use market-based fee mechanisms:
+
 - **Ethereum**: EIP-1559 base fee + priority tip. Fees fluctuate from $1 to $50+ based on demand.
 - **Solana**: Base fees are low but priority fees create variable costs during congestion.
 - **Bitcoin**: Fee market based on block space demand, regularly spiking during high-activity periods.
@@ -84,6 +85,7 @@ The Haskell implementation of the Cardano node facilitates property-based testin
 - **Constitutional Committee**: A body that verifies governance actions comply with the Constitution.
 
 **How it differs**: Most blockchains rely on informal governance:
+
 - **Ethereum**: Core developers make decisions through the EIP process, rough consensus, and All Core Devs calls. There is no formal mechanism for token holders to vote on protocol changes.
 - **Bitcoin**: Even more conservative -- changes require overwhelming social consensus and are intentionally difficult to enact.
 - **Solana**: The Solana Foundation and core team have outsized influence on protocol direction.
@@ -97,6 +99,7 @@ The Haskell implementation of the Cardano node facilitates property-based testin
 **What it is**: When ADA holders delegate to a stake pool, their ADA remains in their wallet, fully liquid and spendable at all times. There is no lockup period, no unbonding delay, and no need for third-party liquid staking derivatives.
 
 **How it differs**:
+
 - **Ethereum**: 32 ETH locked per validator; liquid staking requires trusting protocols like Lido (introducing centralization and smart contract risk).
 - **Polkadot**: 28-day unbonding period.
 - **Cosmos**: 21-day unbonding period.
@@ -124,15 +127,15 @@ The Haskell implementation of the Cardano node facilitates property-based testin
 
 ## Comparison Points
 
-| Advantage | Cardano | Typical Alternative |
-|---|---|---|
-| Consensus Verification | Formally proven (Ouroboros) | Empirically tested |
-| Reentrancy Protection | Structural (eUTXO) | Application-level guards |
-| Token Model | Native (ledger-level) | Smart contract (ERC-20) |
-| Fee Model | Deterministic (~$0.17) | Market-based (variable) |
-| Governance | On-chain + Constitution | Off-chain / informal |
-| Staking Liquidity | Native (no lockup) | Requires derivatives or unbonding |
-| Research Standard | Peer-reviewed papers | Whitepapers / informal specs |
+| Advantage              | Cardano                     | Typical Alternative               |
+| ---------------------- | --------------------------- | --------------------------------- |
+| Consensus Verification | Formally proven (Ouroboros) | Empirically tested                |
+| Reentrancy Protection  | Structural (eUTXO)          | Application-level guards          |
+| Token Model            | Native (ledger-level)       | Smart contract (ERC-20)           |
+| Fee Model              | Deterministic (~$0.17)      | Market-based (variable)           |
+| Governance             | On-chain + Constitution     | Off-chain / informal              |
+| Staking Liquidity      | Native (no lockup)          | Requires derivatives or unbonding |
+| Research Standard      | Peer-reviewed papers        | Whitepapers / informal specs      |
 
 ## Sources
 

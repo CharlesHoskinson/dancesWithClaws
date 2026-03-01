@@ -43,12 +43,14 @@ Sidechains can inherit security from Cardano's mainnet through several mechanism
 ### Native Bridges vs. Custom Bridges
 
 **Native Bridges** are built into the sidechain's protocol specification and are part of its consensus rules:
+
 - Tighter integration with both chains.
 - Security guarantees enforced at the protocol level.
 - Typically require coordination between the sidechain and mainnet development teams.
 - Can leverage Cardano-specific features like native assets and Plutus scripts.
 
 **Custom Bridges** are implemented by third-party teams and operate as application-layer infrastructure:
+
 - More flexible and can connect chains that were not originally designed to interoperate.
 - Security depends on the bridge implementation, operator set, and economic incentives.
 - Can be deployed without changes to either chain's protocol.

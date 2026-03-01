@@ -33,15 +33,15 @@ The primary function of the CC is to evaluate governance actions against the Car
 
 Not all governance action types require CC approval. The requirement depends on the action type:
 
-| Governance Action | DRep Vote Required | SPO Vote Required | CC Vote Required |
-|---|---|---|---|
-| Treasury withdrawal | Yes | No | Yes |
-| Protocol parameter change | Yes | No | Yes |
-| Hard fork initiation | Yes | Yes | Yes |
-| Update Constitutional Committee | Yes | No | No |
-| Motion of no confidence | Yes | No | No |
-| Update Constitution | Yes | No | Yes |
-| Info action | Yes | Yes | No (non-binding) |
+| Governance Action               | DRep Vote Required | SPO Vote Required | CC Vote Required |
+| ------------------------------- | ------------------ | ----------------- | ---------------- |
+| Treasury withdrawal             | Yes                | No                | Yes              |
+| Protocol parameter change       | Yes                | No                | Yes              |
+| Hard fork initiation            | Yes                | Yes               | Yes              |
+| Update Constitutional Committee | Yes                | No                | No               |
+| Motion of no confidence         | Yes                | No                | No               |
+| Update Constitution             | Yes                | No                | Yes              |
+| Info action                     | Yes                | Yes               | No (non-binding) |
 
 Notably, the governance actions to update the CC itself (adding/removing members) and motions of no confidence do not require CC approval. This is a critical design decision that ensures the community can replace the CC without the CC being able to block its own removal.
 
@@ -106,15 +106,15 @@ The CC's authority derives from the Cardano Constitution, a foundational documen
 
 ## Comparison Points
 
-| Feature | Cardano CC | US Supreme Court | Polkadot Technical Committee (deprecated) |
-|---|---|---|---|
-| Role | Constitutional review of governance actions | Constitutional review of laws | Fast-track referenda, emergency actions |
-| Composition | 7 initial members (expandable) | 9 justices | Variable membership |
-| Term | Defined terms (epoch-based), re-electable | Lifetime appointment | No fixed terms |
-| Appointment | Community-elected via DRep vote | Presidential nomination, Senate confirmation | Council appointment |
-| Removal | Motion of no confidence (no CC approval needed) | Impeachment | Council decision |
-| Can initiate policy | No | No (only reviews cases brought before it) | Could fast-track proposals |
-| Veto scope | Constitutional compliance only | Constitutional compliance only | Could accelerate but not veto |
+| Feature             | Cardano CC                                      | US Supreme Court                             | Polkadot Technical Committee (deprecated) |
+| ------------------- | ----------------------------------------------- | -------------------------------------------- | ----------------------------------------- |
+| Role                | Constitutional review of governance actions     | Constitutional review of laws                | Fast-track referenda, emergency actions   |
+| Composition         | 7 initial members (expandable)                  | 9 justices                                   | Variable membership                       |
+| Term                | Defined terms (epoch-based), re-electable       | Lifetime appointment                         | No fixed terms                            |
+| Appointment         | Community-elected via DRep vote                 | Presidential nomination, Senate confirmation | Council appointment                       |
+| Removal             | Motion of no confidence (no CC approval needed) | Impeachment                                  | Council decision                          |
+| Can initiate policy | No                                              | No (only reviews cases brought before it)    | Could fast-track proposals                |
+| Veto scope          | Constitutional compliance only                  | Constitutional compliance only               | Could accelerate but not veto             |
 
 The Cardano CC most closely resembles a constitutional court in traditional governance, though with the important distinction that it operates within a fully on-chain, decentralized system where its members are directly elected and removable by the community.
 

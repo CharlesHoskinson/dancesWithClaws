@@ -37,6 +37,7 @@ Cardano's multi-asset ledger supports user-defined tokens at the protocol level.
 
 **Transaction Processing:**
 Transactions at the Settlement Layer are processed in two phases:
+
 - Phase 1 validates structural properties (input existence, signatures, fees, validity interval) without executing scripts.
 - Phase 2 executes any Plutus scripts referenced by the transaction.
 
@@ -120,14 +121,14 @@ Plutus validators cannot modify state. They can only validate that a proposed st
 
 ## Comparison Points
 
-| Aspect | Cardano (Two-Layer) | Ethereum (Unified) | Bitcoin (Settlement Only) |
-|---|---|---|---|
-| Token model | Native (ledger-level) | Contract-based (ERC-20) | None (UTXO only) |
-| Smart contract execution | Separate Computation Layer | Integrated in EVM | Limited (Bitcoin Script) |
-| Formal specification | Yes (ledger spec) | Partial (Yellow Paper) | Informal |
-| Upgrade mechanism | Hard Fork Combinator | Hard fork + EIPs | Soft forks + BIPs |
-| Governance | On-chain (Conway era) | Off-chain (social consensus) | Off-chain (social consensus) |
-| State model | eUTXO | Account/state trie | UTXO |
+| Aspect                   | Cardano (Two-Layer)        | Ethereum (Unified)           | Bitcoin (Settlement Only)    |
+| ------------------------ | -------------------------- | ---------------------------- | ---------------------------- |
+| Token model              | Native (ledger-level)      | Contract-based (ERC-20)      | None (UTXO only)             |
+| Smart contract execution | Separate Computation Layer | Integrated in EVM            | Limited (Bitcoin Script)     |
+| Formal specification     | Yes (ledger spec)          | Partial (Yellow Paper)       | Informal                     |
+| Upgrade mechanism        | Hard Fork Combinator       | Hard fork + EIPs             | Soft forks + BIPs            |
+| Governance               | On-chain (Conway era)      | Off-chain (social consensus) | Off-chain (social consensus) |
+| State model              | eUTXO                      | Account/state trie           | UTXO                         |
 
 ## Sources
 

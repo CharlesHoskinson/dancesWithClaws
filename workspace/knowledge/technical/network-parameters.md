@@ -30,15 +30,15 @@ The 20-second average block time is a deliberate design choice balancing through
 
 Key size parameters that govern throughput:
 
-| Parameter | Value | Description |
-|-----------|-------|-------------|
-| maxBlockBodySize | 90,112 bytes | Maximum size of a block body |
-| maxTxSize | 16,384 bytes | Maximum size of a single transaction |
-| maxBlockHeaderSize | 1,100 bytes | Maximum size of a block header |
-| maxBlockExecutionUnits (memory) | 62,000,000 units | Maximum total Plutus memory per block |
-| maxBlockExecutionUnits (steps) | 20,000,000,000 steps | Maximum total Plutus CPU per block |
-| maxTxExecutionUnits (memory) | 14,000,000 units | Maximum Plutus memory per transaction |
-| maxTxExecutionUnits (steps) | 10,000,000,000 steps | Maximum Plutus CPU per transaction |
+| Parameter                       | Value                | Description                           |
+| ------------------------------- | -------------------- | ------------------------------------- |
+| maxBlockBodySize                | 90,112 bytes         | Maximum size of a block body          |
+| maxTxSize                       | 16,384 bytes         | Maximum size of a single transaction  |
+| maxBlockHeaderSize              | 1,100 bytes          | Maximum size of a block header        |
+| maxBlockExecutionUnits (memory) | 62,000,000 units     | Maximum total Plutus memory per block |
+| maxBlockExecutionUnits (steps)  | 20,000,000,000 steps | Maximum total Plutus CPU per block    |
+| maxTxExecutionUnits (memory)    | 14,000,000 units     | Maximum Plutus memory per transaction |
+| maxTxExecutionUnits (steps)     | 10,000,000,000 steps | Maximum Plutus CPU per transaction    |
 
 These parameters collectively determine the network's throughput capacity. The block size limits how many transactions can fit in each block, while execution unit limits constrain the computational complexity of smart contract transactions.
 
@@ -74,15 +74,15 @@ This two-dimensional model allows more precise resource accounting. A script tha
 
 Parameters governing the staking system:
 
-| Parameter | Value | Description |
-|-----------|-------|-------------|
-| k (nOpt) | 500 | Desired number of stake pools |
-| a0 | 0.3 | Pledge influence factor |
-| rho | 0.003 | Monetary expansion rate per epoch |
-| tau | 0.2 | Treasury tax rate on rewards |
-| minPoolCost | 340 ADA | Minimum fixed pool cost per epoch |
-| stakePoolDeposit | 500 ADA | Refundable deposit for pool registration |
-| stakeKeyDeposit | 2 ADA | Refundable deposit for stake key registration |
+| Parameter        | Value   | Description                                   |
+| ---------------- | ------- | --------------------------------------------- |
+| k (nOpt)         | 500     | Desired number of stake pools                 |
+| a0               | 0.3     | Pledge influence factor                       |
+| rho              | 0.003   | Monetary expansion rate per epoch             |
+| tau              | 0.2     | Treasury tax rate on rewards                  |
+| minPoolCost      | 340 ADA | Minimum fixed pool cost per epoch             |
+| stakePoolDeposit | 500 ADA | Refundable deposit for pool registration      |
+| stakeKeyDeposit  | 2 ADA   | Refundable deposit for stake key registration |
 
 The k parameter is particularly significant as it determines the saturation point for pools. With k=500, the ideal scenario is 500 equally-sized pools. Increasing k would lower the saturation threshold per pool, encouraging more pools and greater decentralization, but also potentially fragmenting stake among pools too small to consistently produce blocks.
 

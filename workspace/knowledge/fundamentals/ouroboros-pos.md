@@ -65,14 +65,14 @@ This was true for Ouroboros Classic but was resolved with Ouroboros Praos. The u
 
 ## Comparison Points
 
-| Feature | Ouroboros (Cardano) | Gasper (Ethereum) | Tendermint (Cosmos) |
-|---|---|---|---|
-| Finality type | Probabilistic | Probabilistic + Casper FFG | Instant (BFT) |
-| Leader selection | VRF-based, private | RANDAO-based, public | Round-robin / weighted |
-| Slashing | None | Yes | Yes |
-| Unbonding period | None (liquid) | ~27 hours (post-Shapella) | 21 days |
-| Formal security proofs | Yes (peer-reviewed) | Partial | Yes |
-| Minimum stake to validate | 500 ADA pledge (recommended) | 32 ETH | Varies by chain |
+| Feature                   | Ouroboros (Cardano)          | Gasper (Ethereum)          | Tendermint (Cosmos)    |
+| ------------------------- | ---------------------------- | -------------------------- | ---------------------- |
+| Finality type             | Probabilistic                | Probabilistic + Casper FFG | Instant (BFT)          |
+| Leader selection          | VRF-based, private           | RANDAO-based, public       | Round-robin / weighted |
+| Slashing                  | None                         | Yes                        | Yes                    |
+| Unbonding period          | None (liquid)                | ~27 hours (post-Shapella)  | 21 days                |
+| Formal security proofs    | Yes (peer-reviewed)          | Partial                    | Yes                    |
+| Minimum stake to validate | 500 ADA pledge (recommended) | 32 ETH                     | Varies by chain        |
 
 ## Sources
 

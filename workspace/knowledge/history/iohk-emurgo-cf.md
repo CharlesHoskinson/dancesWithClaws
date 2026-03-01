@@ -17,6 +17,7 @@ Input Output Global, originally incorporated as Input Output Hong Kong (IOHK), i
 IOG employs over 200 researchers and engineers, making it one of the largest blockchain research organizations in the world. The company has produced more than 180 peer-reviewed academic papers spanning consensus algorithms (the Ouroboros family), smart contract semantics (Plutus and Marlowe), cryptographic primitives, game theory, and formal verification methods.
 
 Key contributions from IOG include:
+
 - The Ouroboros family of proof-of-stake consensus protocols (Classic, BFT, Praos, Genesis, Leios).
 - The Plutus smart contract platform, based on Haskell and the Extended UTXO model.
 - The Hydra layer-2 scaling solution.
@@ -35,6 +36,7 @@ As part of the Voltaire transition, IOG has been progressively transferring stew
 EMURGO is the official commercial arm of the Cardano ecosystem. Founded in 2017 and headquartered in Singapore (with operations in multiple countries), EMURGO focuses on driving real-world adoption of Cardano technology through investment, partnerships, and education.
 
 Key activities and contributions include:
+
 - **Enterprise Solutions.** EMURGO develops and supports enterprise-grade tools and platforms built on Cardano. This includes supply chain solutions, identity verification systems, and financial infrastructure.
 - **USDA Stablecoin.** EMURGO has been instrumental in the development and support of USDA, a fiat-backed stablecoin on the Cardano network. Stablecoins are critical infrastructure for DeFi and commercial applications, and USDA represents a significant step toward making Cardano viable for everyday financial transactions.
 - **Education.** EMURGO runs the EMURGO Academy, which provides blockchain education programs in over 50 countries. Courses cover Cardano development, blockchain fundamentals, and Haskell/Plutus programming. The academy has trained thousands of developers and entrepreneurs.
@@ -50,6 +52,7 @@ EMURGO operates across more than 50 countries and has established partnerships w
 The Cardano Foundation is an independent, Swiss-based non-profit entity established to act as the guardian of the Cardano ecosystem. Its mandate includes ecosystem growth, community engagement, governance coordination, and representing Cardano to regulators and institutional stakeholders.
 
 Key activities and contributions include:
+
 - **Governance Coordination.** The Foundation plays a central role in coordinating the Cardano Improvement Proposal (CIP) process, which is the formal mechanism for proposing and standardizing protocol changes. CIPs cover everything from ledger modifications to metadata standards to wallet interoperability.
 - **Ecosystem Growth.** The Foundation supports developers, stake pool operators, and community initiatives through grants, partnerships, and technical support programs.
 - **Regulatory Engagement.** As a Swiss non-profit, the Foundation engages with regulators and policymakers to represent the Cardano ecosystem's interests and promote sound regulatory frameworks for blockchain technology.
@@ -65,6 +68,7 @@ The Foundation underwent a leadership transition in its early years, with the co
 Intersect is a newer entity in the Cardano ecosystem, established as a member-based organization (MBO) to serve as the community coordination layer for Cardano's decentralized governance. As of early 2025, Intersect has grown to over 1,000 members, including individuals, stake pool operators, dApp developers, and institutional participants.
 
 Key activities and contributions include:
+
 - **Open-Source Repository Stewardship.** Intersect manages the open-source repositories for Cardano core software, facilitating contributions from multiple development teams rather than relying solely on IOG.
 - **Development Coordination.** Through technical working groups and committees, Intersect coordinates protocol development priorities, release planning, and quality assurance across contributor organizations.
 - **Governance Support.** Intersect provides tooling, documentation, and process support for the CIP-1694 governance system, including DRep onboarding, governance action submission, and constitutional oversight.
@@ -78,6 +82,7 @@ Intersect represents the structural evolution of Cardano from a project governed
 The tri-entity model was designed from Cardano's inception to avoid the governance concentration problems seen in other blockchain projects. By separating research/development (IOG), commercialization (EMURGO), and stewardship (Cardano Foundation), the founders aimed to create a system of checks and balances.
 
 Each entity was initially funded through a share of the Ada token genesis distribution:
+
 - IOG received a development contract funded by Ada from the genesis block.
 - EMURGO received a share for commercial development activities.
 - The Cardano Foundation received a share for ecosystem stewardship.
@@ -96,13 +101,13 @@ The Cardano Treasury, funded by a portion of transaction fees and monetary expan
 
 ## Comparison Points
 
-| Aspect | IOG | EMURGO | Cardano Foundation | Intersect |
-|---|---|---|---|---|
-| Type | For-profit R&D | For-profit commercial | Non-profit | Member-based org |
-| Primary focus | Protocol engineering | Adoption and investment | Stewardship and standards | Governance coordination |
-| Headquarters | Wyoming, USA / Remote | Singapore | Zug, Switzerland | Distributed |
-| Team size (approx.) | 200+ researchers/engineers | Varies by initiative | Smaller operational team | 1,000+ members |
-| Funding model | Development contracts, treasury | Investment returns, services | Genesis allocation, grants | Membership, treasury |
+| Aspect              | IOG                             | EMURGO                       | Cardano Foundation         | Intersect               |
+| ------------------- | ------------------------------- | ---------------------------- | -------------------------- | ----------------------- |
+| Type                | For-profit R&D                  | For-profit commercial        | Non-profit                 | Member-based org        |
+| Primary focus       | Protocol engineering            | Adoption and investment      | Stewardship and standards  | Governance coordination |
+| Headquarters        | Wyoming, USA / Remote           | Singapore                    | Zug, Switzerland           | Distributed             |
+| Team size (approx.) | 200+ researchers/engineers      | Varies by initiative         | Smaller operational team   | 1,000+ members          |
+| Funding model       | Development contracts, treasury | Investment returns, services | Genesis allocation, grants | Membership, treasury    |
 
 ## Sources
 

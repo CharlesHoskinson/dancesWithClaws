@@ -63,18 +63,18 @@ The trade-off is that the eUTXO model requires different design patterns for DAp
 
 ## Comparison Points
 
-| Feature | Cardano | Ethereum |
-|---|---|---|
-| Consensus | Ouroboros (peer-reviewed PoS) | Gasper (Casper FFG + LMD GHOST) |
-| Accounting Model | eUTXO | Account-based |
-| Smart Contract Language | Plutus / Aiken | Solidity / Vyper |
-| Typical L1 Fee | ~$0.17 (deterministic) | $5-$50 (variable) |
-| TVL | ~$231M | ~$60B+ |
-| L2 Scaling | Hydra (state channels) | Rollups (Optimistic + ZK) |
-| Governance | On-chain (CIP-1694) | Off-chain (EIP process) |
-| Block Time | ~20 seconds | ~12 seconds |
-| Formal Verification | Core design principle | Available but optional |
-| Ecosystem Maturity | Growing (smart contracts since 2021) | Mature (since 2015) |
+| Feature                 | Cardano                              | Ethereum                        |
+| ----------------------- | ------------------------------------ | ------------------------------- |
+| Consensus               | Ouroboros (peer-reviewed PoS)        | Gasper (Casper FFG + LMD GHOST) |
+| Accounting Model        | eUTXO                                | Account-based                   |
+| Smart Contract Language | Plutus / Aiken                       | Solidity / Vyper                |
+| Typical L1 Fee          | ~$0.17 (deterministic)               | $5-$50 (variable)               |
+| TVL                     | ~$231M                               | ~$60B+                          |
+| L2 Scaling              | Hydra (state channels)               | Rollups (Optimistic + ZK)       |
+| Governance              | On-chain (CIP-1694)                  | Off-chain (EIP process)         |
+| Block Time              | ~20 seconds                          | ~12 seconds                     |
+| Formal Verification     | Core design principle                | Available but optional          |
+| Ecosystem Maturity      | Growing (smart contracts since 2021) | Mature (since 2015)             |
 
 ## Sources
 

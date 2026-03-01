@@ -24,12 +24,14 @@ This document traces the evolution from Ouroboros Classic through the current pr
 Ouroboros Classic was the foundational protocol that proved a crucial theorem: a proof-of-stake protocol can achieve the same security guarantees as Bitcoin's Nakamoto consensus (persistence and liveness) under comparable assumptions.
 
 **Key properties:**
+
 - Time is divided into epochs and slots.
 - Slot leaders are elected proportionally to stake using a coin-tossing protocol based on verifiable secret sharing.
 - The protocol assumes a synchronous network (messages are delivered within a known time bound).
 - Security is proven under the assumption that at least 50% of stake is held by honest participants.
 
 **Limitations addressed by later versions:**
+
 - The leader election uses a multi-party computation protocol that requires interaction among stakeholders at the beginning of each epoch. This is complex and introduces latency.
 - Leader schedules are public — an adversary can know in advance which pool will produce each block, enabling targeted attacks.
 - The synchronous network assumption is strong and may not hold in real-world conditions.
@@ -59,6 +61,7 @@ Praos uses a key-evolving signature scheme (KES) where signing keys are periodic
 The stake distribution snapshot used for leader election is taken from two epochs prior. This provides a stable, agreed-upon distribution without requiring any interactive protocol. The randomness for the VRF evaluation is derived from the chain itself (from VRF outputs in previous epochs), creating a self-referential randomness generation mechanism.
 
 **Production details:**
+
 - Slot duration: 1 second
 - Epoch length: 432,000 slots (~5 days)
 - Active slot coefficient: 0.05 (approximately 5% of slots produce blocks on average, yielding ~20-second average block times)
@@ -133,13 +136,13 @@ Omega remains in the theoretical research phase. The practical deployment of ZK-
 
 ### Evolution Summary
 
-| Version | Key Addition | Security Model | Status |
-|---|---|---|---|
-| Classic (2017) | Provable PoS security | Synchronous, interactive | Superseded |
-| Praos (2018) | Private leader selection, VRFs | Semi-synchronous, non-interactive | Production (mainnet) |
-| Genesis (2018) | Secure bootstrapping without checkpoints | Composable, dynamic availability | Node integration |
-| Leios | Parallel transaction processing | Same as Praos + throughput scaling | Engineering phase |
-| Omega | ZK-based chain verification | Succinct verification | Theoretical research |
+| Version        | Key Addition                             | Security Model                     | Status               |
+| -------------- | ---------------------------------------- | ---------------------------------- | -------------------- |
+| Classic (2017) | Provable PoS security                    | Synchronous, interactive           | Superseded           |
+| Praos (2018)   | Private leader selection, VRFs           | Semi-synchronous, non-interactive  | Production (mainnet) |
+| Genesis (2018) | Secure bootstrapping without checkpoints | Composable, dynamic availability   | Node integration     |
+| Leios          | Parallel transaction processing          | Same as Praos + throughput scaling | Engineering phase    |
+| Omega          | ZK-based chain verification              | Succinct verification              | Theoretical research |
 
 ### Cross-Cutting Security Properties
 
@@ -170,13 +173,13 @@ The formal security proofs provide mathematical guarantees about protocol behavi
 
 ## Comparison Points
 
-| Property | Ouroboros Praos | Ethereum Gasper | Tendermint BFT | Nakamoto PoW |
-|---|---|---|---|---|
-| Formal security proofs | Yes | Partial | Yes | Yes (implicit) |
-| Leader privacy | Yes (VRF) | No (RANDAO) | No (deterministic) | Yes (PoW puzzle) |
-| Bootstrapping security | With Genesis | Weak subjectivity | Trusted state sync | Full (PoW chain) |
-| Finality | Probabilistic (~30 min) | Probabilistic + FFG | Instant | Probabilistic (~60 min) |
-| Throughput scaling path | Leios (parallel input blocks) | Danksharding | Parallel chains | None (inherent limit) |
+| Property                | Ouroboros Praos               | Ethereum Gasper     | Tendermint BFT     | Nakamoto PoW            |
+| ----------------------- | ----------------------------- | ------------------- | ------------------ | ----------------------- |
+| Formal security proofs  | Yes                           | Partial             | Yes                | Yes (implicit)          |
+| Leader privacy          | Yes (VRF)                     | No (RANDAO)         | No (deterministic) | Yes (PoW puzzle)        |
+| Bootstrapping security  | With Genesis                  | Weak subjectivity   | Trusted state sync | Full (PoW chain)        |
+| Finality                | Probabilistic (~30 min)       | Probabilistic + FFG | Instant            | Probabilistic (~60 min) |
+| Throughput scaling path | Leios (parallel input blocks) | Danksharding        | Parallel chains    | None (inherent limit)   |
 
 ## Sources
 

@@ -28,6 +28,7 @@ The CIP process follows a defined status progression:
 3. **Active**: A CIP reaches Active status when it has been implemented and adopted within the ecosystem. For protocol-level changes, this typically means the change has been incorporated into a node release. For standards, it means the standard has gained meaningful adoption.
 
 Additional statuses include:
+
 - **Inactive**: A CIP that has stalled or been abandoned by its author.
 - **Rejected**: A CIP that has been explicitly rejected after review.
 
@@ -76,15 +77,15 @@ In addition to CIPs, the ecosystem also uses Cardano Problem Statements (CPS), w
 
 ## Comparison Points
 
-| Aspect | Cardano CIP | Ethereum EIP | Bitcoin BIP |
-|---|---|---|---|
-| Repository | GitHub (Cardano Foundation) | GitHub (Ethereum Foundation) | GitHub (Bitcoin community) |
-| Statuses | Draft, Proposed, Active, Inactive | Draft, Review, Last Call, Final, Stagnant | Draft, Proposed, Final, Replaced, Rejected |
-| Scope | Protocol, standards, metadata, governance | Protocol, ERCs, interface, networking | Protocol, process, informational |
-| Editor review | Yes, community-appointed editors | Yes, EIP editors | Yes, BIP editors |
-| Meeting cadence | Biweekly | Biweekly (AllCoreDevs for protocol EIPs) | Ad hoc |
-| Problem statements | CPS (separate track) | No formal equivalent | No formal equivalent |
-| Open submission | Yes | Yes | Yes |
+| Aspect             | Cardano CIP                               | Ethereum EIP                              | Bitcoin BIP                                |
+| ------------------ | ----------------------------------------- | ----------------------------------------- | ------------------------------------------ |
+| Repository         | GitHub (Cardano Foundation)               | GitHub (Ethereum Foundation)              | GitHub (Bitcoin community)                 |
+| Statuses           | Draft, Proposed, Active, Inactive         | Draft, Review, Last Call, Final, Stagnant | Draft, Proposed, Final, Replaced, Rejected |
+| Scope              | Protocol, standards, metadata, governance | Protocol, ERCs, interface, networking     | Protocol, process, informational           |
+| Editor review      | Yes, community-appointed editors          | Yes, EIP editors                          | Yes, BIP editors                           |
+| Meeting cadence    | Biweekly                                  | Biweekly (AllCoreDevs for protocol EIPs)  | Ad hoc                                     |
+| Problem statements | CPS (separate track)                      | No formal equivalent                      | No formal equivalent                       |
+| Open submission    | Yes                                       | Yes                                       | Yes                                        |
 
 The CIP process is most closely analogous to Ethereum's EIP process. Both use GitHub-based workflows, editor review, and status progressions. A notable difference is Cardano's use of CPS documents to separate problem identification from solution proposals, which adds structure to the early stages of the improvement process.
 

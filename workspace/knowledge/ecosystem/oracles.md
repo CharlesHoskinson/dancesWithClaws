@@ -22,13 +22,13 @@ Oracle networks deliver data to blockchains using two primary models:
 
 **Push Model:** The oracle network proactively submits data to the blockchain at regular intervals or when certain conditions are met (e.g., a price changes by more than 1%). The data is stored in an on-chain UTXO (on Cardano) or contract storage (on account-based chains) and is available for any smart contract to read.
 
-- *Advantages:* Data is always available on-chain; smart contracts can read it without waiting; simpler integration for consuming contracts.
-- *Disadvantages:* Higher cost because data is written to the chain regardless of whether it is consumed; potential for stale data between update intervals.
+- _Advantages:_ Data is always available on-chain; smart contracts can read it without waiting; simpler integration for consuming contracts.
+- _Disadvantages:_ Higher cost because data is written to the chain regardless of whether it is consumed; potential for stale data between update intervals.
 
 **Pull Model:** Data is only submitted to the blockchain when a smart contract or user specifically requests it. The oracle network responds to queries on demand.
 
-- *Advantages:* More cost-efficient because data is only submitted when needed; data is always fresh at the time of consumption.
-- *Disadvantages:* Adds latency to transactions (the request must be made and fulfilled); more complex integration patterns for consuming smart contracts.
+- _Advantages:_ More cost-efficient because data is only submitted when needed; data is always fresh at the time of consumption.
+- _Disadvantages:_ Adds latency to transactions (the request must be made and fulfilled); more complex integration patterns for consuming smart contracts.
 
 On Cardano's eUTXO model, the push model typically involves oracle providers maintaining reference UTXOs containing the latest data in their datums. Smart contracts can reference these UTXOs (using reference inputs introduced in the Vasil hard fork) to read oracle data without consuming the UTXO, allowing multiple contracts to read the same data in the same block.
 

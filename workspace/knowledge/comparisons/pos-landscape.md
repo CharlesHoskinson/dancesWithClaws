@@ -37,6 +37,7 @@ Ethereum transitioned from Proof of Work to Proof of Stake in September 2022 (Th
 **Validator structure**: Running an Ethereum validator requires exactly **32 ETH** (a substantial capital commitment at most price levels) and dedicated hardware running both an execution client and a consensus client. As of early 2025, there are over 500,000 active validators on the network.
 
 **Centralization concern**: While the raw validator count is impressive, the reality is more nuanced. A significant majority of staked ETH is managed through centralized or semi-centralized services:
+
 - **Lido** alone controls roughly 28-30% of all staked ETH through its liquid staking protocol.
 - Centralized exchanges (Coinbase, Kraken, Binance) collectively manage another substantial portion.
 - Solo stakers represent a minority of total stake.
@@ -100,17 +101,17 @@ Cosmos is an ecosystem of independent, interconnected blockchains rather than a 
 
 ## Comparison Points
 
-| Feature | Cardano | Ethereum | Polkadot | Solana | Cosmos Hub |
-|---|---|---|---|---|---|
-| Active Validators | 3,000+ | 500,000+ (concentrated) | 296 | ~500 | 180 |
-| Stake Participation | ~67% | ~32% | ~60% | ~65% | ~60-65% |
-| Staking APY | 3-6% | 3-5% | 10-20% | 5-7% | 5-20%+ |
-| Lockup Period | None (liquid) | Queue-based | 28 days | ~2-3 days | 21 days |
-| Min. to Validate | No minimum | 32 ETH | High (competitive) | High (hardware) | Competitive |
-| Hardware Barrier | Moderate | Moderate | Moderate | High | Moderate |
-| Formal Security Proof | Yes (Ouroboros) | Partial | No | No | No |
-| Slashing | No slashing | Yes | Yes | Yes (jailing) | Yes |
-| Governance | On-chain (CIP-1694) | Off-chain (EIP) | On-chain | Off-chain | On-chain |
+| Feature               | Cardano             | Ethereum                | Polkadot           | Solana          | Cosmos Hub  |
+| --------------------- | ------------------- | ----------------------- | ------------------ | --------------- | ----------- |
+| Active Validators     | 3,000+              | 500,000+ (concentrated) | 296                | ~500            | 180         |
+| Stake Participation   | ~67%                | ~32%                    | ~60%               | ~65%            | ~60-65%     |
+| Staking APY           | 3-6%                | 3-5%                    | 10-20%             | 5-7%            | 5-20%+      |
+| Lockup Period         | None (liquid)       | Queue-based             | 28 days            | ~2-3 days       | 21 days     |
+| Min. to Validate      | No minimum          | 32 ETH                  | High (competitive) | High (hardware) | Competitive |
+| Hardware Barrier      | Moderate            | Moderate                | Moderate           | High            | Moderate    |
+| Formal Security Proof | Yes (Ouroboros)     | Partial                 | No                 | No              | No          |
+| Slashing              | No slashing         | Yes                     | Yes                | Yes (jailing)   | Yes         |
+| Governance            | On-chain (CIP-1694) | Off-chain (EIP)         | On-chain           | Off-chain       | On-chain    |
 
 ## Sources
 
