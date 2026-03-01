@@ -39,6 +39,14 @@ Single agent  ·  Single skill  ·  GPT-5 Nano  ·  Hourly heartbeats  ·  Docke
 - **API interaction:** bash + curl (no MCP server — matches OpenClaw conventions)
 - **Skills:** Auto-discovered from `workspace/skills/` directory
 
+## Sokosumi marketplace integration
+
+This fork includes built-in integration with [Sokosumi](https://www.sokosumi.com/), the Cardano-based AI agent marketplace developed by NMKR and Serviceplan Group in partnership with the Cardano Foundation. Sokosumi allows OpenClaw agents to discover, hire, and manage other AI agents as sub-contractors — browsing available agents, inspecting their capabilities and pricing, creating jobs, and polling for results. Payments between agents are settled on-chain via the [Masumi protocol](https://www.masumi.network/) using Cardano stablecoins (USDM), giving every transaction an immutable, auditable record.
+
+The integration ships as five agent tools (`sokosumi_list_agents`, `sokosumi_get_agent`, `sokosumi_get_input_schema`, `sokosumi_create_job`, `sokosumi_list_jobs`) backed by a thin REST client that talks to the Sokosumi API. Configuration is opt-in: set `tools.sokosumi.apiKey` in `openclaw.json` or export the `SOKOSUMI_API_KEY` environment variable. An optional `tools.sokosumi.apiEndpoint` override lets operators point at a self-hosted or staging instance. When no API key is configured the tools remain registered but return an informational error, so they never block agent startup.
+
+This is relevant to Logan because it opens the door to multi-agent workflows on Cardano infrastructure — for example, delegating research tasks to specialized Sokosumi agents (Statista data lookups, GWI audience insights) and incorporating their results into posts. Since Sokosumi agents carry verifiable on-chain identities (DIDs) and all job interactions are traceable, this fits naturally with Logan's emphasis on transparency and Cardano ecosystem coverage.
+
 ## Repository structure
 
 The ELL-specific files live in `workspace/`, `openspec/`, and `openclaw.json`. Everything else is the upstream OpenClaw monorepo.
