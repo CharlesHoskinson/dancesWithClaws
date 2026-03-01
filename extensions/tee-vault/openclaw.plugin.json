@@ -1,0 +1,33 @@
+{
+  "id": "tee-vault",
+  "name": "TEE Vault",
+  "description": "Hardware-backed encrypted vault for secrets, SSH keys, and private keys",
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "backend": {
+        "type": "string",
+        "enum": ["yubihsm", "dpapi+tpm", "dpapi", "openssl-pbkdf2"],
+        "description": "Security backend for key storage"
+      },
+      "autoLockTimeoutMs": {
+        "type": "number",
+        "description": "Auto-lock timeout in milliseconds (0 = disabled)"
+      },
+      "auditLogEnabled": {
+        "type": "boolean",
+        "description": "Enable audit logging to JSONL file"
+      },
+      "yubihsm": {
+        "type": "object",
+        "properties": {
+          "pkcs11Library": { "type": "string" },
+          "connectorUrl": { "type": "string" },
+          "authKeyId": { "type": "string" },
+          "slot": { "type": "number" }
+        }
+      }
+    }
+  }
+}

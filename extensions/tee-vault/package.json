@@ -1,0 +1,20 @@
+{
+  "name": "@openclaw/tee-vault",
+  "version": "2026.1.30",
+  "description": "Encrypted vault for SSH keys, private keys, API tokens, and secrets with hardware-backed security",
+  "type": "module",
+  "devDependencies": {
+    "openclaw": "workspace:*"
+  },
+  "optionalDependencies": {
+    "graphene-pk11": "^2.3.0"
+  },
+  "peerDependencies": {
+    "openclaw": ">=2026.1.26"
+  },
+  "openclaw": {
+    "extensions": [
+      "./index.ts"
+    ]
+  }
+}
