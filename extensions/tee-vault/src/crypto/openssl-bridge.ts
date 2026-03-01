@@ -38,10 +38,7 @@ export async function generateSshKeyPair(
   return await generateViaSshKeygen(args, algorithm);
 }
 
-function buildKeygenArgs(
-  algorithm: SshKeyAlgorithm,
-  comment?: string,
-): string[] {
+function buildKeygenArgs(algorithm: SshKeyAlgorithm, comment?: string): string[] {
   const args: string[] = ["-t"];
   switch (algorithm) {
     case "ed25519":
@@ -116,9 +113,7 @@ async function generateViaSshKeygen(
   });
 }
 
-async function generateViaOpenssl(
-  algorithm: SshKeyAlgorithm,
-): Promise<SshKeyPair> {
+async function generateViaOpenssl(algorithm: SshKeyAlgorithm): Promise<SshKeyPair> {
   let privateKey: string;
   let publicKey: string;
 
@@ -130,11 +125,7 @@ async function generateViaOpenssl(
         { timeout: TIMEOUT_MS, encoding: "utf8" },
       );
       privateKey = privPem;
-      const pubResult = await spawnWithInput(
-        resolveOpenssl(),
-        ["pkey", "-pubout"],
-        privPem,
-      );
+      const pubResult = await spawnWithInput(resolveOpenssl(), ["pkey", "-pubout"], privPem);
       publicKey = pubResult;
       break;
     }
@@ -143,21 +134,11 @@ async function generateViaOpenssl(
       const curve = algorithm === "ecdsa-p256" ? "prime256v1" : "secp384r1";
       const { stdout: privPem } = await execFileAsync(
         resolveOpenssl(),
-        [
-          "genpkey",
-          "-algorithm",
-          "EC",
-          "-pkeyopt",
-          `ec_paramgen_curve:${curve}`,
-        ],
+        ["genpkey", "-algorithm", "EC", "-pkeyopt", `ec_paramgen_curve:${curve}`],
         { timeout: TIMEOUT_MS, encoding: "utf8" },
       );
       privateKey = privPem;
-      const pubResult = await spawnWithInput(
-        resolveOpenssl(),
-        ["pkey", "-pubout"],
-        privPem,
-      );
+      const pubResult = await spawnWithInput(resolveOpenssl(), ["pkey", "-pubout"], privPem);
       publicKey = pubResult;
       break;
     }
@@ -170,11 +151,7 @@ async function generateViaOpenssl(
         { timeout: TIMEOUT_MS, encoding: "utf8" },
       );
       privateKey = privPem;
-      const pubResult = await spawnWithInput(
-        resolveOpenssl(),
-        ["pkey", "-pubout"],
-        privPem,
-      );
+      const pubResult = await spawnWithInput(resolveOpenssl(), ["pkey", "-pubout"], privPem);
       publicKey = pubResult;
       break;
     }
@@ -184,11 +161,7 @@ async function generateViaOpenssl(
 }
 
 /** Spawn a process, pipe input to stdin, capture stdout. */
-async function spawnWithInput(
-  command: string,
-  args: string[],
-  input: string,
-): Promise<string> {
+async function spawnWithInput(command: string, args: string[], input: string): Promise<string> {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, {
       stdio: ["pipe", "pipe", "pipe"],

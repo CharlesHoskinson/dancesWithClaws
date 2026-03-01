@@ -39,15 +39,11 @@ export async function listCertificates(): Promise<CertInfo[]> {
     } | ConvertTo-Json -Compress
   `.trim();
 
-  const { stdout } = await execFileAsync(
-    POWERSHELL,
-    ["-NoProfile", "-Command", script],
-    {
-      timeout: TIMEOUT_MS,
-      encoding: "utf8",
-      windowsHide: true,
-    },
-  );
+  const { stdout } = await execFileAsync(POWERSHELL, ["-NoProfile", "-Command", script], {
+    timeout: TIMEOUT_MS,
+    encoding: "utf8",
+    windowsHide: true,
+  });
   const trimmed = stdout.trim();
   if (!trimmed || trimmed === "null") {
     return [];
@@ -65,10 +61,7 @@ export async function listCertificates(): Promise<CertInfo[]> {
 }
 
 /** Import a PFX/PKCS#12 certificate into the user's personal store. */
-export async function importPfx(
-  pfxPath: string,
-  password: string,
-): Promise<string> {
+export async function importPfx(pfxPath: string, password: string): Promise<string> {
   if (process.platform !== "win32") {
     throw new Error("CNG operations require Windows");
   }
@@ -81,22 +74,16 @@ export async function importPfx(
     Write-Output $cert.Thumbprint
   `.trim();
 
-  const { stdout } = await execFileAsync(
-    POWERSHELL,
-    ["-NoProfile", "-Command", script],
-    {
-      timeout: TIMEOUT_MS,
-      encoding: "utf8",
-      windowsHide: true,
-    },
-  );
+  const { stdout } = await execFileAsync(POWERSHELL, ["-NoProfile", "-Command", script], {
+    timeout: TIMEOUT_MS,
+    encoding: "utf8",
+    windowsHide: true,
+  });
   return stdout.trim();
 }
 
 /** Export a certificate's public key as PEM. */
-export async function exportCertPublicKeyPem(
-  thumbprint: string,
-): Promise<string> {
+export async function exportCertPublicKeyPem(thumbprint: string): Promise<string> {
   if (process.platform !== "win32") {
     throw new Error("CNG operations require Windows");
   }
@@ -110,15 +97,11 @@ export async function exportCertPublicKeyPem(
     Write-Output "-----END CERTIFICATE-----"
   `.trim();
 
-  const { stdout } = await execFileAsync(
-    POWERSHELL,
-    ["-NoProfile", "-Command", script],
-    {
-      timeout: TIMEOUT_MS,
-      encoding: "utf8",
-      windowsHide: true,
-    },
-  );
+  const { stdout } = await execFileAsync(POWERSHELL, ["-NoProfile", "-Command", script], {
+    timeout: TIMEOUT_MS,
+    encoding: "utf8",
+    windowsHide: true,
+  });
   return stdout.trim();
 }
 
@@ -130,15 +113,11 @@ export async function isCngAvailable(): Promise<boolean> {
   try {
     const script =
       "Get-ChildItem Cert:\\CurrentUser\\My -ErrorAction Stop | Out-Null; Write-Output 'ok'";
-    const { stdout } = await execFileAsync(
-      POWERSHELL,
-      ["-NoProfile", "-Command", script],
-      {
-        timeout: TIMEOUT_MS,
-        encoding: "utf8",
-        windowsHide: true,
-      },
-    );
+    const { stdout } = await execFileAsync(POWERSHELL, ["-NoProfile", "-Command", script], {
+      timeout: TIMEOUT_MS,
+      encoding: "utf8",
+      windowsHide: true,
+    });
     return stdout.trim() === "ok";
   } catch {
     return false;

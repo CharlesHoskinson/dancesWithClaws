@@ -81,9 +81,7 @@ async function loadGraphene(): Promise<GrapheneModule | null> {
 }
 
 /** Check if YubiHSM 2 is available (graphene-pk11 installed + device connected). */
-export async function isYubiHsmAvailable(
-  config?: Partial<YubiHsmConfig>,
-): Promise<boolean> {
+export async function isYubiHsmAvailable(config?: Partial<YubiHsmConfig>): Promise<boolean> {
   const graphene = await loadGraphene();
   if (!graphene) {
     return false;
@@ -101,10 +99,7 @@ export async function isYubiHsmAvailable(
 }
 
 /** Open a PKCS#11 session to the YubiHSM 2. */
-export async function openSession(
-  config: YubiHsmConfig,
-  pin: string,
-): Promise<void> {
+export async function openSession(config: YubiHsmConfig, pin: string): Promise<void> {
   if (activeSession) {
     return;
   }
@@ -114,12 +109,9 @@ export async function openSession(
   }
 
   // Set connector URL via environment for the PKCS#11 library
-  process.env.YUBIHSM_CONNECTOR_URL =
-    config.connectorUrl ?? YUBIHSM_DEFAULT_CONNECTOR_URL;
+  process.env.YUBIHSM_CONNECTOR_URL = config.connectorUrl ?? YUBIHSM_DEFAULT_CONNECTOR_URL;
 
-  const mod = graphene.load(
-    config.pkcs11Library ?? YUBIHSM_DEFAULT_PKCS11_PATH,
-  );
+  const mod = graphene.load(config.pkcs11Library ?? YUBIHSM_DEFAULT_PKCS11_PATH);
   mod.initialize();
   const slot = mod.getSlots(config.slot ?? YUBIHSM_DEFAULT_SLOT);
   // SessionFlag.RW_SESSION | SessionFlag.SERIAL_SESSION = 0x06
@@ -276,11 +268,7 @@ export async function generateHsmRsaKey(
 }
 
 /** Sign data using an HSM-resident key. */
-export async function hsmSign(
-  objectId: number,
-  data: Buffer,
-  mechanism: string,
-): Promise<Buffer> {
+export async function hsmSign(objectId: number, data: Buffer, mechanism: string): Promise<Buffer> {
   if (!activeSession) {
     throw new Error("YubiHSM session not open");
   }
@@ -296,10 +284,7 @@ export async function hsmSign(
 }
 
 /** Wrap (encrypt) a key using the HSM VMK via AES key wrap. */
-export async function hsmWrapKey(
-  vmkObjectId: number,
-  keyData: Buffer,
-): Promise<Buffer> {
+export async function hsmWrapKey(vmkObjectId: number, keyData: Buffer): Promise<Buffer> {
   if (!activeSession) {
     throw new Error("YubiHSM session not open");
   }
@@ -311,31 +296,19 @@ export async function hsmWrapKey(
     throw new Error(`HSM VMK object ${vmkObjectId} not found`);
   }
   // Import the key data temporarily, wrap it, then destroy the temp object
-  const tempKey = activeSession.unwrapKey(
-    { mechanism: "AES_KEY_WRAP" },
-    vmkKeys[0],
-    keyData,
-    {
-      class: "SECRET_KEY",
-      keyType: "AES",
-      extractable: true,
-      token: false,
-    },
-  );
-  const wrapped = activeSession.wrapKey(
-    { mechanism: "AES_KEY_WRAP" },
-    vmkKeys[0],
-    tempKey,
-  );
+  const tempKey = activeSession.unwrapKey({ mechanism: "AES_KEY_WRAP" }, vmkKeys[0], keyData, {
+    class: "SECRET_KEY",
+    keyType: "AES",
+    extractable: true,
+    token: false,
+  });
+  const wrapped = activeSession.wrapKey({ mechanism: "AES_KEY_WRAP" }, vmkKeys[0], tempKey);
   activeSession.destroy(tempKey);
   return wrapped;
 }
 
 /** Unwrap (decrypt) a key using the HSM VMK. */
-export async function hsmUnwrapKey(
-  vmkObjectId: number,
-  wrappedKey: Buffer,
-): Promise<Buffer> {
+export async function hsmUnwrapKey(vmkObjectId: number, wrappedKey: Buffer): Promise<Buffer> {
   if (!activeSession) {
     throw new Error("YubiHSM session not open");
   }
@@ -346,17 +319,12 @@ export async function hsmUnwrapKey(
   if (vmkKeys.length === 0) {
     throw new Error(`HSM VMK object ${vmkObjectId} not found`);
   }
-  const key = activeSession.unwrapKey(
-    { mechanism: "AES_KEY_WRAP" },
-    vmkKeys[0],
-    wrappedKey,
-    {
-      class: "SECRET_KEY",
-      keyType: "AES",
-      extractable: true,
-      token: false,
-    },
-  );
+  const key = activeSession.unwrapKey({ mechanism: "AES_KEY_WRAP" }, vmkKeys[0], wrappedKey, {
+    class: "SECRET_KEY",
+    keyType: "AES",
+    extractable: true,
+    token: false,
+  });
   const value = key.getAttribute({ value: null }) as Buffer;
   activeSession.destroy(key);
   return value;

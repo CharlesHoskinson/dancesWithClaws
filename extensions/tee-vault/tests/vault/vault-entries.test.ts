@@ -84,9 +84,7 @@ describe("vault-entries", () => {
     });
 
     it("throws for nonexistent entry", async () => {
-      await expect(retrieveEntry(envelope, vmk, "nope")).rejects.toThrow(
-        "not found",
-      );
+      await expect(retrieveEntry(envelope, vmk, "nope")).rejects.toThrow("not found");
     });
 
     it("throws for HSM-resident entries", async () => {
@@ -97,9 +95,7 @@ describe("vault-entries", () => {
         hsmResident: true,
         hsmObjectId: 1,
       });
-      await expect(retrieveEntry(updated, vmk, "hsm")).rejects.toThrow(
-        "HSM-resident",
-      );
+      await expect(retrieveEntry(updated, vmk, "hsm")).rejects.toThrow("HSM-resident");
     });
   });
 
