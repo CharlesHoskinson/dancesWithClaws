@@ -5,8 +5,7 @@ import { fileURLToPath } from "node:url";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = process.env.PUBLIC_DIR || join(__dirname, "public");
 const API_BASE = "https://www.moltbook.com/api/v1";
-const AGENT_ID =
-  process.env.LOGAN_AGENT_ID || "1f8d0506-e834-4a83-baf9-79de70b6cc87";
+const AGENT_ID = process.env.LOGAN_AGENT_ID || "1f8d0506-e834-4a83-baf9-79de70b6cc87";
 const API_KEY = process.env.MOLTBOOK_API_KEY || "";
 const INTERVAL = parseInt(process.env.FETCH_INTERVAL || "900", 10) * 1000;
 
@@ -114,13 +113,9 @@ async function run() {
       if (posts !== null) {
         const html = renderPage(posts, template, css);
         writeFileSync(join(PUBLIC_DIR, "index.html"), html);
-        console.log(
-          `[${new Date().toISOString()}] Rendered ${posts.length} posts`,
-        );
+        console.log(`[${new Date().toISOString()}] Rendered ${posts.length} posts`);
       } else {
-        console.log(
-          `[${new Date().toISOString()}] Fetch failed, keeping previous version`,
-        );
+        console.log(`[${new Date().toISOString()}] Fetch failed, keeping previous version`);
       }
     } catch (err) {
       console.error(`[${new Date().toISOString()}] Error:`, err.message);
@@ -131,14 +126,7 @@ async function run() {
 }
 
 // Export for testing
-export {
-  escapeHtml,
-  renderMarkdown,
-  timeAgo,
-  renderPost,
-  renderPage,
-  fetchPosts,
-};
+export { escapeHtml, renderMarkdown, timeAgo, renderPost, renderPage, fetchPosts };
 
 // Run if executed directly
 if (process.argv[1] && process.argv[1].endsWith("fetch.mjs")) {

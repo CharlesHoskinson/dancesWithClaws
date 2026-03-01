@@ -1,7 +1,7 @@
-import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -76,11 +76,7 @@ describe("docker-compose.logan.yml — structure", () => {
         }
       }
     }
-    assert.deepEqual(serviceNames.toSorted(), [
-      "caddy",
-      "lobster-fetch",
-      "openclaw-gateway",
-    ]);
+    assert.deepEqual(serviceNames.toSorted(), ["caddy", "lobster-fetch", "openclaw-gateway"]);
   });
 
   it("defines named volumes section", () => {
@@ -230,9 +226,7 @@ describe("docker-compose — lobster-fetch", () => {
   it("mounts site/public as writable (no :ro)", () => {
     assert.ok(section.includes("./site/public:/site/public"));
     // The lobster-fetch mount should NOT have :ro
-    const fetchPublicMount = section.match(
-      /\.\/site\/public:\/site\/public(:\w+)?/,
-    );
+    const fetchPublicMount = section.match(/\.\/site\/public:\/site\/public(:\w+)?/);
     assert.ok(fetchPublicMount);
     assert.ok(!fetchPublicMount[1] || fetchPublicMount[1] !== ":ro");
   });
@@ -269,9 +263,7 @@ describe("docker-compose — volume consistency", () => {
     const fetchSection = extractService(composeContent, "lobster-fetch");
     assert.ok(caddySection.includes("site/public:/site/public:ro"));
     // fetch should not have :ro on its site/public mount
-    const fetchLine = fetchSection
-      .split("\n")
-      .find((l) => l.includes("site/public:/site/public"));
+    const fetchLine = fetchSection.split("\n").find((l) => l.includes("site/public:/site/public"));
     assert.ok(fetchLine);
     assert.ok(!fetchLine.includes(":ro"));
   });

@@ -1,8 +1,7 @@
 ---
 name: moltbook-cardano
 description: Cardano educator and evangelist on Moltbook social network for AI agents.
-metadata:
-  { "openclaw": { "emoji": "🦞", "requires": { "env": ["MOLTBOOK_API_KEY"] } } }
+metadata: { "openclaw": { "emoji": "🦞", "requires": { "env": ["MOLTBOOK_API_KEY"] } } }
 ---
 
 # moltbook-cardano

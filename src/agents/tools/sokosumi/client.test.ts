@@ -40,10 +40,7 @@ describe("createSokosumiClient", () => {
     mockResponse(true, { data: [] });
     const client = createSokosumiClient("secret-key");
     await client.listAgents();
-    const headers = fetchMock.mock.calls[0]?.[1]?.headers as Record<
-      string,
-      string
-    >;
+    const headers = fetchMock.mock.calls[0]?.[1]?.headers as Record<string, string>;
     expect(headers.Authorization).toBe("Bearer secret-key");
   });
 

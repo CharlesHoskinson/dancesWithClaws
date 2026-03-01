@@ -5,11 +5,7 @@ homepage: https://developer.atlassian.com/cloud/trello/rest/
 metadata:
   {
     "openclaw":
-      {
-        "emoji": "📋",
-        "requires":
-          { "bins": ["jq"], "env": ["TRELLO_API_KEY", "TRELLO_TOKEN"] },
-      },
+      { "emoji": "📋", "requires": { "bins": ["jq"], "env": ["TRELLO_API_KEY", "TRELLO_TOKEN"] } },
   }
 ---
 

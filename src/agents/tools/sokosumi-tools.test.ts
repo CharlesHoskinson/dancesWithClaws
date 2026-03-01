@@ -3,20 +3,15 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const fetchMock = vi.fn();
 vi.stubGlobal("fetch", fetchMock);
 
-import { createSokosumiTools } from "./sokosumi-tools.js";
 import type { OpenClawConfig } from "../../config/config.js";
+import { createSokosumiTools } from "./sokosumi-tools.js";
 
-function makeConfig(overrides?: {
-  apiKey?: string;
-  apiEndpoint?: string;
-}): OpenClawConfig {
+function makeConfig(overrides?: { apiKey?: string; apiEndpoint?: string }): OpenClawConfig {
   return {
     tools: {
       sokosumi: {
         apiKey: overrides?.apiKey ?? "test-key-123",
-        ...(overrides?.apiEndpoint
-          ? { apiEndpoint: overrides.apiEndpoint }
-          : {}),
+        ...(overrides?.apiEndpoint ? { apiEndpoint: overrides.apiEndpoint } : {}),
       },
     },
   } as OpenClawConfig;
@@ -80,10 +75,7 @@ describe("sokosumi tools", () => {
       const tools = createSokosumiTools(makeConfig({ apiKey: "cfg-key" }));
       await tools[0]!.execute("call1", {});
       expect(fetchMock).toHaveBeenCalledTimes(1);
-      const headers = fetchMock.mock.calls[0]?.[1]?.headers as Record<
-        string,
-        string
-      >;
+      const headers = fetchMock.mock.calls[0]?.[1]?.headers as Record<string, string>;
       expect(headers.Authorization).toBe("Bearer cfg-key");
     });
 
@@ -92,23 +84,15 @@ describe("sokosumi tools", () => {
       mockFetchOk([]);
       const tools = createSokosumiTools({} as OpenClawConfig);
       await tools[0]!.execute("call1", {});
-      const headers = fetchMock.mock.calls[0]?.[1]?.headers as Record<
-        string,
-        string
-      >;
+      const headers = fetchMock.mock.calls[0]?.[1]?.headers as Record<string, string>;
       expect(headers.Authorization).toBe("Bearer env-key");
     });
 
     it("trims whitespace from API key", async () => {
       mockFetchOk([]);
-      const tools = createSokosumiTools(
-        makeConfig({ apiKey: "  trimmed-key  " }),
-      );
+      const tools = createSokosumiTools(makeConfig({ apiKey: "  trimmed-key  " }));
       await tools[0]!.execute("call1", {});
-      const headers = fetchMock.mock.calls[0]?.[1]?.headers as Record<
-        string,
-        string
-      >;
+      const headers = fetchMock.mock.calls[0]?.[1]?.headers as Record<string, string>;
       expect(headers.Authorization).toBe("Bearer trimmed-key");
     });
   });
@@ -238,10 +222,7 @@ describe("sokosumi tools", () => {
         agentId: "agent-1",
         input: '{"data": true}',
       });
-      const headers = fetchMock.mock.calls[0]?.[1]?.headers as Record<
-        string,
-        string
-      >;
+      const headers = fetchMock.mock.calls[0]?.[1]?.headers as Record<string, string>;
       expect(headers.Authorization).toBe("Bearer my-key");
       expect(headers["Content-Type"]).toBe("application/json");
     });

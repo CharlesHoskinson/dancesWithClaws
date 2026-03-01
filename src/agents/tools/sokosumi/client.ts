@@ -1,8 +1,4 @@
-import type {
-  SokosumiAgent,
-  SokosumiInputSchema,
-  SokosumiJob,
-} from "./types.js";
+import type { SokosumiAgent, SokosumiInputSchema, SokosumiJob } from "./types.js";
 
 const DEFAULT_BASE = "https://api.sokosumi.com/v1";
 const TIMEOUT_MS = 30_000;
@@ -12,11 +8,7 @@ type Err = { ok: false; error: string };
 type Result<T> = Ok<T> | Err;
 
 export function createSokosumiClient(apiKey: string, baseUrl = DEFAULT_BASE) {
-  async function request<T>(
-    method: string,
-    path: string,
-    body?: unknown,
-  ): Promise<Result<T>> {
+  async function request<T>(method: string, path: string, body?: unknown): Promise<Result<T>> {
     const url = `${baseUrl}${path}`;
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
@@ -55,10 +47,7 @@ export function createSokosumiClient(apiKey: string, baseUrl = DEFAULT_BASE) {
     listAgents: () => request<{ data: SokosumiAgent[] }>("GET", "/agents"),
 
     getAgent: (id: string) =>
-      request<{ data: SokosumiAgent }>(
-        "GET",
-        `/agents/${encodeURIComponent(id)}`,
-      ),
+      request<{ data: SokosumiAgent }>("GET", `/agents/${encodeURIComponent(id)}`),
 
     getInputSchema: (agentId: string) =>
       request<{ data: SokosumiInputSchema }>(
@@ -67,16 +56,9 @@ export function createSokosumiClient(apiKey: string, baseUrl = DEFAULT_BASE) {
       ),
 
     listJobs: (agentId: string) =>
-      request<{ data: SokosumiJob[] }>(
-        "GET",
-        `/agents/${encodeURIComponent(agentId)}/jobs`,
-      ),
+      request<{ data: SokosumiJob[] }>("GET", `/agents/${encodeURIComponent(agentId)}/jobs`),
 
     createJob: (agentId: string, input: Record<string, unknown>) =>
-      request<{ data: SokosumiJob }>(
-        "POST",
-        `/agents/${encodeURIComponent(agentId)}/jobs`,
-        input,
-      ),
+      request<{ data: SokosumiJob }>("POST", `/agents/${encodeURIComponent(agentId)}/jobs`, input),
   };
 }

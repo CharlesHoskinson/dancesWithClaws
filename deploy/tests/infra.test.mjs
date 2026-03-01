@@ -1,7 +1,7 @@
-import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync, existsSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -44,9 +44,7 @@ void describe("Caddyfile", () => {
   });
 
   it("sets Referrer-Policy", () => {
-    assert.ok(
-      caddyfile.includes("Referrer-Policy strict-origin-when-cross-origin"),
-    );
+    assert.ok(caddyfile.includes("Referrer-Policy strict-origin-when-cross-origin"));
   });
 
   it("sets Strict-Transport-Security (HSTS)", () => {
@@ -89,10 +87,7 @@ void describe("Caddyfile", () => {
 // ═══════════════════════════════════════════
 
 void describe("Dockerfile.fetch", () => {
-  const dockerfile = readFileSync(
-    join(deployDir, "site", "Dockerfile.fetch"),
-    "utf-8",
-  );
+  const dockerfile = readFileSync(join(deployDir, "site", "Dockerfile.fetch"), "utf-8");
 
   it("exists and has content", () => {
     assert.ok(dockerfile.length > 10);
@@ -319,9 +314,7 @@ void describe("setup.sh", () => {
   });
 
   it("sets LOGAN_AGENT_ID", () => {
-    assert.ok(
-      setup.includes("LOGAN_AGENT_ID=1f8d0506-e834-4a83-baf9-79de70b6cc87"),
-    );
+    assert.ok(setup.includes("LOGAN_AGENT_ID=1f8d0506-e834-4a83-baf9-79de70b6cc87"));
   });
 
   it("sets SITE_DOMAIN", () => {
@@ -411,9 +404,7 @@ void describe("deploy file inventory", () => {
   });
 
   it("GitHub Actions workflow exists", () => {
-    assert.ok(
-      existsSync(join(repoRoot, ".github", "workflows", "deploy-logan.yml")),
-    );
+    assert.ok(existsSync(join(repoRoot, ".github", "workflows", "deploy-logan.yml")));
   });
 });
 
@@ -453,8 +444,7 @@ void describe("mock-posts.json fixture", () => {
   });
 
   it("all posts have valid UUIDs", () => {
-    const uuidRegex =
-      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
     for (const post of mockData.posts) {
       assert.ok(uuidRegex.test(post.id), `Invalid UUID: ${post.id}`);
     }
@@ -468,9 +458,7 @@ void describe("mock-posts.json fixture", () => {
   });
 
   it("posts are about Cardano topics", () => {
-    const allContent = mockData.posts
-      .map((p) => p.title + " " + p.content)
-      .join(" ");
+    const allContent = mockData.posts.map((p) => p.title + " " + p.content).join(" ");
     assert.ok(allContent.includes("Cardano"));
   });
 
