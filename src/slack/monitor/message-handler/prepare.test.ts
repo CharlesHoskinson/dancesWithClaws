@@ -101,6 +101,7 @@ describe("slack prepareSlackMessage inbound contract", () => {
     enabled: true,
     botTokenSource: "config",
     appTokenSource: "config",
+    userTokenSource: "none",
     config: {},
   };
 
@@ -119,6 +120,7 @@ describe("slack prepareSlackMessage inbound contract", () => {
       enabled: true,
       botTokenSource: "config",
       appTokenSource: "config",
+      userTokenSource: "none",
       config,
       replyToMode: config.replyToMode,
       replyToModeByChatType: config.replyToModeByChatType,
@@ -165,6 +167,7 @@ describe("slack prepareSlackMessage inbound contract", () => {
       enabled: true,
       botTokenSource: "config",
       appTokenSource: "config",
+      userTokenSource: "none",
       config: {
         replyToMode: "all",
         thread: { initialHistoryLimit: 20 },
@@ -253,6 +256,36 @@ describe("slack prepareSlackMessage inbound contract", () => {
 
     expect(prepared).toBeTruthy();
     expect(prepared!.ctxPayload.RawBody).toContain("[Slack file: file]");
+  });
+
+  it("extracts attachment text for bot messages with empty text when allowBots is true (#27616)", async () => {
+    const slackCtx = createInboundSlackCtx({
+      cfg: {
+        channels: {
+          slack: { enabled: true },
+        },
+      } as OpenClawConfig,
+      defaultRequireMention: false,
+    });
+    // oxlint-disable-next-line typescript/no-explicit-any
+    slackCtx.resolveUserName = async () => ({ name: "Bot" }) as any;
+
+    const account = createSlackAccount({ allowBots: true });
+    const message = createSlackMessage({
+      text: "",
+      bot_id: "B0AGV8EQYA3",
+      subtype: "bot_message",
+      attachments: [
+        {
+          text: "Readiness probe failed: Get http://10.42.13.132:8000/status: context deadline exceeded",
+        },
+      ],
+    });
+
+    const prepared = await prepareMessageWith(slackCtx, account, message);
+
+    expect(prepared).toBeTruthy();
+    expect(prepared!.ctxPayload.RawBody).toContain("Readiness probe failed");
   });
 
   it("keeps channel metadata out of GroupSystemPrompt", async () => {
@@ -348,6 +381,7 @@ describe("slack prepareSlackMessage inbound contract", () => {
       enabled: true,
       botTokenSource: "config",
       appTokenSource: "config",
+      userTokenSource: "none",
       config: {},
     };
 
@@ -431,6 +465,7 @@ describe("slack prepareSlackMessage inbound contract", () => {
       enabled: true,
       botTokenSource: "config",
       appTokenSource: "config",
+      userTokenSource: "none",
       config: {},
     };
 
@@ -676,6 +711,32 @@ describe("slack prepareSlackMessage inbound contract", () => {
     expect(prepared!.ctxPayload.Body).toMatch(/\[slack message id: 1\.000 channel: D123\]$/);
     expect(prepared!.ctxPayload.Body).not.toContain("thread_ts");
     expect(prepared!.ctxPayload.Body).not.toContain("parent_user_id");
+  });
+
+  it("creates thread session for top-level DM when replyToMode=all", async () => {
+    const { storePath } = makeTmpStorePath();
+    const slackCtx = createInboundSlackCtx({
+      cfg: {
+        session: { store: storePath },
+        channels: { slack: { enabled: true, replyToMode: "all" } },
+      } as OpenClawConfig,
+      replyToMode: "all",
+    });
+    // oxlint-disable-next-line typescript/no-explicit-any
+    slackCtx.resolveUserName = async () => ({ name: "Alice" }) as any;
+
+    const message = createSlackMessage({ ts: "500.000" });
+    const prepared = await prepareMessageWith(
+      slackCtx,
+      createSlackAccount({ replyToMode: "all" }),
+      message,
+    );
+
+    expect(prepared).toBeTruthy();
+    // Session key should include :thread:500.000 for the auto-threaded message
+    expect(prepared!.ctxPayload.SessionKey).toContain(":thread:500.000");
+    // MessageThreadId should be set for the reply
+    expect(prepared!.ctxPayload.MessageThreadId).toBe("500.000");
   });
 });
 
