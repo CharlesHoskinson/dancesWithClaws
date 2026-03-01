@@ -112,12 +112,7 @@ When a device token is issued, `hello-ok` also includes:
     "role": "node",
     "scopes": [],
     "caps": ["camera", "canvas", "screen", "location", "voice"],
-    "commands": [
-      "camera.snap",
-      "canvas.navigate",
-      "screen.record",
-      "location.get"
-    ],
+    "commands": ["camera.snap", "canvas.navigate", "screen.record", "location.get"],
     "permissions": { "camera.capture": true, "screen.record": false },
     "auth": { "token": "…" },
     "locale": "en-US",

@@ -33,18 +33,12 @@
 // [x] VOLUMES: Caddyfile mounted read-only
 // [x] VOLUMES: site/public read-only for Caddy, writable for fetch
 
-import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
-
-import {
-  escapeHtml,
-  renderMarkdown,
-  renderPost,
-  renderPage,
-} from "../site/fetch.mjs";
+import { escapeHtml, renderMarkdown, renderPost, renderPage } from "../site/fetch.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const deployDir = join(__dirname, "..");
@@ -192,17 +186,13 @@ describe("XSS Prevention — Dangerous URI Schemes in Markdown", () => {
   });
 
   it("strips data: URI links", () => {
-    const result = renderMarkdown(
-      "[click](data:text/html,<script>alert(1)</script>)",
-    );
+    const result = renderMarkdown("[click](data:text/html,<script>alert(1)</script>)");
     assert.ok(!result.includes("data:"));
     assert.ok(!result.includes("<a"));
   });
 
   it("strips Data: URI links (case-insensitive)", () => {
-    const result = renderMarkdown(
-      "[click](Data:text/html,<script>alert(1)</script>)",
-    );
+    const result = renderMarkdown("[click](Data:text/html,<script>alert(1)</script>)");
     assert.ok(!result.includes("<a"));
   });
 
@@ -281,10 +271,7 @@ describe("XSS Prevention — Unicode / RTL", () => {
 // ═══════════════════════════════════════════
 
 describe("Secret Leakage — Rendered Output", () => {
-  const template = readFileSync(
-    join(deployDir, "site", "template.html"),
-    "utf-8",
-  );
+  const template = readFileSync(join(deployDir, "site", "template.html"), "utf-8");
   const css = readFileSync(join(deployDir, "site", "style.css"), "utf-8");
   const mockPosts = JSON.parse(
     readFileSync(join(__dirname, "fixtures", "mock-posts.json"), "utf-8"),
@@ -313,10 +300,7 @@ describe("Secret Leakage — Rendered Output", () => {
 });
 
 describe("Secret Leakage — Docker Compose", () => {
-  const compose = readFileSync(
-    join(deployDir, "docker-compose.logan.yml"),
-    "utf-8",
-  );
+  const compose = readFileSync(join(deployDir, "docker-compose.logan.yml"), "utf-8");
 
   it("uses ${} interpolation for MOLTBOOK_API_KEY", () => {
     assert.ok(compose.includes("${MOLTBOOK_API_KEY}"));
@@ -356,10 +340,7 @@ describe("Secret Leakage — Caddyfile", () => {
 });
 
 describe("Secret Leakage — Dockerfile.fetch", () => {
-  const dockerfile = readFileSync(
-    join(deployDir, "site", "Dockerfile.fetch"),
-    "utf-8",
-  );
+  const dockerfile = readFileSync(join(deployDir, "site", "Dockerfile.fetch"), "utf-8");
 
   it("has no secrets", () => {
     assert.ok(!dockerfile.includes("MOLTBOOK_API_KEY"));
@@ -389,10 +370,7 @@ describe("Secret Leakage — GitHub Actions workflow", () => {
 
   it("uses only ${{ secrets.* }} for sensitive values", () => {
     const secretRefs = workflow.match(/\$\{\{\s*secrets\.\w+\s*\}\}/g) || [];
-    assert.ok(
-      secretRefs.length >= 3,
-      `Expected ≥3 secret refs, got ${secretRefs.length}`,
-    );
+    assert.ok(secretRefs.length >= 3, `Expected ≥3 secret refs, got ${secretRefs.length}`);
   });
 
   it("has no hardcoded secrets", () => {
@@ -402,9 +380,7 @@ describe("Secret Leakage — GitHub Actions workflow", () => {
 });
 
 describe("Secret Leakage — openclaw.json", () => {
-  const config = JSON.parse(
-    readFileSync(join(repoRoot, "openclaw.json"), "utf-8"),
-  );
+  const config = JSON.parse(readFileSync(join(repoRoot, "openclaw.json"), "utf-8"));
 
   it("redactPatterns cover MOLTBOOK_API_KEY", () => {
     assert.ok(config.logging.redactPatterns.includes("MOLTBOOK_API_KEY"));
@@ -421,10 +397,7 @@ describe("Secret Leakage — openclaw.json", () => {
 });
 
 describe("Secret Leakage — Mock Fixture", () => {
-  const raw = readFileSync(
-    join(__dirname, "fixtures", "mock-posts.json"),
-    "utf-8",
-  );
+  const raw = readFileSync(join(__dirname, "fixtures", "mock-posts.json"), "utf-8");
 
   it("has no real API keys", () => {
     assert.ok(!raw.includes("moltbook_"));
@@ -441,10 +414,7 @@ describe("Secret Leakage — Mock Fixture", () => {
 // ═══════════════════════════════════════════
 
 describe("Network Security", () => {
-  const compose = readFileSync(
-    join(deployDir, "docker-compose.logan.yml"),
-    "utf-8",
-  );
+  const compose = readFileSync(join(deployDir, "docker-compose.logan.yml"), "utf-8");
 
   it("gateway binds to loopback only", () => {
     assert.ok(compose.includes("--bind loopback"));
@@ -458,8 +428,7 @@ describe("Network Security", () => {
   });
 
   it("lobster-fetch does not expose ports", () => {
-    const fetchSection =
-      compose.split("lobster-fetch:")[1]?.split("volumes:")[0] || "";
+    const fetchSection = compose.split("lobster-fetch:")[1]?.split("volumes:")[0] || "";
     assert.ok(!fetchSection.includes("ports:"));
   });
 
@@ -494,9 +463,7 @@ describe("HTTP Security Headers", () => {
   });
 
   it("sets Referrer-Policy strict-origin-when-cross-origin", () => {
-    assert.ok(
-      caddyfile.includes("Referrer-Policy strict-origin-when-cross-origin"),
-    );
+    assert.ok(caddyfile.includes("Referrer-Policy strict-origin-when-cross-origin"));
   });
 
   it("sets Strict-Transport-Security with long max-age", () => {
@@ -528,9 +495,7 @@ describe("HTTP Security Headers", () => {
 // ═══════════════════════════════════════════
 
 describe("Docker Security — openclaw.json Sandbox", () => {
-  const config = JSON.parse(
-    readFileSync(join(repoRoot, "openclaw.json"), "utf-8"),
-  );
+  const config = JSON.parse(readFileSync(join(repoRoot, "openclaw.json"), "utf-8"));
   const agent = config.agents.list[0];
 
   it('sandbox mode is "all"', () => {
@@ -559,10 +524,7 @@ describe("Docker Security — openclaw.json Sandbox", () => {
 });
 
 describe("Docker Security — Dockerfile.fetch", () => {
-  const dockerfile = readFileSync(
-    join(deployDir, "site", "Dockerfile.fetch"),
-    "utf-8",
-  );
+  const dockerfile = readFileSync(join(deployDir, "site", "Dockerfile.fetch"), "utf-8");
 
   it("uses slim base image", () => {
     assert.ok(dockerfile.includes("-slim"));
@@ -576,10 +538,7 @@ describe("Docker Security — Dockerfile.fetch", () => {
 });
 
 describe("Docker Security — Log Rotation", () => {
-  const compose = readFileSync(
-    join(deployDir, "docker-compose.logan.yml"),
-    "utf-8",
-  );
+  const compose = readFileSync(join(deployDir, "docker-compose.logan.yml"), "utf-8");
 
   it("all services have json-file logging", () => {
     const logDriverMatches = compose.match(/driver:\s*json-file/g) || [];
@@ -698,10 +657,7 @@ describe("Input Validation — fetchPosts resilience", () => {
 });
 
 describe("Input Validation — renderPage", () => {
-  const template = readFileSync(
-    join(deployDir, "site", "template.html"),
-    "utf-8",
-  );
+  const template = readFileSync(join(deployDir, "site", "template.html"), "utf-8");
   const css = readFileSync(join(deployDir, "site", "style.css"), "utf-8");
 
   it("handles empty post array", () => {
@@ -734,10 +690,7 @@ describe("Input Validation — renderPage", () => {
       },
     ];
     const html = renderPage(posts, template, css);
-    assert.ok(
-      !html.match(/\{\{[A-Z_]+\}\}/),
-      "Found leftover template placeholder",
-    );
+    assert.ok(!html.match(/\{\{[A-Z_]+\}\}/), "Found leftover template placeholder");
   });
 });
 
@@ -775,15 +728,10 @@ describe("Input Validation — escapeHtml edge cases", () => {
 // ═══════════════════════════════════════════
 
 describe("Volume Mount Security", () => {
-  const compose = readFileSync(
-    join(deployDir, "docker-compose.logan.yml"),
-    "utf-8",
-  );
+  const compose = readFileSync(join(deployDir, "docker-compose.logan.yml"), "utf-8");
 
   it("openclaw.json is mounted read-only", () => {
-    assert.ok(
-      compose.includes("openclaw.json:/home/node/.openclaw/openclaw.json:ro"),
-    );
+    assert.ok(compose.includes("openclaw.json:/home/node/.openclaw/openclaw.json:ro"));
   });
 
   it("Caddyfile is mounted read-only", () => {

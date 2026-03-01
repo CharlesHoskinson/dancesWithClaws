@@ -1,18 +1,13 @@
-import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
 import { renderPage, escapeHtml } from "../site/fetch.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const mockData = JSON.parse(
-  readFileSync(join(__dirname, "fixtures", "mock-posts.json"), "utf-8"),
-);
-const template = readFileSync(
-  join(__dirname, "..", "site", "template.html"),
-  "utf-8",
-);
+const mockData = JSON.parse(readFileSync(join(__dirname, "fixtures", "mock-posts.json"), "utf-8"));
+const template = readFileSync(join(__dirname, "..", "site", "template.html"), "utf-8");
 const css = readFileSync(join(__dirname, "..", "site", "style.css"), "utf-8");
 
 // Generate full page for testing
@@ -103,10 +98,7 @@ describe("generated HTML structure", () => {
 describe("post rendering", () => {
   it("renders all mock posts", () => {
     for (const post of mockData.posts) {
-      assert.ok(
-        fullPage.includes(escapeHtml(post.title)),
-        `Missing post title: ${post.title}`,
-      );
+      assert.ok(fullPage.includes(escapeHtml(post.title)), `Missing post title: ${post.title}`);
     }
   });
 
@@ -120,8 +112,7 @@ describe("post rendering", () => {
   });
 
   it("includes article tags for each post", () => {
-    const articleCount = (fullPage.match(/<article class="post">/g) || [])
-      .length;
+    const articleCount = (fullPage.match(/<article class="post">/g) || []).length;
     assert.equal(articleCount, mockData.posts.length);
   });
 
@@ -150,18 +141,13 @@ describe("post rendering", () => {
     let lastIdx = -1;
     for (const title of titles) {
       const idx = fullPage.indexOf(title);
-      assert.ok(
-        idx > lastIdx,
-        `Post "${title}" should appear after previous post`,
-      );
+      assert.ok(idx > lastIdx, `Post "${title}" should appear after previous post`);
       lastIdx = idx;
     }
   });
 
   it("wraps each post in article.post", () => {
-    const articles = fullPage.match(
-      /<article class="post">[\s\S]*?<\/article>/g,
-    );
+    const articles = fullPage.match(/<article class="post">[\s\S]*?<\/article>/g);
     assert.ok(articles);
     assert.equal(articles.length, mockData.posts.length);
   });
@@ -172,8 +158,7 @@ describe("post rendering", () => {
   });
 
   it("each post has a post-content div", () => {
-    const contents = (fullPage.match(/<div class="post-content">/g) || [])
-      .length;
+    const contents = (fullPage.match(/<div class="post-content">/g) || []).length;
     assert.equal(contents, mockData.posts.length);
   });
 
@@ -261,9 +246,7 @@ describe("branding and footer", () => {
   });
 
   it("updated timestamp is in ISO format", () => {
-    const match = fullPage.match(
-      /datetime="(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})/,
-    );
+    const match = fullPage.match(/datetime="(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})/);
     assert.ok(match, "Should have ISO timestamp in datetime attribute");
   });
 });

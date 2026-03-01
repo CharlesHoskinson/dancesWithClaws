@@ -1,7 +1,7 @@
-import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
 import {
   escapeHtml,
@@ -13,13 +13,8 @@ import {
 } from "../site/fetch.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const mockData = JSON.parse(
-  readFileSync(join(__dirname, "fixtures", "mock-posts.json"), "utf-8"),
-);
-const template = readFileSync(
-  join(__dirname, "..", "site", "template.html"),
-  "utf-8",
-);
+const mockData = JSON.parse(readFileSync(join(__dirname, "fixtures", "mock-posts.json"), "utf-8"));
+const template = readFileSync(join(__dirname, "..", "site", "template.html"), "utf-8");
 const css = readFileSync(join(__dirname, "..", "site", "style.css"), "utf-8");
 
 // ═══════════════════════════════════════════
@@ -91,24 +86,15 @@ describe("escapeHtml", () => {
 
 describe("renderMarkdown", () => {
   it("renders bold", () => {
-    assert.match(
-      renderMarkdown("this is **bold** text"),
-      /this is <strong>bold<\/strong> text/,
-    );
+    assert.match(renderMarkdown("this is **bold** text"), /this is <strong>bold<\/strong> text/);
   });
 
   it("renders italic", () => {
-    assert.match(
-      renderMarkdown("this is *italic* text"),
-      /this is <em>italic<\/em> text/,
-    );
+    assert.match(renderMarkdown("this is *italic* text"), /this is <em>italic<\/em> text/);
   });
 
   it("renders inline code", () => {
-    assert.match(
-      renderMarkdown("use `Ouroboros` here"),
-      /use <code>Ouroboros<\/code> here/,
-    );
+    assert.match(renderMarkdown("use `Ouroboros` here"), /use <code>Ouroboros<\/code> here/);
   });
 
   it("renders links", () => {
@@ -158,12 +144,8 @@ describe("renderMarkdown", () => {
   });
 
   it("renders links with complex URLs", () => {
-    const result = renderMarkdown(
-      "[paper](https://example.com/path?q=1&r=2#section)",
-    );
-    assert.ok(
-      result.includes('href="https://example.com/path?q=1&amp;r=2#section"'),
-    );
+    const result = renderMarkdown("[paper](https://example.com/path?q=1&r=2#section)");
+    assert.ok(result.includes('href="https://example.com/path?q=1&amp;r=2#section"'));
   });
 
   it("handles code blocks containing HTML", () => {
@@ -219,16 +201,12 @@ describe("timeAgo", () => {
   });
 
   it("returns hours for older timestamps", () => {
-    const threeHoursAgo = new Date(
-      Date.now() - 3 * 60 * 60 * 1000,
-    ).toISOString();
+    const threeHoursAgo = new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString();
     assert.equal(timeAgo(threeHoursAgo), "3h ago");
   });
 
   it("returns 23h for just under a day", () => {
-    const twentyThreeHours = new Date(
-      Date.now() - 23 * 60 * 60 * 1000,
-    ).toISOString();
+    const twentyThreeHours = new Date(Date.now() - 23 * 60 * 60 * 1000).toISOString();
     assert.equal(timeAgo(twentyThreeHours), "23h ago");
   });
 
@@ -238,16 +216,12 @@ describe("timeAgo", () => {
   });
 
   it("returns days for old timestamps", () => {
-    const twoDaysAgo = new Date(
-      Date.now() - 2 * 24 * 60 * 60 * 1000,
-    ).toISOString();
+    const twoDaysAgo = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString();
     assert.equal(timeAgo(twoDaysAgo), "2d ago");
   });
 
   it("handles very old dates (365 days)", () => {
-    const oneYearAgo = new Date(
-      Date.now() - 365 * 24 * 60 * 60 * 1000,
-    ).toISOString();
+    const oneYearAgo = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString();
     assert.equal(timeAgo(oneYearAgo), "365d ago");
   });
 });
@@ -368,10 +342,7 @@ describe("renderPage", () => {
   it("includes all posts", () => {
     const html = renderPage(mockData.posts, template, css);
     for (const post of mockData.posts) {
-      assert.ok(
-        html.includes(escapeHtml(post.title)),
-        `Missing post: ${post.title}`,
-      );
+      assert.ok(html.includes(escapeHtml(post.title)), `Missing post: ${post.title}`);
     }
   });
 
@@ -411,10 +382,7 @@ describe("renderPage", () => {
   it("replaces all template placeholders", () => {
     const html = renderPage(mockData.posts, template, css);
     assert.ok(!html.includes("{{POSTS}}"), "Unreplaced {{POSTS}} placeholder");
-    assert.ok(
-      !html.includes("{{UPDATED}}"),
-      "Unreplaced {{UPDATED}} placeholder",
-    );
+    assert.ok(!html.includes("{{UPDATED}}"), "Unreplaced {{UPDATED}} placeholder");
   });
 
   it("handles single post", () => {

@@ -226,9 +226,7 @@ export type SystemEchoResult = Static<typeof SystemEchoResultSchema>;
 In `src/gateway/protocol/index.ts`, export an AJV validator:
 
 ```ts
-export const validateSystemEchoParams = ajv.compile<SystemEchoParams>(
-  SystemEchoParamsSchema,
-);
+export const validateSystemEchoParams = ajv.compile<SystemEchoParams>(SystemEchoParamsSchema);
 ```
 
 3. **Server behavior**

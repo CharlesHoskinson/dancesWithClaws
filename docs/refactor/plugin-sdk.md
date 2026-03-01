@@ -49,11 +49,7 @@ export type PluginRuntime = {
   channel: {
     text: {
       chunkMarkdownText(text: string, limit: number): string[];
-      resolveTextChunkLimit(
-        cfg: OpenClawConfig,
-        channel: string,
-        accountId?: string,
-      ): number;
+      resolveTextChunkLimit(cfg: OpenClawConfig, channel: string, accountId?: string): number;
       hasControlCommand(text: string, cfg: OpenClawConfig): boolean;
     };
     reply: {
@@ -80,11 +76,7 @@ export type PluginRuntime = {
       }): { sessionKey: string; accountId: string };
     };
     pairing: {
-      buildPairingReply(params: {
-        channel: string;
-        idLine: string;
-        code: string;
-      }): string;
+      buildPairingReply(params: { channel: string; idLine: string; code: string }): string;
       readAllowFromStore(channel: string): Promise<string[]>;
       upsertPairingRequest(params: {
         channel: string;
@@ -93,9 +85,7 @@ export type PluginRuntime = {
       }): Promise<{ code: string; created: boolean }>;
     };
     media: {
-      fetchRemoteMedia(params: {
-        url: string;
-      }): Promise<{ buffer: Buffer; contentType?: string }>;
+      fetchRemoteMedia(params: { url: string }): Promise<{ buffer: Buffer; contentType?: string }>;
       saveMediaBuffer(
         buffer: Uint8Array,
         contentType: string | undefined,
