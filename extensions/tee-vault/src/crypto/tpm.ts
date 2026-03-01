@@ -47,11 +47,15 @@ export async function tpmSeal(plaintext: Buffer): Promise<Buffer> {
     }
   `.trim();
 
-  const { stdout } = await execFileAsync(POWERSHELL, ["-NoProfile", "-Command", script], {
-    timeout: TIMEOUT_MS,
-    encoding: "utf8",
-    windowsHide: true,
-  });
+  const { stdout } = await execFileAsync(
+    POWERSHELL,
+    ["-NoProfile", "-Command", script],
+    {
+      timeout: TIMEOUT_MS,
+      encoding: "utf8",
+      windowsHide: true,
+    },
+  );
   return Buffer.from(stdout.trim(), "base64");
 }
 
@@ -73,27 +77,37 @@ export async function tpmUnseal(sealedData: Buffer): Promise<Buffer> {
     [Convert]::ToBase64String($unsealed)
   `.trim();
 
-  const { stdout } = await execFileAsync(POWERSHELL, ["-NoProfile", "-Command", script], {
-    timeout: TIMEOUT_MS,
-    encoding: "utf8",
-    windowsHide: true,
-  });
+  const { stdout } = await execFileAsync(
+    POWERSHELL,
+    ["-NoProfile", "-Command", script],
+    {
+      timeout: TIMEOUT_MS,
+      encoding: "utf8",
+      windowsHide: true,
+    },
+  );
   return Buffer.from(stdout.trim(), "base64");
 }
 
 /** Check if TPM 2.0 is available. */
 export async function isTpmAvailable(): Promise<boolean> {
-  if (process.platform !== "win32") return false;
+  if (process.platform !== "win32") {
+    return false;
+  }
   try {
     const script = `
       $tpm = Get-Tpm -ErrorAction Stop
       if ($tpm.TpmPresent -and $tpm.TpmReady) { Write-Output "ok" } else { Write-Output "no" }
     `.trim();
-    const { stdout } = await execFileAsync(POWERSHELL, ["-NoProfile", "-Command", script], {
-      timeout: TIMEOUT_MS,
-      encoding: "utf8",
-      windowsHide: true,
-    });
+    const { stdout } = await execFileAsync(
+      POWERSHELL,
+      ["-NoProfile", "-Command", script],
+      {
+        timeout: TIMEOUT_MS,
+        encoding: "utf8",
+        windowsHide: true,
+      },
+    );
     return stdout.trim() === "ok";
   } catch {
     return false;

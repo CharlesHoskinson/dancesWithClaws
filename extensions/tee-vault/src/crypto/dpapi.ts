@@ -30,11 +30,15 @@ export async function dpapiProtect(plaintext: Buffer): Promise<Buffer> {
     [Convert]::ToBase64String($protected)
   `.trim();
 
-  const { stdout } = await execFileAsync(POWERSHELL, ["-NoProfile", "-Command", script], {
-    timeout: TIMEOUT_MS,
-    encoding: "utf8",
-    windowsHide: true,
-  });
+  const { stdout } = await execFileAsync(
+    POWERSHELL,
+    ["-NoProfile", "-Command", script],
+    {
+      timeout: TIMEOUT_MS,
+      encoding: "utf8",
+      windowsHide: true,
+    },
+  );
   return Buffer.from(stdout.trim(), "base64");
 }
 
@@ -54,28 +58,38 @@ export async function dpapiUnprotect(protectedData: Buffer): Promise<Buffer> {
     [Convert]::ToBase64String($unprotected)
   `.trim();
 
-  const { stdout } = await execFileAsync(POWERSHELL, ["-NoProfile", "-Command", script], {
-    timeout: TIMEOUT_MS,
-    encoding: "utf8",
-    windowsHide: true,
-  });
+  const { stdout } = await execFileAsync(
+    POWERSHELL,
+    ["-NoProfile", "-Command", script],
+    {
+      timeout: TIMEOUT_MS,
+      encoding: "utf8",
+      windowsHide: true,
+    },
+  );
   return Buffer.from(stdout.trim(), "base64");
 }
 
 /** Check if DPAPI is available (Windows only). */
 export async function isDpapiAvailable(): Promise<boolean> {
-  if (process.platform !== "win32") return false;
+  if (process.platform !== "win32") {
+    return false;
+  }
   try {
     const script = `
       Add-Type -AssemblyName System.Security
       [System.Security.Cryptography.ProtectedData] | Out-Null
       Write-Output "ok"
     `.trim();
-    const { stdout } = await execFileAsync(POWERSHELL, ["-NoProfile", "-Command", script], {
-      timeout: TIMEOUT_MS,
-      encoding: "utf8",
-      windowsHide: true,
-    });
+    const { stdout } = await execFileAsync(
+      POWERSHELL,
+      ["-NoProfile", "-Command", script],
+      {
+        timeout: TIMEOUT_MS,
+        encoding: "utf8",
+        windowsHide: true,
+      },
+    );
     return stdout.trim() === "ok";
   } catch {
     return false;

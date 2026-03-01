@@ -1,7 +1,8 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import fs from "node:fs/promises";
-import path from "node:path";
 import os from "node:os";
+import path from "node:path";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { generateVmk } from "../../src/crypto/key-hierarchy.js";
 import {
   vaultExists,
   readVault,
@@ -10,7 +11,6 @@ import {
   computeEnvelopeHmac,
   verifyEnvelopeHmac,
 } from "../../src/vault/vault-store.js";
-import { generateVmk } from "../../src/crypto/key-hierarchy.js";
 
 describe("vault-store", () => {
   let tmpDir: string;
@@ -29,7 +29,11 @@ describe("vault-store", () => {
 
   it("creates and reads an empty vault", async () => {
     const vmk = generateVmk();
-    const envelope = createEmptyEnvelope("sealed-vmk-b64", "openssl-pbkdf2", vmk);
+    const envelope = createEmptyEnvelope(
+      "sealed-vmk-b64",
+      "openssl-pbkdf2",
+      vmk,
+    );
 
     await writeVault(tmpDir, envelope);
     expect(await vaultExists(tmpDir)).toBe(true);
@@ -51,7 +55,9 @@ describe("vault-store", () => {
     expect(hmac.length).toBe(64); // hex-encoded 32 bytes
 
     expect(verifyEnvelopeHmac(vmk, envelope.entries, hmac)).toBe(true);
-    expect(verifyEnvelopeHmac(vmk, envelope.entries, "0".repeat(64))).toBe(false);
+    expect(verifyEnvelopeHmac(vmk, envelope.entries, "0".repeat(64))).toBe(
+      false,
+    );
   });
 
   it("atomic write creates a valid JSON file", async () => {

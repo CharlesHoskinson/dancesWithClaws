@@ -1,12 +1,15 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import fs from "node:fs/promises";
-import path from "node:path";
 import os from "node:os";
-import { generateVmk, sealVmkWithPassphrase } from "../../src/crypto/key-hierarchy.js";
-import * as vaultStore from "../../src/vault/vault-store.js";
-import * as vaultLock from "../../src/vault/vault-lock.js";
-import { createVaultStoreTool } from "../../src/tools/tee-vault-tool.js";
+import path from "node:path";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import {
+  generateVmk,
+  sealVmkWithPassphrase,
+} from "../../src/crypto/key-hierarchy.js";
 import { createTeeCryptoTool } from "../../src/tools/tee-crypto-tool.js";
+import { createVaultStoreTool } from "../../src/tools/tee-vault-tool.js";
+import * as vaultLock from "../../src/vault/vault-lock.js";
+import * as vaultStore from "../../src/vault/vault-store.js";
 
 const mockApi = {
   id: "tee-vault",
@@ -24,7 +27,11 @@ describe("tee-crypto-tool", () => {
     tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "tee-crypto-tool-test-"));
     vmk = generateVmk();
     const sealed = await sealVmkWithPassphrase(vmk, "test");
-    const envelope = vaultStore.createEmptyEnvelope(sealed.toString("base64"), "openssl-pbkdf2", vmk);
+    const envelope = vaultStore.createEmptyEnvelope(
+      sealed.toString("base64"),
+      "openssl-pbkdf2",
+      vmk,
+    );
     await vaultStore.writeVault(tmpDir, envelope);
     vaultLock.unlock(vmk, "openssl-pbkdf2");
 
@@ -65,7 +72,9 @@ describe("tee-crypto-tool", () => {
       data: Buffer.from(encJson).toString("base64"),
     });
     const decParsed = JSON.parse(decResult.content[0].text);
-    const recovered = Buffer.from(decParsed.plaintext, "base64").toString("utf8");
+    const recovered = Buffer.from(decParsed.plaintext, "base64").toString(
+      "utf8",
+    );
     expect(recovered).toBe("hello encrypted world");
   });
 
@@ -73,7 +82,11 @@ describe("tee-crypto-tool", () => {
     vaultLock.lock();
     const tool = createTeeCryptoTool(mockApi, tmpDir);
     await expect(
-      tool.execute("test", { operation: "encrypt", label: "x", data: "dGVzdA==" }),
+      tool.execute("test", {
+        operation: "encrypt",
+        label: "x",
+        data: "dGVzdA==",
+      }),
     ).rejects.toThrow("locked");
   });
 });

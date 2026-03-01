@@ -5,9 +5,9 @@
  * It is explicitly zeroed on lock or when the auto-lock timer fires.
  */
 
-import { zeroBuffer } from "../crypto/key-hierarchy.js";
-import { DEFAULT_AUTO_LOCK_TIMEOUT_MS } from "../constants.js";
 import type { BackendType, UnlockedState } from "../types.js";
+import { DEFAULT_AUTO_LOCK_TIMEOUT_MS } from "../constants.js";
+import { zeroBuffer } from "../crypto/key-hierarchy.js";
 
 let state: UnlockedState | null = null;
 let autoLockTimer: ReturnType<typeof setTimeout> | null = null;
@@ -54,7 +54,9 @@ export function isUnlocked(): boolean {
 
 /** Get the VMK. Throws if vault is locked. */
 export function getVmk(): Buffer {
-  if (!state) throw new Error("Vault is locked");
+  if (!state) {
+    throw new Error("Vault is locked");
+  }
   resetAutoLockTimer();
   return state.vmk;
 }
@@ -76,7 +78,11 @@ function resetAutoLockTimer(): void {
       lock();
     }, autoLockTimeoutMs);
     // Don't keep the process alive just for the timer
-    if (autoLockTimer && typeof autoLockTimer === "object" && "unref" in autoLockTimer) {
+    if (
+      autoLockTimer &&
+      typeof autoLockTimer === "object" &&
+      "unref" in autoLockTimer
+    ) {
       autoLockTimer.unref();
     }
   }

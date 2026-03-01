@@ -54,7 +54,12 @@ export interface TransitDecryptResponse {
 }
 
 function resolveAddr(config?: Partial<OpenbaoConfig>): string {
-  return config?.addr ?? process.env.VAULT_ADDR ?? process.env.BAO_ADDR ?? DEFAULT_ADDR;
+  return (
+    config?.addr ??
+    process.env.VAULT_ADDR ??
+    process.env.BAO_ADDR ??
+    DEFAULT_ADDR
+  );
 }
 
 /** Make an HTTP request to the OpenBao API. */
@@ -74,35 +79,48 @@ async function baoRequest(
   const bodyStr = body ? JSON.stringify(body) : undefined;
 
   return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error("OpenBao request timed out")), TIMEOUT_MS);
+    const timer = setTimeout(
+      () => reject(new Error("OpenBao request timed out")),
+      TIMEOUT_MS,
+    );
 
-    const req = reqFn(url, {
-      method,
-      headers: {
-        "X-Vault-Token": token,
-        "Content-Type": "application/json",
-        ...(config?.namespace ? { "X-Vault-Namespace": config.namespace } : {}),
+    const req = reqFn(
+      url,
+      {
+        method,
+        headers: {
+          "X-Vault-Token": token,
+          "Content-Type": "application/json",
+          ...(config?.namespace
+            ? { "X-Vault-Namespace": config.namespace }
+            : {}),
+        },
       },
-    }, (res) => {
-      let data = "";
-      res.on("data", (chunk) => { data += chunk; });
-      res.on("end", () => {
-        clearTimeout(timer);
-        try {
-          const parsed = data ? JSON.parse(data) : {};
-          resolve({ status: res.statusCode ?? 0, data: parsed });
-        } catch {
-          resolve({ status: res.statusCode ?? 0, data: { raw: data } });
-        }
-      });
-    });
+      (res) => {
+        let data = "";
+        res.on("data", (chunk) => {
+          data += chunk;
+        });
+        res.on("end", () => {
+          clearTimeout(timer);
+          try {
+            const parsed = data ? JSON.parse(data) : {};
+            resolve({ status: res.statusCode ?? 0, data: parsed });
+          } catch {
+            resolve({ status: res.statusCode ?? 0, data: { raw: data } });
+          }
+        });
+      },
+    );
 
     req.on("error", (err) => {
       clearTimeout(timer);
       reject(err);
     });
 
-    if (bodyStr) req.write(bodyStr);
+    if (bodyStr) {
+      req.write(bodyStr);
+    }
     req.end();
   });
 }
@@ -117,22 +135,36 @@ export async function getSealStatus(
   const reqFn = isHttps ? httpsRequest : request;
 
   return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error("OpenBao health check timed out")), TIMEOUT_MS);
+    const timer = setTimeout(
+      () => reject(new Error("OpenBao health check timed out")),
+      TIMEOUT_MS,
+    );
     const req = reqFn(url, { method: "GET" }, (res) => {
       let data = "";
-      res.on("data", (chunk) => { data += chunk; });
+      res.on("data", (chunk) => {
+        data += chunk;
+      });
       res.on("end", () => {
         clearTimeout(timer);
-        try { resolve(JSON.parse(data)); } catch { reject(new Error("Invalid response")); }
+        try {
+          resolve(JSON.parse(data));
+        } catch {
+          reject(new Error("Invalid response"));
+        }
       });
     });
-    req.on("error", (err) => { clearTimeout(timer); reject(err); });
+    req.on("error", (err) => {
+      clearTimeout(timer);
+      reject(err);
+    });
     req.end();
   });
 }
 
 /** Check if OpenBao is reachable and unsealed. */
-export async function isOpenbaoReady(config?: Partial<OpenbaoConfig>): Promise<boolean> {
+export async function isOpenbaoReady(
+  config?: Partial<OpenbaoConfig>,
+): Promise<boolean> {
   try {
     const status = await getSealStatus(config);
     return status.initialized && !status.sealed;
@@ -156,7 +188,9 @@ export async function kvPut(
     `${mountPath}/data/${secretPath}`,
     token,
     config,
-    { data },
+    {
+      data,
+    },
   );
   if (status !== 200 && status !== 204) {
     throw new Error(`OpenBao KV put failed (HTTP ${status})`);
@@ -176,8 +210,12 @@ export async function kvGet(
     token,
     config,
   );
-  if (status === 404) return null;
-  if (status !== 200) throw new Error(`OpenBao KV get failed (HTTP ${status})`);
+  if (status === 404) {
+    return null;
+  }
+  if (status !== 200) {
+    throw new Error(`OpenBao KV get failed (HTTP ${status})`);
+  }
   const resp = data as { data?: { data?: Record<string, string> } };
   return resp?.data?.data ?? null;
 }
@@ -213,8 +251,12 @@ export async function kvList(
     token,
     config,
   );
-  if (status === 404) return [];
-  if (status !== 200) throw new Error(`OpenBao KV list failed (HTTP ${status})`);
+  if (status === 404) {
+    return [];
+  }
+  if (status !== 200) {
+    throw new Error(`OpenBao KV list failed (HTTP ${status})`);
+  }
   const resp = data as { data?: { keys?: string[] } };
   return resp?.data?.keys ?? [];
 }
@@ -236,11 +278,17 @@ export async function transitEncrypt(
     `transit/encrypt/${keyName}`,
     token,
     config,
-    { plaintext },
+    {
+      plaintext,
+    },
   );
-  if (status !== 200) throw new Error(`Transit encrypt failed (HTTP ${status})`);
+  if (status !== 200) {
+    throw new Error(`Transit encrypt failed (HTTP ${status})`);
+  }
   const resp = data as { data?: TransitEncryptResponse };
-  if (!resp?.data?.ciphertext) throw new Error("No ciphertext in transit response");
+  if (!resp?.data?.ciphertext) {
+    throw new Error("No ciphertext in transit response");
+  }
   return resp.data;
 }
 
@@ -256,11 +304,17 @@ export async function transitDecrypt(
     `transit/decrypt/${keyName}`,
     token,
     config,
-    { ciphertext },
+    {
+      ciphertext,
+    },
   );
-  if (status !== 200) throw new Error(`Transit decrypt failed (HTTP ${status})`);
+  if (status !== 200) {
+    throw new Error(`Transit decrypt failed (HTTP ${status})`);
+  }
   const resp = data as { data?: TransitDecryptResponse };
-  if (!resp?.data?.plaintext) throw new Error("No plaintext in transit response");
+  if (!resp?.data?.plaintext) {
+    throw new Error("No plaintext in transit response");
+  }
   return resp.data;
 }
 
@@ -279,9 +333,13 @@ export async function transitSign(
     config,
     { input },
   );
-  if (status !== 200) throw new Error(`Transit sign failed (HTTP ${status})`);
+  if (status !== 200) {
+    throw new Error(`Transit sign failed (HTTP ${status})`);
+  }
   const resp = data as { data?: { signature?: string } };
-  if (!resp?.data?.signature) throw new Error("No signature in transit response");
+  if (!resp?.data?.signature) {
+    throw new Error("No signature in transit response");
+  }
   return resp.data.signature;
 }
 
@@ -301,7 +359,9 @@ export async function transitVerify(
     config,
     { input, signature },
   );
-  if (status !== 200) throw new Error(`Transit verify failed (HTTP ${status})`);
+  if (status !== 200) {
+    throw new Error(`Transit verify failed (HTTP ${status})`);
+  }
   const resp = data as { data?: { valid?: boolean } };
   return resp?.data?.valid ?? false;
 }

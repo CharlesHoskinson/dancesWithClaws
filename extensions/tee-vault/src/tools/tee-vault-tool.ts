@@ -4,11 +4,11 @@
 
 import { Type } from "@sinclair/typebox";
 import type { OpenClawPluginApi } from "../../../../src/plugins/types.js";
+import type { EntryType } from "../types.js";
+import { appendAuditLog } from "../audit/tee-audit.js";
+import * as vaultEntries from "../vault/vault-entries.js";
 import * as vaultLock from "../vault/vault-lock.js";
 import * as vaultStore from "../vault/vault-store.js";
-import * as vaultEntries from "../vault/vault-entries.js";
-import { appendAuditLog } from "../audit/tee-audit.js";
-import type { EntryType } from "../types.js";
 
 export function createVaultStoreTool(api: OpenClawPluginApi, stateDir: string) {
   return {
@@ -25,7 +25,9 @@ export function createVaultStoreTool(api: OpenClawPluginApi, stateDir: string) {
       }),
       value: Type.String({ description: "The secret value to store" }),
       tags: Type.Optional(
-        Type.Array(Type.String(), { description: "Optional tags for categorization" }),
+        Type.Array(Type.String(), {
+          description: "Optional tags for categorization",
+        }),
       ),
     }),
     async execute(_id: string, params: Record<string, unknown>) {
@@ -34,8 +36,12 @@ export function createVaultStoreTool(api: OpenClawPluginApi, stateDir: string) {
       const value = String(params.value ?? "");
       const tags = Array.isArray(params.tags) ? params.tags.map(String) : [];
 
-      if (!label.trim()) throw new Error("label is required");
-      if (!value) throw new Error("value is required");
+      if (!label.trim()) {
+        throw new Error("label is required");
+      }
+      if (!value) {
+        throw new Error("value is required");
+      }
 
       if (!vaultLock.isUnlocked()) {
         throw new Error("Vault is locked. Run `openclaw tee unlock` first.");
@@ -43,12 +49,16 @@ export function createVaultStoreTool(api: OpenClawPluginApi, stateDir: string) {
 
       const vmk = vaultLock.getVmk();
       let envelope = await vaultStore.readVault(stateDir);
-      const { envelope: updated, entry } = await vaultEntries.addEntry(envelope, vmk, {
-        label: label.trim(),
-        type,
-        tags,
-        value: Buffer.from(value, "utf8"),
-      });
+      const { envelope: updated, entry } = await vaultEntries.addEntry(
+        envelope,
+        vmk,
+        {
+          label: label.trim(),
+          type,
+          tags,
+          value: Buffer.from(value, "utf8"),
+        },
+      );
       await vaultStore.writeVault(stateDir, updated);
 
       await appendAuditLog(stateDir, {
@@ -78,7 +88,10 @@ export function createVaultStoreTool(api: OpenClawPluginApi, stateDir: string) {
   };
 }
 
-export function createVaultRetrieveTool(api: OpenClawPluginApi, stateDir: string) {
+export function createVaultRetrieveTool(
+  api: OpenClawPluginApi,
+  stateDir: string,
+) {
   return {
     name: "vault_retrieve",
     description:
@@ -92,20 +105,34 @@ export function createVaultRetrieveTool(api: OpenClawPluginApi, stateDir: string
         enum: ["list", "get", "delete"],
         description: "Action to perform",
       }),
-      label: Type.Optional(Type.String({ description: "Entry label (required for get/delete)" })),
+      label: Type.Optional(
+        Type.String({ description: "Entry label (required for get/delete)" }),
+      ),
       type: Type.Optional(
         Type.Unsafe<EntryType>({
           type: "string",
-          enum: ["secret", "api_token", "ssh_key", "private_key", "certificate"],
+          enum: [
+            "secret",
+            "api_token",
+            "ssh_key",
+            "private_key",
+            "certificate",
+          ],
           description: "Filter by type (for list action)",
         }),
       ),
-      tag: Type.Optional(Type.String({ description: "Filter by tag (for list action)" })),
+      tag: Type.Optional(
+        Type.String({ description: "Filter by tag (for list action)" }),
+      ),
     }),
     async execute(_id: string, params: Record<string, unknown>) {
       const action = String(params.action ?? "list");
-      const label = typeof params.label === "string" ? params.label.trim() : undefined;
-      const type = typeof params.type === "string" ? (params.type as EntryType) : undefined;
+      const label =
+        typeof params.label === "string" ? params.label.trim() : undefined;
+      const type =
+        typeof params.type === "string"
+          ? (params.type as EntryType)
+          : undefined;
       const tag = typeof params.tag === "string" ? params.tag : undefined;
 
       if (!vaultLock.isUnlocked()) {
@@ -124,14 +151,22 @@ export function createVaultRetrieveTool(api: OpenClawPluginApi, stateDir: string
           success: true,
         });
         return {
-          content: [{ type: "text", text: JSON.stringify({ entries }, null, 2) }],
+          content: [
+            { type: "text", text: JSON.stringify({ entries }, null, 2) },
+          ],
         };
       }
 
-      if (!label) throw new Error("label is required for get/delete actions");
+      if (!label) {
+        throw new Error("label is required for get/delete actions");
+      }
 
       if (action === "get") {
-        const { value } = await vaultEntries.retrieveEntry(envelope, vmk, label);
+        const { value } = await vaultEntries.retrieveEntry(
+          envelope,
+          vmk,
+          label,
+        );
         const text = value.toString("utf8");
         await appendAuditLog(stateDir, {
           timestamp: new Date().toISOString(),
@@ -141,7 +176,9 @@ export function createVaultRetrieveTool(api: OpenClawPluginApi, stateDir: string
           success: true,
         });
         return {
-          content: [{ type: "text", text: JSON.stringify({ label, value: text }) }],
+          content: [
+            { type: "text", text: JSON.stringify({ label, value: text }) },
+          ],
         };
       }
 
@@ -156,7 +193,12 @@ export function createVaultRetrieveTool(api: OpenClawPluginApi, stateDir: string
           success: true,
         });
         return {
-          content: [{ type: "text", text: JSON.stringify({ status: "deleted", label }) }],
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify({ status: "deleted", label }),
+            },
+          ],
         };
       }
 

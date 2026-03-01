@@ -57,11 +57,15 @@ export async function storeCredential(
     }
   `.trim();
 
-  const { stdout } = await execFileAsync(POWERSHELL, ["-NoProfile", "-Command", script], {
-    timeout: TIMEOUT_MS,
-    encoding: "utf8",
-    windowsHide: true,
-  });
+  const { stdout } = await execFileAsync(
+    POWERSHELL,
+    ["-NoProfile", "-Command", script],
+    {
+      timeout: TIMEOUT_MS,
+      encoding: "utf8",
+      windowsHide: true,
+    },
+  );
   if (!stdout.trim().includes("ok")) {
     throw new Error("Failed to store credential in Credential Manager");
   }
@@ -71,7 +75,9 @@ export async function storeCredential(
 export async function retrieveCredential(
   target: CredentialTarget,
 ): Promise<{ username: string; password: string } | null> {
-  if (process.platform !== "win32") return null;
+  if (process.platform !== "win32") {
+    return null;
+  }
   const targetName = CREDENTIAL_TARGETS[target];
 
   const script = `
@@ -120,15 +126,23 @@ export async function retrieveCredential(
   `.trim();
 
   try {
-    const { stdout } = await execFileAsync(POWERSHELL, ["-NoProfile", "-Command", script], {
-      timeout: TIMEOUT_MS,
-      encoding: "utf8",
-      windowsHide: true,
-    });
+    const { stdout } = await execFileAsync(
+      POWERSHELL,
+      ["-NoProfile", "-Command", script],
+      {
+        timeout: TIMEOUT_MS,
+        encoding: "utf8",
+        windowsHide: true,
+      },
+    );
     const result = stdout.trim();
-    if (result === "NOT_FOUND") return null;
+    if (result === "NOT_FOUND") {
+      return null;
+    }
     const sep = result.indexOf("|");
-    if (sep === -1) return null;
+    if (sep === -1) {
+      return null;
+    }
     return {
       username: result.slice(0, sep),
       password: result.slice(sep + 1),
@@ -139,8 +153,12 @@ export async function retrieveCredential(
 }
 
 /** Delete a credential from Windows Credential Manager. */
-export async function deleteCredential(target: CredentialTarget): Promise<boolean> {
-  if (process.platform !== "win32") return false;
+export async function deleteCredential(
+  target: CredentialTarget,
+): Promise<boolean> {
+  if (process.platform !== "win32") {
+    return false;
+  }
   const targetName = CREDENTIAL_TARGETS[target];
 
   const script = `
@@ -168,7 +186,9 @@ export async function deleteCredential(target: CredentialTarget): Promise<boolea
 
 /** List all TEE Vault credentials stored in Credential Manager. */
 export async function listCredentials(): Promise<string[]> {
-  if (process.platform !== "win32") return [];
+  if (process.platform !== "win32") {
+    return [];
+  }
 
   const script = `
     cmdkey /list | Where-Object { $_ -match 'TeeVault-' } | ForEach-Object {
@@ -177,11 +197,15 @@ export async function listCredentials(): Promise<string[]> {
   `.trim();
 
   try {
-    const { stdout } = await execFileAsync(POWERSHELL, ["-NoProfile", "-Command", script], {
-      timeout: TIMEOUT_MS,
-      encoding: "utf8",
-      windowsHide: true,
-    });
+    const { stdout } = await execFileAsync(
+      POWERSHELL,
+      ["-NoProfile", "-Command", script],
+      {
+        timeout: TIMEOUT_MS,
+        encoding: "utf8",
+        windowsHide: true,
+      },
+    );
     return stdout.trim().split(/\r?\n/).filter(Boolean);
   } catch {
     return [];
@@ -199,17 +223,23 @@ export async function resolveHsmPin(
 ): Promise<string> {
   // 1. Try Credential Manager
   const cred = await retrieveCredential("hsmPin");
-  if (cred?.password) return cred.password;
+  if (cred?.password) {
+    return cred.password;
+  }
 
   // 2. Try environment variable
   const envPin = process.env.YUBIHSM_PIN ?? process.env.VAULT_HSM_PIN;
-  if (envPin) return envPin;
+  if (envPin) {
+    return envPin;
+  }
 
   // 3. Prompt
-  if (promptFn) return promptFn("Enter YubiHSM PIN: ");
+  if (promptFn) {
+    return promptFn("Enter YubiHSM PIN: ");
+  }
   throw new Error(
     "YubiHSM PIN not found. Store it with `openclaw tee credential store --target hsmPin` " +
-    "or set YUBIHSM_PIN environment variable.",
+      "or set YUBIHSM_PIN environment variable.",
   );
 }
 
@@ -218,15 +248,21 @@ export async function resolveOpenbaoToken(
   promptFn?: (msg: string) => Promise<string>,
 ): Promise<string> {
   const cred = await retrieveCredential("openbaoToken");
-  if (cred?.password) return cred.password;
+  if (cred?.password) {
+    return cred.password;
+  }
 
   const envToken = process.env.VAULT_TOKEN ?? process.env.BAO_TOKEN;
-  if (envToken) return envToken;
+  if (envToken) {
+    return envToken;
+  }
 
-  if (promptFn) return promptFn("Enter OpenBao token: ");
+  if (promptFn) {
+    return promptFn("Enter OpenBao token: ");
+  }
   throw new Error(
     "OpenBao token not found. Store it with `openclaw tee credential store --target openbaoToken` " +
-    "or set VAULT_TOKEN environment variable.",
+      "or set VAULT_TOKEN environment variable.",
   );
 }
 

@@ -2,10 +2,10 @@
  * Tests for IronKey disaster recovery backup.
  */
 
-import { describe, it, expect, vi, beforeEach } from "vitest";
 import fs from "node:fs/promises";
-import path from "node:path";
 import os from "node:os";
+import path from "node:path";
+import { describe, it, expect } from "vitest";
 import { secureDelete } from "../../src/integrations/ironkey-backup.js";
 
 describe("ironkey-backup", () => {
@@ -26,7 +26,9 @@ describe("ironkey-backup", () => {
 
     it("handles non-existent files gracefully", async () => {
       // Should not throw
-      await expect(secureDelete("/nonexistent/path/file.bin")).resolves.toBeUndefined();
+      await expect(
+        secureDelete("/nonexistent/path/file.bin"),
+      ).resolves.toBeUndefined();
     });
   });
 

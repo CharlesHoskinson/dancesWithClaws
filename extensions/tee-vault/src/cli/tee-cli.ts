@@ -9,40 +9,59 @@
 import type { Command } from "commander";
 import fs from "node:fs/promises";
 import path from "node:path";
-import { VAULT_DIR_NAME, VAULT_FILE_NAME, BACKEND_SECURITY_ORDER, DEFAULT_AUTO_LOCK_TIMEOUT_MS, HSM_AUTH_KEY_ADMIN, HSM_AUTH_KEY_SSH_SIGNER, HSM_AUTH_KEY_DB_CRYPTO, HSM_AUTH_KEY_BACKUP, HSM_OBJECT_SSH_KEY, HSM_OBJECT_WRAP_KEY } from "../constants.js";
-import { generateVmk, sealVmkWithPassphrase, unsealVmkWithPassphrase, zeroBuffer } from "../crypto/key-hierarchy.js";
-import { dpapiProtect, dpapiUnprotect, isDpapiAvailable } from "../crypto/dpapi.js";
+import type { BackendType, EntryType } from "../types.js";
+import { collectTeeVaultFindings, appendAuditLog } from "../audit/tee-audit.js";
+import {
+  VAULT_DIR_NAME,
+  VAULT_FILE_NAME,
+  HSM_OBJECT_SSH_KEY,
+  HSM_OBJECT_WRAP_KEY,
+} from "../constants.js";
+import {
+  dpapiProtect,
+  dpapiUnprotect,
+  isDpapiAvailable,
+} from "../crypto/dpapi.js";
+import {
+  generateVmk,
+  sealVmkWithPassphrase,
+  unsealVmkWithPassphrase,
+  zeroBuffer,
+} from "../crypto/key-hierarchy.js";
 import { tpmSeal, tpmUnseal, isTpmAvailable } from "../crypto/tpm.js";
-import * as vaultStore from "../vault/vault-store.js";
+import * as credentialManager from "../integrations/credential-manager.js";
+import * as ironkeyBackup from "../integrations/ironkey-backup.js";
+import * as openbao from "../integrations/openbao.js";
+import * as sshConfig from "../integrations/ssh-config.js";
 import * as vaultEntries from "../vault/vault-entries.js";
 import * as vaultLock from "../vault/vault-lock.js";
-import { collectTeeVaultFindings, appendAuditLog } from "../audit/tee-audit.js";
-import type { BackendType, EntryType, CredentialTarget } from "../types.js";
-import * as credentialManager from "../integrations/credential-manager.js";
-import * as sshConfig from "../integrations/ssh-config.js";
-import * as openbao from "../integrations/openbao.js";
-import * as ironkeyBackup from "../integrations/ironkey-backup.js";
+import * as vaultStore from "../vault/vault-store.js";
 
-export function registerTeeCli(
-  program: Command,
-  stateDir: string,
-): void {
-  const tee = program.command("tee").description("TEE Vault — encrypted secret storage");
+export function registerTeeCli(program: Command, stateDir: string): void {
+  const tee = program
+    .command("tee")
+    .description("TEE Vault — encrypted secret storage");
 
   // --- init ---
   tee
     .command("init")
     .description("Create vault, generate VMK, seal with chosen backend")
-    .option("--backend <backend>", "Security backend (yubihsm, dpapi+tpm, dpapi, openssl-pbkdf2)")
+    .option(
+      "--backend <backend>",
+      "Security backend (yubihsm, dpapi+tpm, dpapi, openssl-pbkdf2)",
+    )
     .action(async (opts: { backend?: string }) => {
       const exists = await vaultStore.vaultExists(stateDir);
       if (exists) {
-        console.error("Vault already exists. Use `openclaw tee rotate-vmk` to re-key.");
+        console.error(
+          "Vault already exists. Use `openclaw tee rotate-vmk` to re-key.",
+        );
         process.exitCode = 1;
         return;
       }
 
-      const backend = (opts.backend as BackendType) ?? (await detectBestBackend());
+      const backend =
+        (opts.backend as BackendType) ?? (await detectBestBackend());
       console.log(`Initializing vault with backend: ${backend}`);
 
       const vmk = generateVmk();
@@ -63,18 +82,30 @@ export function registerTeeCli(
           }
           case "openssl-pbkdf2": {
             // Prompt for passphrase
-            const passphrase = process.env.TEE_VAULT_PASSPHRASE ?? await promptSecret("Enter vault passphrase: ");
-            if (!passphrase) throw new Error("Passphrase is required for openssl-pbkdf2 backend");
+            const passphrase =
+              process.env.TEE_VAULT_PASSPHRASE ??
+              (await promptSecret("Enter vault passphrase: "));
+            if (!passphrase) {
+              throw new Error(
+                "Passphrase is required for openssl-pbkdf2 backend",
+              );
+            }
             const sealed = await sealVmkWithPassphrase(vmk, passphrase);
             sealedVmk = sealed.toString("base64");
             break;
           }
           case "yubihsm": {
-            const { openSession, generateHsmVmk, closeSession } = await import("../crypto/yubihsm.js");
-            const pin = process.env.YUBIHSM_PIN ?? await promptSecret("Enter YubiHSM PIN: ");
+            const { openSession, generateHsmVmk, closeSession } =
+              await import("../crypto/yubihsm.js");
+            const pin =
+              process.env.YUBIHSM_PIN ??
+              (await promptSecret("Enter YubiHSM PIN: "));
             const config = {
-              pkcs11Library: process.env.YUBIHSM_PKCS11_LIB ?? "C:\\Program Files\\Yubico\\YubiHSM Shell\\bin\\pkcs11\\yubihsm_pkcs11.dll",
-              connectorUrl: process.env.YUBIHSM_CONNECTOR_URL ?? "http://localhost:12345",
+              pkcs11Library:
+                process.env.YUBIHSM_PKCS11_LIB ??
+                "C:\\Program Files\\Yubico\\YubiHSM Shell\\bin\\pkcs11\\yubihsm_pkcs11.dll",
+              connectorUrl:
+                process.env.YUBIHSM_CONNECTOR_URL ?? "http://localhost:12345",
               authKeyId: process.env.YUBIHSM_AUTH_KEY_ID ?? "0001",
               slot: 0,
             };
@@ -89,13 +120,19 @@ export function registerTeeCli(
             throw new Error(`Unknown backend: ${backend}`);
         }
 
-        const envelope = vaultStore.createEmptyEnvelope(sealedVmk, backend, vmk);
+        const envelope = vaultStore.createEmptyEnvelope(
+          sealedVmk,
+          backend,
+          vmk,
+        );
         await vaultStore.writeVault(stateDir, envelope);
 
         // Set restrictive permissions
         await setVaultPermissions(stateDir);
 
-        console.log(`Vault initialized at ${vaultStore.resolveVaultPath(stateDir)}`);
+        console.log(
+          `Vault initialized at ${vaultStore.resolveVaultPath(stateDir)}`,
+        );
         console.log(`Backend: ${backend}`);
         console.log(`Entries: 0`);
       } finally {
@@ -130,7 +167,9 @@ export function registerTeeCli(
           break;
         }
         case "openssl-pbkdf2": {
-          const passphrase = process.env.TEE_VAULT_PASSPHRASE ?? await promptSecret("Enter vault passphrase: ");
+          const passphrase =
+            process.env.TEE_VAULT_PASSPHRASE ??
+            (await promptSecret("Enter vault passphrase: "));
           const sealed = Buffer.from(envelope.sealedVmk, "base64");
           vmk = await unsealVmkWithPassphrase(sealed, passphrase);
           break;
@@ -138,10 +177,15 @@ export function registerTeeCli(
         case "yubihsm": {
           // For YubiHSM, VMK stays in HSM; we store a sentinel
           const { openSession } = await import("../crypto/yubihsm.js");
-          const pin = process.env.YUBIHSM_PIN ?? await promptSecret("Enter YubiHSM PIN: ");
+          const pin =
+            process.env.YUBIHSM_PIN ??
+            (await promptSecret("Enter YubiHSM PIN: "));
           const config = {
-            pkcs11Library: process.env.YUBIHSM_PKCS11_LIB ?? "C:\\Program Files\\Yubico\\YubiHSM Shell\\bin\\pkcs11\\yubihsm_pkcs11.dll",
-            connectorUrl: process.env.YUBIHSM_CONNECTOR_URL ?? "http://localhost:12345",
+            pkcs11Library:
+              process.env.YUBIHSM_PKCS11_LIB ??
+              "C:\\Program Files\\Yubico\\YubiHSM Shell\\bin\\pkcs11\\yubihsm_pkcs11.dll",
+            connectorUrl:
+              process.env.YUBIHSM_CONNECTOR_URL ?? "http://localhost:12345",
             authKeyId: process.env.YUBIHSM_AUTH_KEY_ID ?? "0001",
             slot: 0,
           };
@@ -155,9 +199,13 @@ export function registerTeeCli(
       }
 
       // Verify HMAC integrity
-      if (!vaultStore.verifyEnvelopeHmac(vmk, envelope.entries, envelope.hmac)) {
+      if (
+        !vaultStore.verifyEnvelopeHmac(vmk, envelope.entries, envelope.hmac)
+      ) {
         zeroBuffer(vmk);
-        throw new Error("Vault integrity check failed. The vault may be corrupted or tampered with.");
+        throw new Error(
+          "Vault integrity check failed. The vault may be corrupted or tampered with.",
+        );
       }
 
       vaultLock.unlock(vmk, backend);
@@ -169,7 +217,9 @@ export function registerTeeCli(
         success: true,
       });
 
-      console.log(`Vault unlocked (backend: ${backend}, entries: ${envelope.entries.length}).`);
+      console.log(
+        `Vault unlocked (backend: ${backend}, entries: ${envelope.entries.length}).`,
+      );
     });
 
   // --- lock ---
@@ -237,49 +287,63 @@ export function registerTeeCli(
   tee
     .command("import")
     .description("Import key/secret from stdin or file")
-    .requiredOption("--type <type>", "Entry type (secret, api_token, ssh_key, private_key, certificate)")
+    .requiredOption(
+      "--type <type>",
+      "Entry type (secret, api_token, ssh_key, private_key, certificate)",
+    )
     .requiredOption("--label <label>", "Unique label")
     .option("--file <path>", "Read value from file instead of stdin")
     .option("--tag <tags>", "Comma-separated tags")
-    .action(async (opts: { type: string; label: string; file?: string; tag?: string }) => {
-      if (!vaultLock.isUnlocked()) {
-        console.error("Vault is locked. Run `openclaw tee unlock` first.");
-        process.exitCode = 1;
-        return;
-      }
-      let value: Buffer;
-      if (opts.file) {
-        value = await fs.readFile(opts.file);
-      } else {
-        // Read from stdin
-        const chunks: Buffer[] = [];
-        for await (const chunk of process.stdin) {
-          chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+    .action(
+      async (opts: {
+        type: string;
+        label: string;
+        file?: string;
+        tag?: string;
+      }) => {
+        if (!vaultLock.isUnlocked()) {
+          console.error("Vault is locked. Run `openclaw tee unlock` first.");
+          process.exitCode = 1;
+          return;
         }
-        value = Buffer.concat(chunks);
-      }
+        let value: Buffer;
+        if (opts.file) {
+          value = await fs.readFile(opts.file);
+        } else {
+          // Read from stdin
+          const chunks: Buffer[] = [];
+          for await (const chunk of process.stdin) {
+            chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+          }
+          value = Buffer.concat(chunks);
+        }
 
-      const vmk = vaultLock.getVmk();
-      const envelope = await vaultStore.readVault(stateDir);
-      const tags = opts.tag ? opts.tag.split(",").map((t) => t.trim()) : [];
-      const { envelope: updated } = await vaultEntries.addEntry(envelope, vmk, {
-        label: opts.label,
-        type: opts.type as EntryType,
-        tags,
-        value,
-      });
-      await vaultStore.writeVault(stateDir, updated);
+        const vmk = vaultLock.getVmk();
+        const envelope = await vaultStore.readVault(stateDir);
+        const tags = opts.tag ? opts.tag.split(",").map((t) => t.trim()) : [];
+        const { envelope: updated } = await vaultEntries.addEntry(
+          envelope,
+          vmk,
+          {
+            label: opts.label,
+            type: opts.type as EntryType,
+            tags,
+            value,
+          },
+        );
+        await vaultStore.writeVault(stateDir, updated);
 
-      await appendAuditLog(stateDir, {
-        timestamp: new Date().toISOString(),
-        action: "import",
-        entryLabel: opts.label,
-        entryType: opts.type as EntryType,
-        success: true,
-      });
+        await appendAuditLog(stateDir, {
+          timestamp: new Date().toISOString(),
+          action: "import",
+          entryLabel: opts.label,
+          entryType: opts.type as EntryType,
+          success: true,
+        });
 
-      console.log(`Imported "${opts.label}" (${opts.type}).`);
-    });
+        console.log(`Imported "${opts.label}" (${opts.type}).`);
+      },
+    );
 
   // --- export ---
   tee
@@ -295,7 +359,11 @@ export function registerTeeCli(
       }
       const vmk = vaultLock.getVmk();
       const envelope = await vaultStore.readVault(stateDir);
-      const { value } = await vaultEntries.retrieveEntry(envelope, vmk, opts.label);
+      const { value } = await vaultEntries.retrieveEntry(
+        envelope,
+        vmk,
+        opts.label,
+      );
       switch (opts.format) {
         case "base64":
           process.stdout.write(value.toString("base64"));
@@ -356,7 +424,11 @@ export function registerTeeCli(
 
       try {
         // Re-encrypt all entries
-        let updated = await vaultEntries.rotateAllEntries(envelope, oldVmk, newVmk);
+        let updated = await vaultEntries.rotateAllEntries(
+          envelope,
+          oldVmk,
+          newVmk,
+        );
 
         // Re-seal the new VMK
         const backend = envelope.metadata.backend;
@@ -374,7 +446,9 @@ export function registerTeeCli(
             break;
           }
           case "openssl-pbkdf2": {
-            const passphrase = process.env.TEE_VAULT_PASSPHRASE ?? await promptSecret("Enter new passphrase: ");
+            const passphrase =
+              process.env.TEE_VAULT_PASSPHRASE ??
+              (await promptSecret("Enter new passphrase: "));
             const sealed = await sealVmkWithPassphrase(newVmk, passphrase);
             sealedVmk = sealed.toString("base64");
             break;
@@ -396,7 +470,9 @@ export function registerTeeCli(
           action: "rotate_vmk",
           success: true,
         });
-        console.log(`VMK rotated (now version ${updated.metadata.vmkVersion}). All entries re-encrypted.`);
+        console.log(
+          `VMK rotated (now version ${updated.metadata.vmkVersion}). All entries re-encrypted.`,
+        );
       } finally {
         zeroBuffer(newVmk);
       }
@@ -441,7 +517,10 @@ export function registerTeeCli(
   tee
     .command("audit")
     .description("Run vault-specific security checks")
-    .option("--deep", "Include integration checks (OpenBao, connector, Credential Manager)")
+    .option(
+      "--deep",
+      "Include integration checks (OpenBao, connector, Credential Manager)",
+    )
     .action(async (opts: { deep?: boolean }) => {
       const findings = await collectTeeVaultFindings(stateDir, {
         checkYubiHsm: opts.deep,
@@ -452,7 +531,12 @@ export function registerTeeCli(
         return;
       }
       for (const f of findings) {
-        const icon = f.severity === "critical" ? "!!" : f.severity === "warn" ? " !" : "  ";
+        const icon =
+          f.severity === "critical"
+            ? "!!"
+            : f.severity === "warn"
+              ? " !"
+              : "  ";
         console.log(`[${icon}] ${f.checkId}: ${f.title}`);
         console.log(`     ${f.detail}`);
         if (f.remediation) {
@@ -463,7 +547,9 @@ export function registerTeeCli(
       const critical = findings.filter((f) => f.severity === "critical").length;
       const warn = findings.filter((f) => f.severity === "warn").length;
       const info = findings.filter((f) => f.severity === "info").length;
-      console.log(`${findings.length} finding(s): ${critical} critical, ${warn} warning, ${info} info`);
+      console.log(
+        `${findings.length} finding(s): ${critical} critical, ${warn} warning, ${info} info`,
+      );
     });
 
   // --- backup ---
@@ -488,12 +574,17 @@ export function registerTeeCli(
   // ===================================================================
 
   // --- credential store/get/delete/list ---
-  const cred = tee.command("credential").description("Manage Windows Credential Manager entries");
+  const cred = tee
+    .command("credential")
+    .description("Manage Windows Credential Manager entries");
 
   cred
     .command("store")
     .description("Store a credential (HSM PIN, OpenBao token, etc.)")
-    .requiredOption("--target <target>", "Credential target (hsmPin, hsmAdmin, hsmSshSigner, hsmDbCrypto, hsmBackup, openbaoToken, openbaoUnsealPin)")
+    .requiredOption(
+      "--target <target>",
+      "Credential target (hsmPin, hsmAdmin, hsmSshSigner, hsmDbCrypto, hsmBackup, openbaoToken, openbaoUnsealPin)",
+    )
     .option("--username <user>", "Username", "tee-vault")
     .action(async (opts: { target: string; username: string }) => {
       const target = opts.target as credentialManager.CredentialTarget;
@@ -512,14 +603,18 @@ export function registerTeeCli(
     .description("Retrieve a credential")
     .requiredOption("--target <target>", "Credential target")
     .action(async (opts: { target: string }) => {
-      const result = await credentialManager.retrieveCredential(opts.target as credentialManager.CredentialTarget);
+      const result = await credentialManager.retrieveCredential(
+        opts.target as credentialManager.CredentialTarget,
+      );
       if (!result) {
         console.error(`Credential "${opts.target}" not found.`);
         process.exitCode = 1;
         return;
       }
       // Only show that it exists, not the value (security)
-      console.log(`Credential "${opts.target}": stored (username=${result.username})`);
+      console.log(
+        `Credential "${opts.target}": stored (username=${result.username})`,
+      );
     });
 
   cred
@@ -527,11 +622,15 @@ export function registerTeeCli(
     .description("Delete a credential")
     .requiredOption("--target <target>", "Credential target")
     .action(async (opts: { target: string }) => {
-      const ok = await credentialManager.deleteCredential(opts.target as credentialManager.CredentialTarget);
+      const ok = await credentialManager.deleteCredential(
+        opts.target as credentialManager.CredentialTarget,
+      );
       if (ok) {
         console.log(`Deleted credential: ${opts.target}`);
       } else {
-        console.error(`Failed to delete credential "${opts.target}" (may not exist).`);
+        console.error(
+          `Failed to delete credential "${opts.target}" (may not exist).`,
+        );
       }
     });
 
@@ -551,7 +650,9 @@ export function registerTeeCli(
     });
 
   // --- ssh-config add/remove/agent-load/agent-unload ---
-  const ssh = tee.command("ssh-config").description("Manage SSH PKCS#11 configuration");
+  const ssh = tee
+    .command("ssh-config")
+    .description("Manage SSH PKCS#11 configuration");
 
   ssh
     .command("add")
@@ -560,16 +661,27 @@ export function registerTeeCli(
     .requiredOption("--hostname <host>", "Server hostname or IP")
     .requiredOption("--user <user>", "SSH username")
     .option("--port <port>", "SSH port", "22")
-    .action(async (opts: { alias: string; hostname: string; user: string; port: string }) => {
-      await sshConfig.upsertSshHostConfig({
-        hostAlias: opts.alias,
-        hostname: opts.hostname,
-        user: opts.user,
-        port: parseInt(opts.port, 10),
-      });
-      console.log(`SSH config updated: Host ${opts.alias} → ${opts.user}@${opts.hostname}:${opts.port}`);
-      console.log(`PKCS#11 provider configured for HSM-backed authentication.`);
-    });
+    .action(
+      async (opts: {
+        alias: string;
+        hostname: string;
+        user: string;
+        port: string;
+      }) => {
+        await sshConfig.upsertSshHostConfig({
+          hostAlias: opts.alias,
+          hostname: opts.hostname,
+          user: opts.user,
+          port: parseInt(opts.port, 10),
+        });
+        console.log(
+          `SSH config updated: Host ${opts.alias} → ${opts.user}@${opts.hostname}:${opts.port}`,
+        );
+        console.log(
+          `PKCS#11 provider configured for HSM-backed authentication.`,
+        );
+      },
+    );
 
   ssh
     .command("remove")
@@ -619,7 +731,11 @@ export function registerTeeCli(
     .option("--object-id <id>", "HSM object ID", String(HSM_OBJECT_SSH_KEY))
     .action(async (opts: { objectId: string }) => {
       const pin = await credentialManager.resolveHsmPin(promptSecret);
-      const pubKey = await sshConfig.getHsmPublicKeySsh(parseInt(opts.objectId, 10), undefined, pin);
+      const pubKey = await sshConfig.getHsmPublicKeySsh(
+        parseInt(opts.objectId, 10),
+        undefined,
+        pin,
+      );
       process.stdout.write(pubKey + "\n");
     });
 
@@ -632,7 +748,9 @@ export function registerTeeCli(
     .option("--addr <addr>", "OpenBao address")
     .action(async (opts: { addr?: string }) => {
       try {
-        const status = await openbao.getSealStatus(opts.addr ? { addr: opts.addr } : undefined);
+        const status = await openbao.getSealStatus(
+          opts.addr ? { addr: opts.addr } : undefined,
+        );
         console.log(`Initialized: ${status.initialized}`);
         console.log(`Sealed:      ${status.sealed}`);
         console.log(`Version:     ${status.version}`);
@@ -641,7 +759,9 @@ export function registerTeeCli(
           console.log(`Unseal progress: ${status.progress}/${status.t}`);
         }
       } catch (err) {
-        console.error(`Cannot reach OpenBao: ${err instanceof Error ? err.message : err}`);
+        console.error(
+          `Cannot reach OpenBao: ${err instanceof Error ? err.message : err}`,
+        );
         process.exitCode = 1;
       }
     });
@@ -652,7 +772,8 @@ export function registerTeeCli(
     .option("--key-label <label>", "HSM key label for unseal", "openbao-unseal")
     .action(async (opts: { keyLabel: string }) => {
       const config = openbao.generateSealConfig({
-        pkcs11Library: "C:\\Program Files\\Yubico\\YubiHSM2\\bin\\yubihsm_pkcs11.dll",
+        pkcs11Library:
+          "C:\\Program Files\\Yubico\\YubiHSM2\\bin\\yubihsm_pkcs11.dll",
         keyLabel: opts.keyLabel,
       });
       console.log(config);
@@ -678,7 +799,11 @@ export function registerTeeCli(
     .requiredOption("--plaintext <b64>", "Base64-encoded plaintext")
     .action(async (opts: { key: string; plaintext: string }) => {
       const token = await credentialManager.resolveOpenbaoToken(promptSecret);
-      const result = await openbao.transitEncrypt(token, opts.key, opts.plaintext);
+      const result = await openbao.transitEncrypt(
+        token,
+        opts.key,
+        opts.plaintext,
+      );
       console.log(`Ciphertext: ${result.ciphertext}`);
       console.log(`Key version: ${result.keyVersion}`);
     });
@@ -690,7 +815,11 @@ export function registerTeeCli(
     .requiredOption("--ciphertext <ct>", "Ciphertext from transit-encrypt")
     .action(async (opts: { key: string; ciphertext: string }) => {
       const token = await credentialManager.resolveOpenbaoToken(promptSecret);
-      const result = await openbao.transitDecrypt(token, opts.key, opts.ciphertext);
+      const result = await openbao.transitDecrypt(
+        token,
+        opts.key,
+        opts.ciphertext,
+      );
       console.log(`Plaintext (b64): ${result.plaintext}`);
     });
 
@@ -706,10 +835,17 @@ export function registerTeeCli(
 
       // List objects to export (the caller can provide specific IDs in the future)
       const objectIds = [
-        { id: HSM_OBJECT_SSH_KEY, type: "asymmetric-key", label: "ssh-key", algorithm: "ed25519" },
+        {
+          id: HSM_OBJECT_SSH_KEY,
+          type: "asymmetric-key",
+          label: "ssh-key",
+          algorithm: "ed25519",
+        },
       ];
 
-      console.log(`Creating backup to ${opts.out} using wrap key ${wrapKeyId}...`);
+      console.log(
+        `Creating backup to ${opts.out} using wrap key ${wrapKeyId}...`,
+      );
       const manifest = await ironkeyBackup.createFullBackup(pin, opts.out, {
         wrapKeyId,
         objectIds,
@@ -721,7 +857,9 @@ export function registerTeeCli(
         success: true,
       });
 
-      console.log(`Backup complete. ${manifest.wrappedObjects.length} object(s) exported.`);
+      console.log(
+        `Backup complete. ${manifest.wrappedObjects.length} object(s) exported.`,
+      );
       console.log(`Manifest: ${path.join(opts.out, "backup-manifest.json")}`);
     });
 
@@ -734,7 +872,11 @@ export function registerTeeCli(
       const pin = await credentialManager.resolveHsmPin(promptSecret);
 
       console.log(`Restoring from ${opts.backupDir}...`);
-      const manifest = await ironkeyBackup.restoreFullBackup(pin, opts.backupDir, opts.rawKey);
+      const manifest = await ironkeyBackup.restoreFullBackup(
+        pin,
+        opts.backupDir,
+        opts.rawKey,
+      );
 
       await appendAuditLog(stateDir, {
         timestamp: new Date().toISOString(),
@@ -742,7 +884,9 @@ export function registerTeeCli(
         success: true,
       });
 
-      console.log(`Restore complete. ${manifest.wrappedObjects.length} object(s) imported.`);
+      console.log(
+        `Restore complete. ${manifest.wrappedObjects.length} object(s) imported.`,
+      );
     });
 
   // --- setup-hsm (guided setup matching mostlySecure Steps 1-11) ---
@@ -769,7 +913,9 @@ export function registerTeeCli(
       if (existingPin) {
         console.log("  HSM PIN already stored.");
       } else {
-        const pin = await promptSecret("  Enter HSM admin PIN (authKey 0002 password): ");
+        const pin = await promptSecret(
+          "  Enter HSM admin PIN (authKey 0002 password): ",
+        );
         await credentialManager.storeCredential("hsmPin", "tee-vault", pin);
         console.log("  HSM PIN stored in Credential Manager.");
       }
@@ -779,7 +925,9 @@ export function registerTeeCli(
       const vaultExists = await vaultStore.vaultExists(stateDir);
       if (vaultExists) {
         const envelope = await vaultStore.readVault(stateDir);
-        console.log(`  Vault already exists (backend: ${envelope.metadata.backend}).`);
+        console.log(
+          `  Vault already exists (backend: ${envelope.metadata.backend}).`,
+        );
       } else {
         console.log("  Run: openclaw tee init --backend yubihsm");
       }
@@ -790,7 +938,9 @@ export function registerTeeCli(
       if (sshCfg.includes("PKCS11Provider")) {
         console.log("  PKCS#11 provider already configured in SSH config.");
       } else {
-        console.log("  Add a host with: openclaw tee ssh-config add --alias <name> --hostname <ip> --user <user>");
+        console.log(
+          "  Add a host with: openclaw tee ssh-config add --alias <name> --hostname <ip> --user <user>",
+        );
       }
 
       // Step 5: Load PKCS#11 into ssh-agent
@@ -821,13 +971,21 @@ async function detectBestBackend(): Promise<BackendType> {
   if (process.platform === "win32") {
     try {
       const { isYubiHsmAvailable } = await import("../crypto/yubihsm.js");
-      if (await isYubiHsmAvailable()) return "yubihsm";
-    } catch { /* not available */ }
+      if (await isYubiHsmAvailable()) {
+        return "yubihsm";
+      }
+    } catch {
+      /* not available */
+    }
 
     const tpmOk = await isTpmAvailable();
     const dpapiOk = await isDpapiAvailable();
-    if (dpapiOk && tpmOk) return "dpapi+tpm";
-    if (dpapiOk) return "dpapi";
+    if (dpapiOk && tpmOk) {
+      return "dpapi+tpm";
+    }
+    if (dpapiOk) {
+      return "dpapi";
+    }
   }
   return "openssl-pbkdf2";
 }
@@ -857,7 +1015,8 @@ async function setVaultPermissions(stateDir: string): Promise<void> {
   const vaultDir = path.join(stateDir, VAULT_DIR_NAME);
   if (process.platform === "win32") {
     try {
-      const { createIcaclsResetCommand } = await import("../../../../src/security/windows-acl.js");
+      const { createIcaclsResetCommand } =
+        await import("../../../../src/security/windows-acl.js");
       const cmd = createIcaclsResetCommand(vaultDir, { isDir: true });
       if (cmd) {
         const { execFile } = await import("node:child_process");
@@ -875,7 +1034,11 @@ async function setVaultPermissions(stateDir: string): Promise<void> {
     try {
       await fs.chmod(vaultDir, 0o700);
       const vaultPath = path.join(vaultDir, VAULT_FILE_NAME);
-      try { await fs.chmod(vaultPath, 0o600); } catch { /* may not exist yet */ }
+      try {
+        await fs.chmod(vaultPath, 0o600);
+      } catch {
+        /* may not exist yet */
+      }
     } catch {
       // Best-effort
     }

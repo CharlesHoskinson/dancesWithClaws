@@ -6,11 +6,11 @@
   "devDependencies": {
     "openclaw": "workspace:*"
   },
-  "optionalDependencies": {
-    "graphene-pk11": "^2.3.0"
-  },
   "peerDependencies": {
     "openclaw": ">=2026.1.26"
+  },
+  "optionalDependencies": {
+    "graphene-pk11": "^2.3.0"
   },
   "openclaw": {
     "extensions": [

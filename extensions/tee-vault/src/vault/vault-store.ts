@@ -10,9 +10,9 @@
 
 import fs from "node:fs/promises";
 import path from "node:path";
+import type { VaultEnvelope, VaultEntry, VaultMetadata } from "../types.js";
 import { VAULT_DIR_NAME, VAULT_FILE_NAME } from "../constants.js";
 import { computeHmac, verifyHmac } from "../crypto/key-hierarchy.js";
-import type { VaultEnvelope, VaultEntry, VaultMetadata, BackendType } from "../types.js";
 
 export function resolveVaultDir(stateDir: string): string {
   return path.join(stateDir, VAULT_DIR_NAME);
@@ -58,7 +58,10 @@ export async function writeVault(
 }
 
 /** Compute the HMAC over all entry ciphertexts for integrity verification. */
-export function computeEnvelopeHmac(vmk: Buffer, entries: VaultEntry[]): string {
+export function computeEnvelopeHmac(
+  vmk: Buffer,
+  entries: VaultEntry[],
+): string {
   const payload = entries
     .map((e) => `${e.id}:${e.version}:${e.ciphertext ?? ""}:${e.authTag ?? ""}`)
     .join("|");
