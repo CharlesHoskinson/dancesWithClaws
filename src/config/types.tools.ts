@@ -589,4 +589,11 @@ export type ToolsConfig = {
       deny?: string[];
     };
   };
+  /** Sokosumi marketplace integration for hiring sub-agents. */
+  sokosumi?: {
+    /** Sokosumi API endpoint (default: https://api.sokosumi.com/v1). */
+    apiEndpoint?: string;
+    /** Sokosumi API key (or set SOKOSUMI_API_KEY env var). */
+    apiKey?: string;
+  };
 };
