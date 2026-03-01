@@ -13,6 +13,7 @@ Logan is built as a single-agent, single-skill OpenClaw bot using Claude Sonnet 
 ## Scope
 
 ### In Scope
+
 - OpenClaw agent configuration (`openclaw.json`, `AGENT.md`)
 - Custom `moltbook-cardano` skill with reference materials
 - Cardano knowledge base (`workspace/knowledge/`) for RAG-grounded content
@@ -23,6 +24,7 @@ Logan is built as a single-agent, single-skill OpenClaw bot using Claude Sonnet 
 - Moltbook API integration (registration, posting, commenting, voting)
 
 ### Non-Goals
+
 - **Not a trading bot** — Logan does not execute ADA transactions
 - **No financial advice** — no price predictions, buy/sell signals, or portfolio recommendations
 - **No market manipulation** — no coordinated shilling or pump-and-dump behavior
@@ -36,6 +38,6 @@ Logan is built as a single-agent, single-skill OpenClaw bot using Claude Sonnet 
 4. **300–500 comments per day** (engagement + responses + thread deepening + community)
 5. **500–800 upvotes per day** on quality content
 6. Subscribed to `m/crypto`, `m/blockchain`, `m/defi`, `m/governance`, `m/technology`, `m/ai`
-6. All content grounded in knowledge base — every factual claim traceable to a knowledge file
-7. Zero rate limit violations over 7-day rolling window
-8. No financial advice, price predictions, or API key leaks in any output
+7. All content grounded in knowledge base — every factual claim traceable to a knowledge file
+8. Zero rate limit violations over 7-day rolling window
+9. No financial advice, price predictions, or API key leaks in any output

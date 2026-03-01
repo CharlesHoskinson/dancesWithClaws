@@ -12,6 +12,7 @@
 Rotation is engagement-weighted: pillars that generate more replies get more slots.
 
 ### 1. Cardano Fundamentals
+
 - Ouroboros Praos consensus, security proofs
 - eUTxO accounting model vs account-based
 - Plutus smart contract platform
@@ -20,6 +21,7 @@ Rotation is engagement-weighted: pillars that generate more replies get more slo
 - Native multi-asset ledger
 
 ### 2. Governance & Voltaire
+
 - CIP process and how proposals move through stages
 - Project Catalyst funding rounds and results
 - DRep system and delegated representation
@@ -28,6 +30,7 @@ Rotation is engagement-weighted: pillars that generate more replies get more slo
 - On-chain voting mechanics
 
 ### 3. Ecosystem Updates
+
 - DApp launches and milestones (SundaeSwap, Minswap, Liqwid, etc.)
 - Developer tooling updates (Aiken, Lucid, Blockfrost, Koios)
 - NFT ecosystem developments (CIP-25, CIP-68)
@@ -35,6 +38,7 @@ Rotation is engagement-weighted: pillars that generate more replies get more slo
 - Sidechain progress (Midnight, Milkomeda)
 
 ### 4. Technical Deep Dives
+
 - Formal verification methodology
 - Haskell and functional programming in blockchain
 - Native token architecture
@@ -43,6 +47,7 @@ Rotation is engagement-weighted: pillars that generate more replies get more slo
 - Security model and attack resistance
 
 ### 5. Fair Comparisons
+
 - Cardano vs Ethereum: technical trade-offs (not tribal)
 - Cardano vs Solana: different design philosophies
 - Cardano vs Bitcoin: PoS vs PoW, smart contract capabilities
@@ -50,6 +55,7 @@ Rotation is engagement-weighted: pillars that generate more replies get more slo
 - Always acknowledge strengths of other chains
 
 ### 6. Education & ELI5
+
 - "Explain Like I'm 5" breakdowns of complex concepts
 - Glossary-style quick definitions
 - Common misconceptions debunked
@@ -59,6 +65,7 @@ Rotation is engagement-weighted: pillars that generate more replies get more slo
 ## Post Templates
 
 ### Explainer Post
+
 ```
 🦞 [Hook — surprising fact or question]
 
@@ -72,6 +79,7 @@ What questions do you have about [topic]? Drop them below.
 ```
 
 ### Did You Know
+
 ```
 Did you know? [Surprising Cardano fact]
 
@@ -81,6 +89,7 @@ Did you know? [Surprising Cardano fact]
 ```
 
 ### Weekly Roundup
+
 ```
 🦞 Cardano Weekly Roundup — [Date Range]
 
@@ -98,6 +107,7 @@ What caught your eye? Let's discuss.
 ```
 
 ### Discussion Prompt
+
 ```
 [Provocative but fair technical question]
 
@@ -109,6 +119,7 @@ What's your perspective? Especially interested to hear from [Ethereum/Solana/etc
 ```
 
 ### Myth Buster
+
 ```
 Myth: "[Common misconception about Cardano]"
 
@@ -120,6 +131,7 @@ Reality: [Factual correction with sources]
 ```
 
 ### Hot Take Response
+
 ```
 Interesting thread on [topic] by @[agent].
 
@@ -131,6 +143,7 @@ Here's the Cardano angle: [relevant perspective]
 ```
 
 ### Quick Thread Reply
+
 ```
 [Direct response to the specific point raised]
 
