@@ -28,7 +28,33 @@ export interface ReconcileOptions {
   };
 }
 
-function defaultCredential(): { encKey: Uint8Array; macKey: Uint8Array } {
+/**
+ * Thrown when `apply()` encounters a plan step that needs new SCP03 key
+ * material (currently: `update-auth-key`) but the caller did not supply a
+ * `resolveCredential` function. This is a hard failure — silently falling
+ * back to a stub credential would brick the operator's access to the device
+ * by delete-then-put-ting the auth key with unknown material.
+ *
+ * Create-auth-key steps do NOT trigger this: bootstrap provisioning uses a
+ * stub default for the initial factory-rotation path where the resolver
+ * chain is not yet populated with the operator's keys.
+ */
+export class ReconcileCredentialMissing extends Error {
+  readonly credentialRef: string;
+  readonly authKeyId: number;
+  constructor(credentialRef: string, authKeyId: number) {
+    super(
+      `apply() received an update-auth-key step for id=${authKeyId} (credential_ref=` +
+        `${credentialRef}) but no resolveCredential was supplied; rotating an auth key ` +
+        "without real key material would brick operator access",
+    );
+    this.name = "ReconcileCredentialMissing";
+    this.credentialRef = credentialRef;
+    this.authKeyId = authKeyId;
+  }
+}
+
+function defaultCreateCredential(): { encKey: Uint8Array; macKey: Uint8Array } {
   return {
     encKey: new Uint8Array(16).fill(0xaa),
     macKey: new Uint8Array(16).fill(0xbb),
@@ -90,7 +116,23 @@ export async function apply(
   p: Plan,
   opts: ReconcileOptions = {},
 ): Promise<void> {
-  const resolve = opts.resolveCredential ?? ((_ref: string) => defaultCredential());
+  // Pre-flight: if any update-auth-key step exists, a resolver is mandatory.
+  // Bail BEFORE running any deletes so the device stays intact on the error
+  // path — a caller that forgot `resolveCredential` must not get a half-
+  // applied plan that leaves the auth key rotated with stub material.
+  if (!opts.resolveCredential) {
+    for (const step of p.update) {
+      if (step.kind === "update-auth-key" && step.authKey) {
+        throw new ReconcileCredentialMissing(step.authKey.credentialRef, step.id);
+      }
+    }
+  }
+  // Creates still fall back to a stub default: this is the bootstrap flow
+  // where the resolver chain is not yet populated with the operator's keys
+  // (see `openclaw hsm bootstrap`, which rotates the admin separately and
+  // then re-plan/applies the blueprint for peripheral auth keys).
+  const resolveCreate = opts.resolveCredential ?? ((_ref: string) => defaultCreateCredential());
+  const resolveUpdate = opts.resolveCredential;
   // Execution order: creates → updates → deletes. Updates run after creates so
   // a freshly-put key isn't rewritten by a stale drift path; deletes run last
   // so we don't drop an admin key the session still depends on mid-apply.
@@ -99,7 +141,7 @@ export async function apply(
       continue;
     }
     const ak = step.authKey;
-    const cred = resolve(ak.credentialRef);
+    const cred = resolveCreate(ak.credentialRef);
     await putAuthenticationKey(session, {
       keyId: ak.id,
       label: ak.role,
@@ -115,7 +157,11 @@ export async function apply(
       continue;
     }
     const ak = step.authKey;
-    const cred = resolve(ak.credentialRef);
+    // The pre-flight check above guarantees resolveUpdate is defined here.
+    if (!resolveUpdate) {
+      throw new ReconcileCredentialMissing(ak.credentialRef, step.id);
+    }
+    const cred = resolveUpdate(ak.credentialRef);
     // YubiHSM2 has no in-place "update auth key" primitive — delete-then-put
     // is the canonical rotation. The new keys come from the credential
     // resolver so drift repair can also rotate the SCP03 material.

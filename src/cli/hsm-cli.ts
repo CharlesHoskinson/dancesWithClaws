@@ -342,6 +342,18 @@ export async function bootstrapDevice(opts: HsmBootstrapOptions): Promise<Bootst
             macKey: newMac,
           });
           rotated = true;
+        } catch (err) {
+          // Re-surface every rotation-phase failure as a typed
+          // BootstrapAbortedError so callers can distinguish it from a
+          // garden-variety IO error. The HALF_APPLIED marker stays put —
+          // bootstrap intentionally leaves it so a subsequent run can
+          // recover via the resolver chain (the new admin keys are
+          // already persisted to the backing store by step 3).
+          throw new BootstrapAbortedError(
+            `admin rotation failed after HALF_APPLIED marker was written: ${
+              err instanceof Error ? err.message : String(err)
+            }`,
+          );
         } finally {
           try {
             await factorySession.close();
@@ -442,9 +454,86 @@ export function registerHsmCli(program: Command): void {
     .description("Reconcile the device to match the blueprint")
     .action(async (opts: HsmSharedOptions) => {
       const bp = loadBlueprint(opts);
+      // Build a credential_ref → {role, id} lookup so the reconcile layer's
+      // resolveCredential callback (keyed on credentialRef) can delegate to
+      // the CLI's CredentialResolver chain (keyed on role, id). Without
+      // this, any drift on an auth key would rewrite it with stub SCP03
+      // material from the package default, bricking operator access.
+      const refToAuth = new Map<string, { role: string; id: number }>();
+      for (const ak of bp.authKeys) {
+        refToAuth.set(ak.credentialRef, { role: ak.role, id: ak.id });
+      }
+      const { resolvers } = buildResolverChain(opts);
+      const chain = composeResolvers(resolvers);
       const result = await withSession(opts, async (session, preserveAuthKeyIds) => {
         const p = await plan(session, bp, { preserveAuthKeyIds });
-        await apply(session, p, { preserveAuthKeyIds });
+        // Pre-resolve creds for every update step — those MUST have a real
+        // resolver hit or the reconcile layer refuses to run (silent
+        // stubbing would brick operator access). Fail fast with a clear
+        // error before any device mutation.
+        const preResolved = new Map<string, ResolvedCredential>();
+        for (const step of p.update) {
+          const ak = step.authKey;
+          if (!ak) {
+            continue;
+          }
+          const entry = refToAuth.get(ak.credentialRef);
+          if (!entry) {
+            throw new Error(
+              `apply: no blueprint auth-key matches credential_ref=${ak.credentialRef}; ` +
+                "cannot resolve keys for drift repair",
+            );
+          }
+          let hit: ResolvedCredential | null = null;
+          try {
+            hit = await chain.resolve(entry.role, entry.id);
+          } catch {
+            hit = null;
+          }
+          if (!hit) {
+            throw new Error(
+              `apply: resolver chain returned no keys for role=${entry.role} ` +
+                `id=${entry.id}; supply --creds-file / --admin-enc / --admin-mac`,
+            );
+          }
+          preResolved.set(ak.credentialRef, hit);
+        }
+        // Pre-resolve creates best-effort: if the chain has keys, use them;
+        // otherwise fall back to stub defaults so the bootstrap path (where
+        // the operator hasn't provisioned per-role credentials yet) still
+        // works. Creates do NOT require a resolver — only updates do.
+        for (const step of p.create) {
+          const ak = step.authKey;
+          if (!ak) {
+            continue;
+          }
+          const entry = refToAuth.get(ak.credentialRef);
+          if (!entry) {
+            continue;
+          }
+          try {
+            const hit = await chain.resolve(entry.role, entry.id);
+            if (hit) {
+              preResolved.set(ak.credentialRef, hit);
+            }
+          } catch {
+            // Chain returned nothing → leave unresolved; resolveCredential
+            // below falls back to the stub default for creates.
+          }
+        }
+        const STUB_ENC = new Uint8Array(16).fill(0xaa);
+        const STUB_MAC = new Uint8Array(16).fill(0xbb);
+        const resolveCredential = (ref: string): ResolvedCredential => {
+          const hit = preResolved.get(ref);
+          if (hit) {
+            return hit;
+          }
+          // This branch is only reached for create steps (updates have
+          // already been validated above); stubbing here matches the
+          // historical bootstrap behavior.
+          return { encKey: STUB_ENC, macKey: STUB_MAC };
+        };
+        await apply(session, p, { preserveAuthKeyIds, resolveCredential });
         return p;
       });
       defaultRuntime.writeJson({ applied: summarizePlan(result) });
@@ -465,17 +554,10 @@ export function registerHsmCli(program: Command): void {
       }
     });
 
-  hsm
-    .command("bootstrap")
+  addSharedOptions(hsm.command("bootstrap"))
     .description(
       "Provision a factory-fresh YubiHSM2 end-to-end: rotate factory admin, " +
         "persist new keys, apply the blueprint. Idempotent on re-runs.",
-    )
-    .option("--blueprint <path>", "Blueprint YAML path", DEFAULT_BLUEPRINT)
-    .option("--connector <url>", "yubihsm-connector URL", DEFAULT_CONNECTOR)
-    .option(
-      "--creds-file <path>",
-      "JSON credential file (maps Credential Manager target names to { enc, mac } hex pairs)",
     )
     .option(
       "--factory-password <pw>",

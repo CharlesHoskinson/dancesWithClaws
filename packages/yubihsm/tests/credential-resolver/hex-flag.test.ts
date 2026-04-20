@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { hexFlagResolver } from "../../src/credential-resolver/hex-flag.js";
 
 const ENC = "40".repeat(16);
@@ -49,5 +49,30 @@ describe("hexFlagResolver", () => {
   it("describe() includes role binding when set", () => {
     expect(hexFlagResolver({}).describe()).toBe("hex-flag");
     expect(hexFlagResolver({ roleBinding: "admin" }).describe()).toBe("hex-flag(admin)");
+  });
+
+  it("exposes write() only when both hex flags are set", () => {
+    expect(typeof hexFlagResolver({}).write).toBe("undefined");
+    expect(typeof hexFlagResolver({ encHex: ENC }).write).toBe("undefined");
+    expect(typeof hexFlagResolver({ macHex: MAC }).write).toBe("undefined");
+    expect(typeof hexFlagResolver({ encHex: ENC, macHex: MAC }).write).toBe("function");
+  });
+
+  it("write() is a no-op but warns the operator that hex flags are transient", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const r = hexFlagResolver({ encHex: ENC, macHex: MAC });
+      expect(typeof r.write).toBe("function");
+      const encKey = new Uint8Array(16).fill(0x11);
+      const macKey = new Uint8Array(16).fill(0x22);
+      await r.write!("admin", 1, { encKey, macKey });
+      expect(warn).toHaveBeenCalledTimes(1);
+      const msg = String(warn.mock.calls[0]?.[0] ?? "");
+      expect(msg).toMatch(/hex-flag resolver/);
+      expect(msg).toMatch(/refusing to rotate key for admin/);
+      expect(msg).toMatch(/--creds-file/);
+    } finally {
+      warn.mockRestore();
+    }
   });
 });

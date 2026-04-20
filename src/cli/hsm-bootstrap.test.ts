@@ -369,6 +369,52 @@ describe("openclaw hsm bootstrap", () => {
     }
   });
 
+  it("leaves HALF_APPLIED marker and throws BootstrapAbortedError when PUT_AUTHENTICATION_KEY fails mid-rotation", async () => {
+    // Simulate a storage failure inside the device's PUT_AUTHENTICATION_KEY
+    // handler — e.g. storage full, transient firmware error — AFTER the
+    // factory admin has been deleted. Bootstrap has already persisted the
+    // new admin keys to disk and dropped a HALF_APPLIED marker, so this
+    // must surface a BootstrapAbortedError (not a bare Error) and leave
+    // the marker in place for the operator to recover from.
+    const store = freshFactoryStore();
+    const wrapped: typeof store = {
+      ...store,
+      putAuthKey(spec) {
+        // factoryReset() seeds id=1 by mutating the internal map directly,
+        // so we never see it here. The first putAuthKey call we intercept
+        // is bootstrap's rotation put (id=1 with new random keys). Reject
+        // it to mimic a device-side storage fault.
+        if (spec.id === 1) {
+          throw new Error("STORAGE_FULL");
+        }
+        return store.putAuthKey(spec);
+      },
+    };
+    const h = await startHarness(wrapped);
+    try {
+      const blueprintPath = writeBlueprint(tempDir);
+      const credsPath = join(tempDir, "creds.json");
+      await expect(
+        bootstrapDevice({
+          blueprint: blueprintPath,
+          connector: h.url,
+          credsFile: credsPath,
+        }),
+      ).rejects.toBeInstanceOf(BootstrapAbortedError);
+
+      // The device serial exposed by the simulator is 0x12345678; marker
+      // path is ~/.openclaw/hsm-bootstrap.<serial>.json. tempHome above
+      // overrides homedir() so the marker lands there.
+      const markerPath = join(tempHome, ".openclaw", `hsm-bootstrap.${0x12345678}.json`);
+      expect(existsSync(markerPath)).toBe(true);
+      const markerBody = JSON.parse(readFileSync(markerPath, "utf-8")) as Record<string, unknown>;
+      expect(markerBody["stage"]).toBe("rotating-admin");
+      expect(typeof markerBody["startedAt"]).toBe("string");
+    } finally {
+      await h.stop();
+    }
+  });
+
   it("throws BootstrapAbortedError when recovery has no resolver keys", async () => {
     // Device is already rotated; creds file and cred-mgr are empty; a marker
     // is present. Bootstrap can't recover the admin → aborts.

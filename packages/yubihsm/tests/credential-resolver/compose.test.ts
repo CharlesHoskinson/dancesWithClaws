@@ -77,4 +77,46 @@ describe("composeResolvers", () => {
     expect(result).toBe(HIT);
     expect(nullResolver.describe()).toBe("null");
   });
+
+  it("does not attach write() when no inner resolver is writable", () => {
+    // None of these fixedResolvers implement write, so the composite must
+    // also leave write() undefined. Callers gate on `typeof chain.write
+    // === "function"` to detect a reachable backing store; an always-on
+    // stub that throws at call time would defeat that gate.
+    const chain = composeResolvers([fixedResolver("one", HIT), fixedResolver("two", null)]);
+    expect(typeof chain.write).toBe("undefined");
+  });
+
+  it("attaches write() that delegates to the first writable inner resolver", async () => {
+    const writes: Array<{ name: string; role: string; id: number }> = [];
+    const readOnly = fixedResolver("read-only", null);
+    const writable1: CredentialResolver = {
+      async resolve() {
+        return null;
+      },
+      async write(role, id) {
+        writes.push({ name: "writable1", role, id });
+      },
+      describe() {
+        return "writable1";
+      },
+    };
+    const writable2: CredentialResolver = {
+      async resolve() {
+        return null;
+      },
+      async write(role, id) {
+        writes.push({ name: "writable2", role, id });
+      },
+      describe() {
+        return "writable2";
+      },
+    };
+    const chain = composeResolvers([readOnly, writable1, writable2]);
+    expect(typeof chain.write).toBe("function");
+    await chain.write!("admin", 7, HIT);
+    // Only the FIRST writable is called; we do not fan out writes across
+    // every backing store.
+    expect(writes).toEqual([{ name: "writable1", role: "admin", id: 7 }]);
+  });
 });

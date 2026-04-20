@@ -1,7 +1,7 @@
 import { createSimulator, createStore, storeBackedHandler } from "@dancesWithClaws/yubihsm-sim";
 import { describe, expect, it } from "vitest";
 import { parseBlueprint } from "../../src/blueprint/parse.js";
-import { apply, diff, plan } from "../../src/blueprint/reconcile.js";
+import { apply, diff, plan, ReconcileCredentialMissing } from "../../src/blueprint/reconcile.js";
 import {
   CapSet,
   Capability,
@@ -13,6 +13,14 @@ import {
 
 const BOOTSTRAP_ENC = new Uint8Array(16).fill(0x40);
 const BOOTSTRAP_MAC = new Uint8Array(16).fill(0x41);
+
+// Shared resolver for update tests: every drift-repair rewrites the auth
+// key with these fixed keys, matching what a real operator's credential
+// store would hand back. Not intended to simulate rotation — just to make
+// `apply()` exercise its resolveCredential path instead of refusing.
+const DRIFT_ENC = new Uint8Array(16).fill(0xaa);
+const DRIFT_MAC = new Uint8Array(16).fill(0xbb);
+const driftResolver = (_ref: string) => ({ encKey: DRIFT_ENC, macKey: DRIFT_MAC });
 
 // Blueprint used by every drift case: auth key id=2 wants caps
 // [generate-asymmetric-key, put-authentication-key], delegated
@@ -111,7 +119,7 @@ describe("blueprint reconcile drift detection", () => {
       expect(p.update[0]?.kind).toBe("update-auth-key");
       expect(p.delete).toHaveLength(0);
 
-      await apply(h.session, p, { preserveAuthKeyIds: [1] });
+      await apply(h.session, p, { preserveAuthKeyIds: [1], resolveCredential: driftResolver });
 
       const post = await diff(h.session, bp, { preserveAuthKeyIds: [1] });
       expect(post.create).toHaveLength(0);
@@ -136,7 +144,7 @@ describe("blueprint reconcile drift detection", () => {
       expect(p.update[0]?.id).toBe(2);
       expect(p.delete).toHaveLength(0);
 
-      await apply(h.session, p, { preserveAuthKeyIds: [1] });
+      await apply(h.session, p, { preserveAuthKeyIds: [1], resolveCredential: driftResolver });
       const post = await diff(h.session, bp, { preserveAuthKeyIds: [1] });
       expect(post.create).toHaveLength(0);
       expect(post.update).toHaveLength(0);
@@ -160,7 +168,7 @@ describe("blueprint reconcile drift detection", () => {
       expect(p.update[0]?.id).toBe(2);
       expect(p.delete).toHaveLength(0);
 
-      await apply(h.session, p, { preserveAuthKeyIds: [1] });
+      await apply(h.session, p, { preserveAuthKeyIds: [1], resolveCredential: driftResolver });
       const post = await diff(h.session, bp, { preserveAuthKeyIds: [1] });
       expect(post.create).toHaveLength(0);
       expect(post.update).toHaveLength(0);
@@ -186,6 +194,50 @@ describe("blueprint reconcile drift detection", () => {
     }
   });
 
+  it("throws ReconcileCredentialMissing before any mutation when update step has no resolver", async () => {
+    // Drift-repair scenario: device has id=2 with one missing capability, so
+    // plan() produces an update step. apply() MUST refuse to run without a
+    // resolver — otherwise it would delete-then-put the auth key with stub
+    // SCP03 material from the old package default, bricking operator access.
+    const seedCaps = CapSet.of(Capability.GenerateAsymmetricKey);
+    const seedDelegated = CapSet.of(Capability.SignEcdsa);
+    const seedDomains = domainSetOf(1, 2);
+    const h = await bootstrap(seedCaps, seedDelegated, seedDomains);
+    try {
+      const bp = parseBlueprint(BLUEPRINT_YAML);
+      const p = await plan(h.session, bp, { preserveAuthKeyIds: [1] });
+      expect(p.update).toHaveLength(1);
+
+      // Snapshot the auth key's live capabilities so we can check the store
+      // wasn't mutated. We use listObjects via diff to confirm the plan
+      // still thinks the same update is needed after the failed apply.
+      await expect(apply(h.session, p, { preserveAuthKeyIds: [1] })).rejects.toBeInstanceOf(
+        ReconcileCredentialMissing,
+      );
+
+      // No deleteObject ran, no put ran — the drifted auth key is intact
+      // and the same update step is still pending.
+      const post = await plan(h.session, bp, { preserveAuthKeyIds: [1] });
+      expect(post.create).toHaveLength(0);
+      expect(post.update).toHaveLength(1);
+      expect(post.update[0]?.id).toBe(2);
+      expect(post.delete).toHaveLength(0);
+
+      // Session can still authenticate (admin keys untouched). A second
+      // apply with a resolver supplied now succeeds and converges.
+      await apply(h.session, post, {
+        preserveAuthKeyIds: [1],
+        resolveCredential: driftResolver,
+      });
+      const converged = await diff(h.session, bp, { preserveAuthKeyIds: [1] });
+      expect(converged.create).toHaveLength(0);
+      expect(converged.update).toHaveLength(0);
+      expect(converged.delete).toHaveLength(0);
+    } finally {
+      await h.close();
+    }
+  });
+
   it("apply is idempotent: a second apply leaves zero delta", async () => {
     const seedCaps = CapSet.of(Capability.GenerateAsymmetricKey);
     const seedDelegated = CapSet.of(Capability.SignEcdsa);
@@ -194,14 +246,15 @@ describe("blueprint reconcile drift detection", () => {
     try {
       const bp = parseBlueprint(BLUEPRINT_YAML);
       const p1 = await plan(h.session, bp, { preserveAuthKeyIds: [1] });
-      await apply(h.session, p1, { preserveAuthKeyIds: [1] });
+      await apply(h.session, p1, { preserveAuthKeyIds: [1], resolveCredential: driftResolver });
 
       const p2 = await plan(h.session, bp, { preserveAuthKeyIds: [1] });
       expect(p2.create).toHaveLength(0);
       expect(p2.update).toHaveLength(0);
       expect(p2.delete).toHaveLength(0);
 
-      // Second apply is a no-op because the plan is empty.
+      // Second apply is a no-op because the plan is empty (no update steps,
+      // so no resolver needed on this path).
       await apply(h.session, p2, { preserveAuthKeyIds: [1] });
       const p3 = await plan(h.session, bp, { preserveAuthKeyIds: [1] });
       expect(p3.create).toHaveLength(0);

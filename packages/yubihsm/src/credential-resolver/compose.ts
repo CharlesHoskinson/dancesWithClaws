@@ -41,7 +41,8 @@ export function writableResolvers(
 
 export function composeResolvers(resolvers: readonly CredentialResolver[]): CredentialResolver {
   const descriptions = resolvers.map((r) => r.describe());
-  return {
+  const writables = writableResolvers(resolvers);
+  const base: CredentialResolver = {
     async resolve(role: string, id: number): Promise<ResolvedCredential | null> {
       const tried: string[] = [];
       for (const r of resolvers) {
@@ -53,23 +54,26 @@ export function composeResolvers(resolvers: readonly CredentialResolver[]): Cred
       }
       throw new CredentialResolutionError(role, id, tried);
     },
+    describe(): string {
+      return `chain(${descriptions.join(", ")})`;
+    },
+  };
+  // Only attach `write` when at least one inner resolver can actually
+  // persist. Callers (e.g. bootstrap) check `typeof chain.write === "function"`
+  // to decide whether any backing store is reachable; an always-on stub
+  // that throws at call time defeats that gate and surfaces the error too
+  // late, after the operator has already committed to a rotation path.
+  if (writables.length === 0) {
+    return base;
+  }
+  return {
+    ...base,
     // Delegate to the first resolver in the chain that has its own write.
     // We do not fan-out writes; the operator picks one backing store (hex
     // flag / json file / Credential Manager) and bootstrap commits there.
     async write(role: string, id: number, cred: ResolvedCredential): Promise<void> {
-      for (const r of resolvers) {
-        if (typeof r.write === "function") {
-          await r.write(role, id, cred);
-          return;
-        }
-      }
-      throw new Error(
-        `no writable resolver in chain ${descriptions.join(", ")}; supply --creds-file ` +
-          "or run on a host with Credential Manager to persist rotated admin keys",
-      );
-    },
-    describe(): string {
-      return `chain(${descriptions.join(", ")})`;
+      const first = writables[0]!;
+      await first.write!(role, id, cred);
     },
   };
 }

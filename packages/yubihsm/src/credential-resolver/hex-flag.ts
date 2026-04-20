@@ -56,8 +56,15 @@ export function hexFlagResolver(opts: HexFlagResolverOptions): CredentialResolve
   if (encHex && macHex) {
     return {
       ...base,
-      async write(_role: string, _id: number, _cred: ResolvedCredential): Promise<void> {
-        return;
+      async write(role: string, _id: number, _cred: ResolvedCredential): Promise<void> {
+        // Warn loudly: hex flags are process-transient, so a "persisted"
+        // rotation written here will be lost the moment this process
+        // exits. The operator needs a real backing store for rotation.
+        // eslint-disable-next-line no-console
+        console.warn(
+          `[hsm] hex-flag resolver: refusing to rotate key for ${role} — hex flags are ` +
+            "transient; use --creds-file or Credential Manager for persistent storage",
+        );
       },
     };
   }
