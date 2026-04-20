@@ -1,0 +1,40 @@
+{
+  "fingerprint": "56b5f309620a569d937a795955cb6d36936102e26c91abe16e2a595d6d0d4461",
+  "exchanges": [
+    {
+      "label": "cmd-0x03",
+      "request": "03000a0001a0a1a2a3a4a5a6a7",
+      "response": "83001100c0c1c2c3c4c5c6c78cdceda6b020d31e"
+    },
+    {
+      "label": "cmd-0x04",
+      "request": "04001100e8b05833f9d09c60f750a771c1f4e235",
+      "response": "840000"
+    },
+    {
+      "label": "cmd-0x06",
+      "request": "060000",
+      "response": "86000c020400785634123e002b0c2e"
+    },
+    {
+      "label": "cmd-0x05",
+      "request": "050049004c9324d6cc8a9c781359b1d3f63374b0d58d71fba02cccf12b76632901e2a6ecec2e155b501c616d6b71d7096da3666db07c79242fb4166e63d6d634e0d0e9129230c6364581c6f0",
+      "response": "85001900cc9313d6cc6df314773cdffe855a13de91af03b7d457b045"
+    },
+    {
+      "label": "cmd-0x05",
+      "request": "05003900e30fe8145aeee8bb8a85d7b080ca36b431ff989e24c3c715c0af9d984730ac55dab9f46c04b347852bc2f20a9fb85686b73e734f3edb6311",
+      "response": "85005900630f8d251f07ca71e52a006ad4114c2411649750d4f0fd15506bd0c82ca5d9a42569c1b24b706c870ac2504018081978d45f9a27a780c5e0d19c59cd9dc063d28a5bceeb752ce05a40879b3fc943fe74e5629e78976f02a1"
+    },
+    {
+      "label": "cmd-0x05",
+      "request": "050019006ab10ed5da281e60246ad0eb4f5858af65cbf9459d6efa98",
+      "response": "85001900eab10d54da2b9e60246ad0eb4f5858afb402460ac7aa8724"
+    },
+    {
+      "label": "cmd-0x40",
+      "request": "40000100",
+      "response": "c00000"
+    }
+  ]
+}

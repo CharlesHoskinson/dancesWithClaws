@@ -1,0 +1,54 @@
+version: 1
+device:
+  serial_pin: cred:TeeVault-YubiHSM-Serial
+  min_firmware: "2.4.0"
+  fips_mode: false
+domains:
+  1: { label: "core-sign",     purpose: "gateway-auth + release-sign" }
+  2: { label: "plugin-tokens", purpose: "provider-api-key-wrap" }
+  3: { label: "logan",         purpose: "agent-specific" }
+auth_keys:
+  - id: 0x0002
+    role: admin
+    domains: [1, 2, 3]
+    capabilities:
+      [
+        generate-asymmetric-key,
+        put-authentication-key,
+        delete-asymmetric-key,
+        export-wrapped,
+        import-wrapped,
+        get-log-entries,
+      ]
+    delegated_capabilities:
+      [
+        generate-asymmetric-key,
+        put-authentication-key,
+        delete-asymmetric-key,
+        export-wrapped,
+        import-wrapped,
+        get-log-entries,
+      ]
+    credential_ref: cred:TeeVault-YubiHSM-Admin
+  - id: 0x000A
+    role: gateway-signer
+    domains: [1]
+    capabilities: [sign-ecdsa]
+    credential_ref: cred:TeeVault-YubiHSM-SSHSigner
+  - id: 0x000B
+    role: plugin-sealer
+    domains: [2]
+    capabilities: [wrap-data, unwrap-data]
+    credential_ref: cred:TeeVault-YubiHSM-DBCrypto
+wrap_keys:
+  - id: 0x00C8
+    domains: [2]
+    algorithm: aes256-ccm-wrap
+    delegated_capabilities: [exportable-under-wrap, sign-ecdsa]
+policies:
+  audit:
+    drain_every: 30s
+    permanent_force_audit: true
+  sessions:
+    pool_size: 4
+    idle_timeout: 60s

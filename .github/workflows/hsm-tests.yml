@@ -1,0 +1,36 @@
+name: hsm-tests
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - "packages/yubihsm/**"
+      - "packages/yubihsm-sim/**"
+      - "hsm-blueprint.yaml"
+      - ".github/workflows/hsm-tests.yml"
+  pull_request:
+    paths:
+      - "packages/yubihsm/**"
+      - "packages/yubihsm-sim/**"
+      - "hsm-blueprint.yaml"
+      - ".github/workflows/hsm-tests.yml"
+  workflow_dispatch:
+
+jobs:
+  hsm-tests:
+    name: yubihsm + yubihsm-sim tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "pnpm"
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --filter @dancesWithClaws/yubihsm... --filter @dancesWithClaws/yubihsm-sim...
+      - name: Test driver
+        run: pnpm --filter @dancesWithClaws/yubihsm test
+      - name: Test simulator
+        run: pnpm --filter @dancesWithClaws/yubihsm-sim test
