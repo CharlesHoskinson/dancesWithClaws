@@ -80,6 +80,7 @@ function formatFiles(repoRoot, oxfmt, files) {
   const result = spawnSync(oxfmt.command, ["--write", ...oxfmt.args, ...files], {
     cwd: repoRoot,
     stdio: "inherit",
+    shell: process.platform === "win32",
   });
   return result.status === 0;
 }

@@ -1,0 +1,16 @@
+version: 1
+device:
+  min_firmware: "2.4.0"
+domains:
+  1: { label: "core-sign", purpose: "signing" }
+auth_keys:
+  - id: 0x0002
+    role: admin
+    domains: [1]
+    capabilities: [sign-ecdsa]
+    delegated_capabilities: [generate-asymmetric-key]
+    credential_ref: cred:TeeVault-Admin
+wrap_keys: []
+policies:
+  audit: { drain_every: "30s", permanent_force_audit: true }
+  sessions: { pool_size: 4, idle_timeout: "60s" }

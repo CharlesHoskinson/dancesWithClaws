@@ -216,6 +216,14 @@ const entries: SubCliEntry[] = [
     },
   },
   {
+    name: "hsm",
+    description: "YubiHSM2 declarative provisioning (plan / apply / diff)",
+    register: async (program) => {
+      const mod = await import("../hsm-cli.js");
+      mod.registerHsmCli(program);
+    },
+  },
+  {
     name: "skills",
     description: "Skills management",
     register: async (program) => {
