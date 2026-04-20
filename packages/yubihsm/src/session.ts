@@ -1,8 +1,8 @@
 import { randomBytes } from "node:crypto";
+import type { HsmTransport } from "./transport/types.js";
 import { cardCryptogram, hostCryptogram, macApdu } from "./scp03/crypto.js";
 import { deriveSessionKeys, type SessionKeys } from "./scp03/kdf.js";
 import { unwrapSessionResponse, wrapSessionMessage } from "./scp03/wrap.js";
-import type { HsmTransport } from "./transport/types.js";
 import { decodeResponse, encodeApdu } from "./wire/apdu.js";
 
 export type Scp03State = "INIT" | "SECURE_CHANNEL" | "CLOSED";
@@ -89,6 +89,11 @@ export async function openSession(opts: OpenSessionOptions): Promise<Scp03Sessio
 
   let state: Scp03State = "SECURE_CHANNEL";
   let icv = newIcv;
+  // Response-side ICV chain. Starts at all-zero and advances only after a
+  // successful R-MAC verification in unwrapSessionResponse. If verification
+  // throws, the chain is left unchanged so an attacker can't desync it by
+  // spamming tampered frames.
+  let responseIcv = new Uint8Array(16);
   let counter = 0;
 
   return {
@@ -117,14 +122,17 @@ export async function openSession(opts: OpenSessionOptions): Promise<Scp03Sessio
       if (outer.kind !== "ok") {
         throw new Error(`SESSION_MESSAGE failed: ${outer.code}`);
       }
-      const { inner } = unwrapSessionResponse({
+      // Unwrap verifies the R-MAC against the current response-ICV; on a
+      // throw (ResponseMacError or length error) the chain is untouched.
+      const unwrapped = unwrapSessionResponse({
         sEnc: keys.sEnc,
         sRmac: keys.sRmac,
-        icv,
+        icv: responseIcv,
         counter,
         wrapped: outer.data,
       });
-      const innerRsp = decodeResponse(inner);
+      responseIcv = unwrapped.newIcv;
+      const innerRsp = decodeResponse(unwrapped.inner);
       if (innerRsp.kind !== "ok") {
         throw new Error(`inner command 0x${innerCmd.toString(16)} failed: ${innerRsp.code}`);
       }

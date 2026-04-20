@@ -1,5 +1,5 @@
-import { randomBytes } from "node:crypto";
 import { cardCryptogram, deriveSessionKeys, hostCryptogram } from "@dancesWithClaws/yubihsm/scp03";
+import { randomBytes } from "node:crypto";
 import type { Store } from "./store.js";
 
 export interface SessionState {
@@ -12,6 +12,9 @@ export interface SessionState {
   sRmac: Uint8Array;
   authenticated: boolean;
   icv: Uint8Array;
+  // Response-side ICV chain. Starts all-zero; advances after each response
+  // wrap so the driver's R-MAC verifier can chain-check consecutive frames.
+  responseIcv: Uint8Array;
   counter: number;
   cardCryptogram: Uint8Array;
 }
@@ -87,6 +90,7 @@ export function createSessionManager(
         sRmac: keys.sRmac,
         authenticated: false,
         icv: new Uint8Array(16),
+        responseIcv: new Uint8Array(16),
         counter: 0,
         cardCryptogram: cc,
       });

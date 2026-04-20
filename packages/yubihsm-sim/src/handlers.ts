@@ -1,4 +1,3 @@
-import { createPrivateKey, generateKeyPairSync, sign as cryptoSign } from "node:crypto";
 import {
   Algorithm,
   CapSet,
@@ -7,14 +6,15 @@ import {
   ObjectType,
   type DomainSet,
 } from "@dancesWithClaws/yubihsm";
-import { unwrapSessionResponse, wrapSessionMessage } from "@dancesWithClaws/yubihsm/scp03";
+import { macApdu, unwrapSessionResponse, wrapSessionMessage } from "@dancesWithClaws/yubihsm/scp03";
+import { createPrivateKey, generateKeyPairSync, sign as cryptoSign } from "node:crypto";
 import type { CommandHandler } from "./server.js";
+import type { Store } from "./store.js";
 import {
   createSessionManager,
   type SessionManager,
   type SessionManagerOptions,
 } from "./sessions.js";
-import type { Store } from "./store.js";
 
 const CMD_CREATE_SESSION = 0x03;
 const CMD_AUTHENTICATE_SESSION = 0x04;
@@ -138,6 +138,18 @@ export function storeBackedHandler(
         const sessionId = data[0]!;
         const hostCrypto = data.subarray(1, 9);
         sm.authenticateSession(sessionId, hostCrypto);
+        // Seed the inbound C-MAC chain with the same ICV the driver computes:
+        // CMAC(sMac, zero-icv || encodeApdu(AUTH_SESSION, [sessionId, hostCrypto])).
+        // Every subsequent wrapped command chains from this value.
+        const session = sm.getSession(sessionId);
+        if (session) {
+          const authBody = new Uint8Array(1 + 8);
+          authBody[0] = sessionId;
+          authBody.set(hostCrypto, 1);
+          const authApdu = encodeApdu(CMD_AUTHENTICATE_SESSION, authBody);
+          const { newIcv } = macApdu(session.sMac, new Uint8Array(16), authApdu);
+          session.icv = newIcv;
+        }
         return encodeApdu(0x80 | CMD_AUTHENTICATE_SESSION, new Uint8Array(0));
       }
       if (cmd === CMD_CLOSE_SESSION) {
@@ -168,29 +180,41 @@ function handleSessionMessage(store: Store, sm: SessionManager, data: Uint8Array
   }
   const incomingCounter = session.counter + 1;
   let innerFrame: Uint8Array;
+  let newIcv: Uint8Array;
   try {
-    innerFrame = unwrapSessionResponse({
+    // Commands inbound use the C-MAC key (S-MAC), not S-RMAC. The unwrap
+    // primitive is symmetric under key choice — pass sMac as the "sRmac"
+    // parameter so the MAC check verifies against the key the driver used
+    // to produce the frame.
+    const unwrapped = unwrapSessionResponse({
       sEnc: session.sEnc,
-      sRmac: session.sRmac,
+      sRmac: session.sMac,
       icv: session.icv,
       counter: incomingCounter,
       wrapped: data,
-    }).inner;
+    });
+    innerFrame = unwrapped.inner;
+    newIcv = unwrapped.newIcv;
   } catch {
     return errorFrame(ERR_INVALID_DATA);
   }
+  // Advance the command-ICV chain only after a successful verify+decrypt.
+  session.icv = newIcv;
   session.counter = incomingCounter;
 
   const innerRsp = dispatchInner(store, innerFrame);
 
+  // Response wrap uses S-RMAC (not S-MAC) as the MAC key and chains the
+  // per-session response-ICV so the driver can verify frame ordering.
   const wrappedResp = wrapSessionMessage({
     sEnc: session.sEnc,
     sMac: session.sRmac,
-    icv: new Uint8Array(16),
+    icv: session.responseIcv,
     counter: session.counter - 1,
     sessionId,
     inner: innerRsp,
   });
+  session.responseIcv = wrappedResp.newIcv;
   return encodeApdu(0x80 | CMD_SESSION_MESSAGE, wrappedResp.wrapped);
 }
 
