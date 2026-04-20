@@ -1,14 +1,15 @@
+import type { Scp03Session } from "../session.js";
 import { deleteObject } from "../commands/delete-object.js";
+import { getObjectInfo } from "../commands/get-object-info.js";
 import { listObjects } from "../commands/list-objects.js";
 import { putAuthenticationKey } from "../commands/put-authentication-key.js";
-import type { Scp03Session } from "../session.js";
 import { CapSet, type CapSetT } from "../types/capability.js";
 import { domainSetOf } from "../types/domain.js";
 import { ObjectType } from "../types/object.js";
 import { capabilityFromName, type ParsedAuthKey, type ParsedBlueprint } from "./schema.js";
 
 export interface PlanStep {
-  readonly kind: "create-auth-key" | "delete-auth-key";
+  readonly kind: "create-auth-key" | "update-auth-key" | "delete-auth-key";
   readonly id: number;
   readonly authKey?: ParsedAuthKey;
 }
@@ -46,21 +47,42 @@ export async function plan(
   const preserve = new Set(opts.preserveAuthKeyIds ?? []);
   const existing = await listObjects(session, { type: ObjectType.AuthenticationKey });
   const existingIds = new Set(existing.map((o) => o.id));
-  const desiredIds = new Set(bp.authKeys.map((k) => k.id));
+  const desiredById = new Map(bp.authKeys.map((k) => [k.id, k]));
 
   const create: PlanStep[] = [];
+  const update: PlanStep[] = [];
   const del: PlanStep[] = [];
   for (const k of bp.authKeys) {
     if (!existingIds.has(k.id)) {
       create.push({ kind: "create-auth-key", authKey: k, id: k.id });
     }
   }
+  // Drift detection: for every id present on the device AND in the blueprint,
+  // fetch the object info and compare caps / domains / delegated-caps. Any
+  // divergence produces an update step (delete-then-put in apply).
   for (const id of existingIds) {
-    if (!desiredIds.has(id) && !preserve.has(id)) {
+    const desired = desiredById.get(id);
+    if (!desired) {
+      continue;
+    }
+    const info = await getObjectInfo(session, id, ObjectType.AuthenticationKey);
+    const wantCaps = capsFromNames(desired.capabilities);
+    const wantDelegated = capsFromNames(desired.delegatedCapabilities);
+    const wantDomains = domainSetOf(...desired.domains);
+    if (
+      info.capabilities !== wantCaps ||
+      info.delegatedCapabilities !== wantDelegated ||
+      info.domains !== wantDomains
+    ) {
+      update.push({ kind: "update-auth-key", id, authKey: desired });
+    }
+  }
+  for (const id of existingIds) {
+    if (!desiredById.has(id) && !preserve.has(id)) {
       del.push({ kind: "delete-auth-key", id });
     }
   }
-  return { create, update: [], delete: del };
+  return { create, update, delete: del };
 }
 
 export async function apply(
@@ -69,12 +91,35 @@ export async function apply(
   opts: ReconcileOptions = {},
 ): Promise<void> {
   const resolve = opts.resolveCredential ?? ((_ref: string) => defaultCredential());
+  // Execution order: creates → updates → deletes. Updates run after creates so
+  // a freshly-put key isn't rewritten by a stale drift path; deletes run last
+  // so we don't drop an admin key the session still depends on mid-apply.
   for (const step of p.create) {
     if (step.kind !== "create-auth-key" || !step.authKey) {
       continue;
     }
     const ak = step.authKey;
     const cred = resolve(ak.credentialRef);
+    await putAuthenticationKey(session, {
+      keyId: ak.id,
+      label: ak.role,
+      domains: domainSetOf(...ak.domains),
+      capabilities: capsFromNames(ak.capabilities),
+      delegatedCapabilities: capsFromNames(ak.delegatedCapabilities),
+      encKey: cred.encKey,
+      macKey: cred.macKey,
+    });
+  }
+  for (const step of p.update) {
+    if (step.kind !== "update-auth-key" || !step.authKey) {
+      continue;
+    }
+    const ak = step.authKey;
+    const cred = resolve(ak.credentialRef);
+    // YubiHSM2 has no in-place "update auth key" primitive — delete-then-put
+    // is the canonical rotation. The new keys come from the credential
+    // resolver so drift repair can also rotate the SCP03 material.
+    await deleteObject(session, step.id, ObjectType.AuthenticationKey);
     await putAuthenticationKey(session, {
       keyId: ak.id,
       label: ak.role,
