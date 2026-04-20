@@ -30,6 +30,11 @@ export interface SessionManager {
   authenticateSession(sessionId: number, hostCryptogramFromHost: Uint8Array): void;
   getSession(id: number): SessionState | undefined;
   deleteSession(id: number): void;
+  /**
+   * Close every open session. Called from FACTORY_RESET so post-reset traffic
+   * on a stale session id gets INVALID_SESSION instead of riding an old key.
+   */
+  clear(): void;
   activeCount(): number;
 }
 
@@ -112,6 +117,10 @@ export function createSessionManager(
     },
     deleteSession(id) {
       sessions.delete(id);
+    },
+    clear() {
+      sessions.clear();
+      nextId = 0;
     },
     activeCount() {
       return sessions.size;

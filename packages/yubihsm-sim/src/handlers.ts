@@ -25,8 +25,10 @@ const CMD_CLOSE_SESSION = 0x40;
 const CMD_PUT_AUTHENTICATION_KEY = 0x44;
 const CMD_GENERATE_ASYMMETRIC_KEY = 0x46;
 const CMD_LIST_OBJECTS = 0x48;
+const CMD_GET_OBJECT_INFO = 0x4e;
 const CMD_SIGN_ECDSA = 0x56;
 const CMD_DELETE_OBJECT = 0x58;
+const CMD_FACTORY_RESET = 0x08;
 
 const FILTER_TAG_ID = 0x01;
 const FILTER_TAG_TYPE = 0x02;
@@ -202,7 +204,7 @@ function handleSessionMessage(store: Store, sm: SessionManager, data: Uint8Array
   session.icv = newIcv;
   session.counter = incomingCounter;
 
-  const innerRsp = dispatchInner(store, innerFrame);
+  const innerRsp = dispatchInner(store, sm, innerFrame);
 
   // Response wrap uses S-RMAC (not S-MAC) as the MAC key and chains the
   // per-session response-ICV so the driver can verify frame ordering.
@@ -218,7 +220,7 @@ function handleSessionMessage(store: Store, sm: SessionManager, data: Uint8Array
   return encodeApdu(0x80 | CMD_SESSION_MESSAGE, wrappedResp.wrapped);
 }
 
-function dispatchInner(store: Store, innerFrame: Uint8Array): Uint8Array {
+function dispatchInner(store: Store, sm: SessionManager, innerFrame: Uint8Array): Uint8Array {
   const parsed = decodeResponse(innerFrame);
   if (parsed.kind !== "ok") {
     return errorFrame(ERR_INVALID_DATA);
@@ -257,6 +259,12 @@ function dispatchInner(store: Store, innerFrame: Uint8Array): Uint8Array {
     }
     if (innerCmd === CMD_PUT_AUTHENTICATION_KEY) {
       return handlePutAuthenticationKey(store, innerData);
+    }
+    if (innerCmd === CMD_GET_OBJECT_INFO) {
+      return handleGetObjectInfo(store, innerData);
+    }
+    if (innerCmd === CMD_FACTORY_RESET) {
+      return handleFactoryReset(store, sm, innerData);
     }
     return errorFrame(ERR_COMMAND_UNSUPPORTED);
   } catch (e) {
@@ -470,6 +478,115 @@ function handleListObjects(store: Store, data: Uint8Array): Uint8Array {
     payload[i * 4 + 3] = 0;
   }
   return encodeApdu(0x80 | CMD_LIST_OBJECTS, payload);
+}
+
+function writeU64Be(dst: Uint8Array, offset: number, v: bigint): void {
+  let x = BigInt.asUintN(64, v);
+  for (let i = 7; i >= 0; i--) {
+    dst[offset + i] = Number(x & 0xffn);
+    x >>= 8n;
+  }
+}
+
+function writeLabel(dst: Uint8Array, offset: number, label: string): void {
+  const enc = new TextEncoder().encode(label);
+  const n = Math.min(enc.length, LABEL_LEN);
+  dst.set(enc.subarray(0, n), offset);
+  // Remaining bytes already zero from new Uint8Array.
+}
+
+const GET_OBJECT_INFO_RESPONSE_LEN =
+  8 /* caps */ +
+  2 /* id */ +
+  2 /* length */ +
+  2 /* domains */ +
+  1 /* type */ +
+  1 /* algorithm */ +
+  1 /* sequence */ +
+  1 /* origin */ +
+  LABEL_LEN +
+  8 /* delegated caps */;
+
+const ORIGIN_IMPORTED = 0x01;
+const ORIGIN_GENERATED = 0x02;
+
+// Real hardware algorithm id for a SCP03-YubiHSM auth key (YH_AES128 +
+// Yubico authentication). Matches the value putAuthenticationKey emits.
+const ALGO_YH_AES128_AUTH = 38;
+
+function handleGetObjectInfo(store: Store, data: Uint8Array): Uint8Array {
+  if (data.length !== 3) {
+    return errorFrame(ERR_INVALID_DATA);
+  }
+  const id = readU16Be(data, 0);
+  const type = data[2]!;
+  let caps: bigint;
+  let delegated: bigint;
+  let domains: number;
+  let label: string;
+  let algorithm: number;
+  let objLength: number;
+  let sequence: number;
+  let origin: number;
+  if (type === ObjectType.AuthenticationKey) {
+    const entry = store.getAuthKey(id);
+    if (!entry) {
+      return errorFrame(ERR_OBJECT_NOT_FOUND);
+    }
+    caps = entry.capabilities;
+    delegated = entry.delegatedCapabilities;
+    domains = entry.domains;
+    label = entry.label;
+    algorithm = ALGO_YH_AES128_AUTH;
+    // Authentication keys store 16-byte enc + 16-byte mac; length mirrors
+    // the on-device symmetric-key size (32) so callers can round-trip it.
+    objLength = entry.encKey.length + entry.macKey.length;
+    sequence = 0;
+    origin = ORIGIN_IMPORTED;
+  } else {
+    const entry = store.getObject(id);
+    if (!entry || entry.type !== type) {
+      return errorFrame(ERR_OBJECT_NOT_FOUND);
+    }
+    caps = entry.capabilities;
+    delegated = entry.delegatedCapabilities;
+    domains = entry.domains;
+    label = entry.label;
+    algorithm = entry.algorithm;
+    // Use the public-key length when present (asymmetric), else secret length.
+    objLength = entry.publicKey?.length ?? entry.secret?.length ?? 0;
+    sequence = 0;
+    // Objects we generated via GENERATE_ASYMMETRIC_KEY are "generated"; imports
+    // would be "imported". We only have a generate path today, so flag it.
+    origin = entry.publicKey && entry.secret ? ORIGIN_GENERATED : ORIGIN_IMPORTED;
+  }
+  const out = new Uint8Array(GET_OBJECT_INFO_RESPONSE_LEN);
+  let off = 0;
+  writeU64Be(out, off, caps);
+  off += 8;
+  out[off++] = (id >> 8) & 0xff;
+  out[off++] = id & 0xff;
+  out[off++] = (objLength >> 8) & 0xff;
+  out[off++] = objLength & 0xff;
+  out[off++] = (domains >> 8) & 0xff;
+  out[off++] = domains & 0xff;
+  out[off++] = type;
+  out[off++] = algorithm;
+  out[off++] = sequence;
+  out[off++] = origin;
+  writeLabel(out, off, label);
+  off += LABEL_LEN;
+  writeU64Be(out, off, delegated);
+  return encodeApdu(0x80 | CMD_GET_OBJECT_INFO, out);
+}
+
+function handleFactoryReset(store: Store, sm: SessionManager, data: Uint8Array): Uint8Array {
+  if (data.length !== 0) {
+    return errorFrame(ERR_INVALID_DATA);
+  }
+  store.factoryReset();
+  sm.clear();
+  return encodeApdu(0x80 | CMD_FACTORY_RESET, new Uint8Array(0));
 }
 
 function allocateAuthKeyId(store: Store, requested: number): number {

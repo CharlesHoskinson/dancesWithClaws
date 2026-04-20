@@ -1,7 +1,10 @@
 import {
   type Algorithm,
+  CapSet,
   type CapSetT,
   type DomainSet,
+  derivePasswordKeys,
+  domainSetOf,
   domainsOverlap,
   hasAllCaps,
   intersectCaps,
@@ -51,6 +54,15 @@ export interface Store {
   listAuthKeys(): readonly AuthKeyEntry[];
   deleteObject(id: number): boolean;
   deleteAuthKey(id: number): boolean;
+  /**
+   * Wipe every auth key and object, then re-seed the factory admin (id=1)
+   * with keys derived from password "password" (salt "Yubico", PBKDF2). The
+   * factory admin gets all 54 capabilities + all 16 domains + an empty
+   * delegated-capabilities set of 0n (matches real hardware behavior: the
+   * factory admin has full device capabilities but nothing is "delegated"
+   * until an operator rotates it).
+   */
+  factoryReset(): void;
   canAuthorize(authKeyId: number, requiredCaps: CapSetT, targetId: number): boolean;
   canAuthorizeAuthKeyAdmin(
     adminAuthKeyId: number,
@@ -95,6 +107,25 @@ export function createStore(): Store {
     },
     deleteAuthKey(id) {
       return authKeys.delete(id);
+    },
+    factoryReset() {
+      authKeys.clear();
+      objects.clear();
+      const { encKey, macKey } = derivePasswordKeys("password");
+      // Full device capabilities: bits 0..53 set.
+      const allCaps = CapSet.fromBigint((1n << 54n) - 1n);
+      const allDomains = domainSetOf(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16);
+      const factoryAdmin: AuthKeyEntry = {
+        id: 1,
+        type: ObjectType.AuthenticationKey,
+        label: "DEFAULT AUTHKEY CHANGE THIS ASAP",
+        capabilities: allCaps,
+        delegatedCapabilities: allCaps,
+        domains: allDomains,
+        encKey,
+        macKey,
+      };
+      authKeys.set(1, factoryAdmin);
     },
     canAuthorize(authKeyId, requiredCaps, targetId) {
       const auth = authKeys.get(authKeyId);

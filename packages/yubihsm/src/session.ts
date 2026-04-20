@@ -27,6 +27,13 @@ export interface Scp03Session {
   readonly state: Scp03State;
   sendCommand(innerCmd: number, data: Uint8Array): Promise<Uint8Array>;
   close(): Promise<void>;
+  /**
+   * Flip the session into CLOSED without sending a CLOSE_SESSION frame. Used
+   * when the device has already torn down the session from its side (e.g.
+   * after FACTORY_RESET wipes and reboots) so the driver reports accurate
+   * state without issuing a doomed network call.
+   */
+  markClosed(): void;
 }
 
 export async function openSession(opts: OpenSessionOptions): Promise<Scp03Session> {
@@ -148,6 +155,9 @@ export async function openSession(opts: OpenSessionOptions): Promise<Scp03Sessio
         return;
       }
       await opts.transport.send(encodeApdu(CMD_CLOSE_SESSION, new Uint8Array([sessionId])));
+      state = "CLOSED";
+    },
+    markClosed() {
       state = "CLOSED";
     },
   };
