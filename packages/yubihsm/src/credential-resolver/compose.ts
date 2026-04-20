@@ -9,6 +9,12 @@
  * Intended ordering in the CLI: hex-flag -> json-file -> credential-manager.
  * First non-null wins — explicit user overrides beat file-stored configs,
  * which in turn beat the OS keystore.
+ *
+ * `writableResolvers(resolvers)` returns the subset of the input that
+ * implements `write`. `openclaw hsm bootstrap` uses this to seal a freshly
+ * generated admin into the first persistent store available on the chain
+ * (json-file or credential-manager; hex-flag's write is a no-op and is only
+ * present when the operator actually provided hex flags).
  */
 
 import {
@@ -27,6 +33,12 @@ export const nullResolver: CredentialResolver = {
   },
 };
 
+export function writableResolvers(
+  resolvers: readonly CredentialResolver[],
+): readonly CredentialResolver[] {
+  return resolvers.filter((r) => typeof r.write === "function");
+}
+
 export function composeResolvers(resolvers: readonly CredentialResolver[]): CredentialResolver {
   const descriptions = resolvers.map((r) => r.describe());
   return {
@@ -40,6 +52,21 @@ export function composeResolvers(resolvers: readonly CredentialResolver[]): Cred
         }
       }
       throw new CredentialResolutionError(role, id, tried);
+    },
+    // Delegate to the first resolver in the chain that has its own write.
+    // We do not fan-out writes; the operator picks one backing store (hex
+    // flag / json file / Credential Manager) and bootstrap commits there.
+    async write(role: string, id: number, cred: ResolvedCredential): Promise<void> {
+      for (const r of resolvers) {
+        if (typeof r.write === "function") {
+          await r.write(role, id, cred);
+          return;
+        }
+      }
+      throw new Error(
+        `no writable resolver in chain ${descriptions.join(", ")}; supply --creds-file ` +
+          "or run on a host with Credential Manager to persist rotated admin keys",
+      );
     },
     describe(): string {
       return `chain(${descriptions.join(", ")})`;

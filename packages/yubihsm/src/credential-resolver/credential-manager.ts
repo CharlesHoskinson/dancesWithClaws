@@ -32,9 +32,11 @@ interface RetrievedCredential {
 }
 
 type RetrieveFn = (target: string) => Promise<RetrievedCredential | null>;
+type StoreFn = (target: string, username: string, password: string) => Promise<void>;
 
 interface CredentialManagerModule {
   retrieveCredential: RetrieveFn;
+  storeCredential?: StoreFn;
 }
 
 /**
@@ -76,6 +78,14 @@ function parseHex16(value: string, label: string): Uint8Array {
   return out;
 }
 
+function toHex(bytes: Uint8Array): string {
+  let s = "";
+  for (let i = 0; i < bytes.length; i++) {
+    s += bytes[i]!.toString(16).padStart(2, "0");
+  }
+  return s;
+}
+
 export function credentialManagerResolver(): CredentialResolver {
   return {
     async resolve(role: string, _id: number): Promise<ResolvedCredential | null> {
@@ -105,6 +115,24 @@ export function credentialManagerResolver(): CredentialResolver {
       const encKey = parseHex16(hex.slice(0, 32), `${credKey}.enc`);
       const macKey = parseHex16(hex.slice(32, 64), `${credKey}.mac`);
       return { encKey, macKey };
+    },
+    async write(role: string, _id: number, cred: ResolvedCredential): Promise<void> {
+      const credKey = ROLE_TO_CRED_KEY[role];
+      if (!credKey) {
+        throw new Error(`no credential-manager mapping for role: ${role}`);
+      }
+      if (cred.encKey.length !== 16 || cred.macKey.length !== 16) {
+        throw new Error("credential keys must be 16 bytes each");
+      }
+      const mod = await loadModule();
+      if (!mod || typeof mod.storeCredential !== "function") {
+        throw new Error("credential-manager storeCredential is unavailable on this host");
+      }
+      const password = toHex(cred.encKey) + toHex(cred.macKey);
+      // Username isn't load-bearing in our scheme — the password field
+      // carries the 64-hex (enc||mac) payload. Use the role as a diagnostic
+      // breadcrumb; `resolve` ignores username entirely.
+      await mod.storeCredential(credKey, role, password);
     },
     describe(): string {
       return "credential-manager(windows)";

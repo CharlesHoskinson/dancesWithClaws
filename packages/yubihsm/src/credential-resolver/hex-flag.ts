@@ -31,7 +31,7 @@ function parseHex16(value: string, label: string): Uint8Array {
 
 export function hexFlagResolver(opts: HexFlagResolverOptions): CredentialResolver {
   const { encHex, macHex, roleBinding } = opts;
-  return {
+  const base: CredentialResolver = {
     async resolve(role: string, _id: number): Promise<ResolvedCredential | null> {
       if (!encHex || !macHex) {
         return null;
@@ -47,4 +47,19 @@ export function hexFlagResolver(opts: HexFlagResolverOptions): CredentialResolve
       return roleBinding ? `hex-flag(${roleBinding})` : "hex-flag";
     },
   };
+  // When both hex flags are present the operator has already committed to
+  // keeping the keys themselves; accept a bootstrap write as a no-op so the
+  // chain reports it as "writable" but we don't smuggle key material back
+  // into the process environment. With no hex flags set, hex-flag has no
+  // write method at all — bootstrap then picks the next writable resolver
+  // (json-file or credential-manager) for actual persistence.
+  if (encHex && macHex) {
+    return {
+      ...base,
+      async write(_role: string, _id: number, _cred: ResolvedCredential): Promise<void> {
+        return;
+      },
+    };
+  }
+  return base;
 }
