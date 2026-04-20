@@ -4,19 +4,9 @@
 
 export type BackendType = "yubihsm" | "dpapi+tpm" | "dpapi" | "openssl-pbkdf2";
 
-export type EntryType =
-  | "secret"
-  | "api_token"
-  | "ssh_key"
-  | "private_key"
-  | "certificate";
+export type EntryType = "secret" | "api_token" | "ssh_key" | "private_key" | "certificate";
 
-export type SshKeyAlgorithm =
-  | "ed25519"
-  | "ecdsa-p256"
-  | "ecdsa-p384"
-  | "rsa-2048"
-  | "rsa-4096";
+export type SshKeyAlgorithm = "ed25519" | "ecdsa-p256" | "ecdsa-p384" | "rsa-2048" | "rsa-4096";
 
 export type CryptoOperation = "encrypt" | "decrypt" | "sign" | "verify";
 

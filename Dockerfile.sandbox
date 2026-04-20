@@ -1,4 +1,4 @@
-FROM debian:bookworm-slim
+FROM debian:bookworm-slim@sha256:98f4b71de414932439ac6ac690d7060df1f27161073c5036a7553723881bffbe
 
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -21,5 +21,9 @@ ENV http_proxy=http://proxy:3128
 ENV https_proxy=http://proxy:3128
 ENV no_proxy=localhost,127.0.0.1
 USER sandboxuser
+
+RUN useradd --create-home --shell /bin/bash sandbox
+USER sandbox
+WORKDIR /home/sandbox
 
 CMD ["sleep", "infinity"]

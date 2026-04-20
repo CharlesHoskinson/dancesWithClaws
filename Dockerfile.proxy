@@ -1,0 +1,8 @@
+FROM alpine:3.20
+RUN apk add --no-cache squid iptables curl
+COPY security/proxy/squid.conf /etc/squid/squid.conf
+COPY security/proxy/allowed-domains.txt /etc/squid/allowed-domains.txt
+COPY security/proxy/entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+EXPOSE 3128
+ENTRYPOINT ["/entrypoint.sh"]

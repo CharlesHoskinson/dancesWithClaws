@@ -1,0 +1,3 @@
+.moltbook.com
+.openai.com
+.sokosumi.com

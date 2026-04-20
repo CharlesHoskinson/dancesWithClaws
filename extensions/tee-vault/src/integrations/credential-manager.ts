@@ -57,15 +57,11 @@ export async function storeCredential(
     }
   `.trim();
 
-  const { stdout } = await execFileAsync(
-    POWERSHELL,
-    ["-NoProfile", "-Command", script],
-    {
-      timeout: TIMEOUT_MS,
-      encoding: "utf8",
-      windowsHide: true,
-    },
-  );
+  const { stdout } = await execFileAsync(POWERSHELL, ["-NoProfile", "-Command", script], {
+    timeout: TIMEOUT_MS,
+    encoding: "utf8",
+    windowsHide: true,
+  });
   if (!stdout.trim().includes("ok")) {
     throw new Error("Failed to store credential in Credential Manager");
   }
@@ -126,15 +122,11 @@ export async function retrieveCredential(
   `.trim();
 
   try {
-    const { stdout } = await execFileAsync(
-      POWERSHELL,
-      ["-NoProfile", "-Command", script],
-      {
-        timeout: TIMEOUT_MS,
-        encoding: "utf8",
-        windowsHide: true,
-      },
-    );
+    const { stdout } = await execFileAsync(POWERSHELL, ["-NoProfile", "-Command", script], {
+      timeout: TIMEOUT_MS,
+      encoding: "utf8",
+      windowsHide: true,
+    });
     const result = stdout.trim();
     if (result === "NOT_FOUND") {
       return null;
@@ -153,9 +145,7 @@ export async function retrieveCredential(
 }
 
 /** Delete a credential from Windows Credential Manager. */
-export async function deleteCredential(
-  target: CredentialTarget,
-): Promise<boolean> {
+export async function deleteCredential(target: CredentialTarget): Promise<boolean> {
   if (process.platform !== "win32") {
     return false;
   }
@@ -197,15 +187,11 @@ export async function listCredentials(): Promise<string[]> {
   `.trim();
 
   try {
-    const { stdout } = await execFileAsync(
-      POWERSHELL,
-      ["-NoProfile", "-Command", script],
-      {
-        timeout: TIMEOUT_MS,
-        encoding: "utf8",
-        windowsHide: true,
-      },
-    );
+    const { stdout } = await execFileAsync(POWERSHELL, ["-NoProfile", "-Command", script], {
+      timeout: TIMEOUT_MS,
+      encoding: "utf8",
+      windowsHide: true,
+    });
     return stdout.trim().split(/\r?\n/).filter(Boolean);
   } catch {
     return [];
@@ -218,9 +204,7 @@ export async function listCredentials(): Promise<string[]> {
  * in Credential Manager (protected by Credential Guard) and only
  * enters memory when needed.
  */
-export async function resolveHsmPin(
-  promptFn?: (msg: string) => Promise<string>,
-): Promise<string> {
+export async function resolveHsmPin(promptFn?: (msg: string) => Promise<string>): Promise<string> {
   // 1. Try Credential Manager
   const cred = await retrieveCredential("hsmPin");
   if (cred?.password) {

@@ -26,9 +26,7 @@ describe("ironkey-backup", () => {
 
     it("handles non-existent files gracefully", async () => {
       // Should not throw
-      await expect(
-        secureDelete("/nonexistent/path/file.bin"),
-      ).resolves.toBeUndefined();
+      await expect(secureDelete("/nonexistent/path/file.bin")).resolves.toBeUndefined();
     });
   });
 

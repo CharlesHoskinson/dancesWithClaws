@@ -54,11 +54,7 @@ function resolveYubihsmShell(): string {
 }
 
 /** Run a yubihsm-shell command. Returns stdout. */
-async function yubihsmShell(
-  args: string[],
-  pin: string,
-  connectorUrl?: string,
-): Promise<string> {
+async function yubihsmShell(args: string[], pin: string, connectorUrl?: string): Promise<string> {
   const shellPath = resolveYubihsmShell();
   const fullArgs = [
     "--connector",
@@ -84,9 +80,7 @@ async function yubihsmShell(
     child.on("error", reject);
     child.on("close", (code) => {
       if (code !== 0) {
-        reject(
-          new Error(`yubihsm-shell failed (${code}): ${stderr || stdout}`),
-        );
+        reject(new Error(`yubihsm-shell failed (${code}): ${stderr || stdout}`));
       } else {
         resolve(stdout);
       }
@@ -125,8 +119,7 @@ export async function createWrapKey(
   // Generate 32 random bytes for the wrap key
   const rawKey = randomBytes(32);
   const rawKeyPath =
-    opts?.outputPath ??
-    path.join(process.env.TEMP ?? "/tmp", `wrap-key-raw-${Date.now()}.bin`);
+    opts?.outputPath ?? path.join(process.env.TEMP ?? "/tmp", `wrap-key-raw-${Date.now()}.bin`);
 
   await fs.writeFile(rawKeyPath, rawKey);
 
@@ -281,14 +274,7 @@ export async function createFullBackup(
   for (const obj of objects) {
     const filename = `${obj.label}-${obj.id}.wrap`;
     const outPath = path.join(outputDir, filename);
-    await exportWrappedObject(
-      pin,
-      wrapKeyId,
-      obj.id,
-      obj.type,
-      outPath,
-      opts?.connectorUrl,
-    );
+    await exportWrappedObject(pin, wrapKeyId, obj.id, obj.type, outPath, opts?.connectorUrl);
     manifest.wrappedObjects.push({
       objectId: obj.id,
       objectType: obj.type,
@@ -330,12 +316,7 @@ export async function restoreFullBackup(
   // Import each wrapped blob
   for (const obj of manifest.wrappedObjects) {
     const blobPath = path.join(backupDir, obj.filename);
-    await importWrappedObject(
-      pin,
-      manifest.wrapKeyId,
-      blobPath,
-      opts?.connectorUrl,
-    );
+    await importWrappedObject(pin, manifest.wrapKeyId, blobPath, opts?.connectorUrl);
   }
 
   return manifest;

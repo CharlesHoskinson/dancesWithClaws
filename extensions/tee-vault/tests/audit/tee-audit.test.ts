@@ -2,14 +2,8 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import {
-  collectTeeVaultFindings,
-  appendAuditLog,
-} from "../../src/audit/tee-audit.js";
-import {
-  generateVmk,
-  sealVmkWithPassphrase,
-} from "../../src/crypto/key-hierarchy.js";
+import { collectTeeVaultFindings, appendAuditLog } from "../../src/audit/tee-audit.js";
+import { generateVmk, sealVmkWithPassphrase } from "../../src/crypto/key-hierarchy.js";
 import * as vaultLock from "../../src/vault/vault-lock.js";
 import * as vaultStore from "../../src/vault/vault-store.js";
 
@@ -29,9 +23,7 @@ describe("tee-audit", () => {
     it("reports vault_not_initialized when no vault exists", async () => {
       const findings = await collectTeeVaultFindings(tmpDir);
       expect(findings.length).toBeGreaterThan(0);
-      expect(
-        findings.some((f) => f.checkId === "tee.vault_not_initialized"),
-      ).toBe(true);
+      expect(findings.some((f) => f.checkId === "tee.vault_not_initialized")).toBe(true);
     });
 
     it("reports backend_weak for openssl-pbkdf2 on Windows", async () => {
@@ -46,9 +38,7 @@ describe("tee-audit", () => {
 
       const findings = await collectTeeVaultFindings(tmpDir);
       if (process.platform === "win32") {
-        expect(
-          findings.some((f) => f.checkId === "tee.vault_backend_weak"),
-        ).toBe(true);
+        expect(findings.some((f) => f.checkId === "tee.vault_backend_weak")).toBe(true);
       }
     });
 
@@ -66,9 +56,7 @@ describe("tee-audit", () => {
       vaultLock.unlock(vmk, "openssl-pbkdf2");
 
       const findings = await collectTeeVaultFindings(tmpDir);
-      expect(findings.some((f) => f.checkId === "tee.vault_no_auto_lock")).toBe(
-        true,
-      );
+      expect(findings.some((f) => f.checkId === "tee.vault_no_auto_lock")).toBe(true);
     });
 
     it("reports yubihsm_default_pin", async () => {
@@ -83,9 +71,7 @@ describe("tee-audit", () => {
           connectorUrl: "http://localhost:12345",
         },
       });
-      expect(
-        findings.some((f) => f.checkId === "tee.yubihsm_default_pin"),
-      ).toBe(true);
+      expect(findings.some((f) => f.checkId === "tee.yubihsm_default_pin")).toBe(true);
     });
 
     it("reports yubihsm_connector_remote", async () => {
@@ -97,9 +83,7 @@ describe("tee-audit", () => {
         checkYubiHsm: true,
         yubiHsmConfig: { connectorUrl: "http://192.168.1.100:12345" },
       });
-      expect(
-        findings.some((f) => f.checkId === "tee.yubihsm_connector_remote"),
-      ).toBe(true);
+      expect(findings.some((f) => f.checkId === "tee.yubihsm_connector_remote")).toBe(true);
     });
   });
 
