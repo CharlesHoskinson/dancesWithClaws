@@ -169,8 +169,10 @@ export async function generate(
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(body),
-    headersTimeout: 60_000,
-    bodyTimeout: 300_000,
+    // On CPU with a 4B+ model, a cold prompt-ingestion can exceed 60s; the
+    // body itself can take minutes. Both timeouts generously sized.
+    headersTimeout: 600_000,
+    bodyTimeout: 600_000,
   });
   const text = await r.body.text();
   if (r.statusCode < 200 || r.statusCode >= 300) {
