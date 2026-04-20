@@ -5,6 +5,7 @@ import {
   CRITICAL_THRESHOLD,
   GLOBAL_CIRCUIT_BREAKER_THRESHOLD,
   TOOL_CALL_HISTORY_SIZE,
+  UNKNOWN_TOOL_THRESHOLD,
   WARNING_THRESHOLD,
   detectToolCallLoop,
   getToolCallStats,
@@ -45,6 +46,23 @@ function recordSuccessfulCall(
   });
 }
 
+function recordFailedCall(
+  state: SessionState,
+  toolName: string,
+  params: unknown,
+  error: unknown,
+  index: number,
+): void {
+  const toolCallId = `${toolName}-error-${index}`;
+  recordToolCall(state, toolName, params, toolCallId);
+  recordToolCallOutcome(state, {
+    toolName,
+    toolParams: params,
+    toolCallId,
+    error,
+  });
+}
+
 function recordRepeatedSuccessfulCalls(params: {
   state: SessionState;
   toolName: string;
@@ -73,6 +91,48 @@ function createNoProgressPollFixture(sessionId: string) {
       details: { status: "running", aggregated: "steady" },
     },
   };
+}
+
+function createReadNoProgressFixture() {
+  return {
+    toolName: "read",
+    params: { path: "/same.txt" },
+    result: {
+      content: [{ type: "text", text: "same output" }],
+      details: { ok: true },
+    },
+  } as const;
+}
+
+function createPingPongFixture() {
+  return {
+    state: createState(),
+    readParams: { path: "/a.txt" },
+    listParams: { dir: "/workspace" },
+  };
+}
+
+function detectLoopAfterRepeatedCalls(params: {
+  toolName: string;
+  toolParams: unknown;
+  result: unknown;
+  count: number;
+  config?: ToolLoopDetectionConfig;
+}) {
+  const state = createState();
+  recordRepeatedSuccessfulCalls({
+    state,
+    toolName: params.toolName,
+    toolParams: params.toolParams,
+    result: params.result,
+    count: params.count,
+  });
+  return detectToolCallLoop(
+    state,
+    params.toolName,
+    params.toolParams,
+    params.config ?? enabledLoopDetectionConfig,
+  );
 }
 
 function recordSuccessfulPingPongCalls(params: {
@@ -258,18 +318,13 @@ describe("tool-loop-detection", () => {
     });
 
     it("keeps generic loops warn-only below global breaker threshold", () => {
-      const state = createState();
-      const params = { path: "/same.txt" };
-      const result = {
-        content: [{ type: "text", text: "same output" }],
-        details: { ok: true },
-      };
-
-      for (let i = 0; i < CRITICAL_THRESHOLD; i += 1) {
-        recordSuccessfulCall(state, "read", params, result, i);
-      }
-
-      const loopResult = detectToolCallLoop(state, "read", params, enabledLoopDetectionConfig);
+      const fixture = createReadNoProgressFixture();
+      const loopResult = detectLoopAfterRepeatedCalls({
+        toolName: fixture.toolName,
+        toolParams: fixture.params,
+        result: fixture.result,
+        count: CRITICAL_THRESHOLD,
+      });
       expect(loopResult.stuck).toBe(true);
       if (loopResult.stuck) {
         expect(loopResult.level).toBe("warning");
@@ -344,17 +399,13 @@ describe("tool-loop-detection", () => {
     });
 
     it("warns for known polling no-progress loops", () => {
-      const state = createState();
       const { params, result } = createNoProgressPollFixture("sess-1");
-      recordRepeatedSuccessfulCalls({
-        state,
+      const loopResult = detectLoopAfterRepeatedCalls({
         toolName: "process",
         toolParams: params,
         result,
         count: WARNING_THRESHOLD,
       });
-
-      const loopResult = detectToolCallLoop(state, "process", params, enabledLoopDetectionConfig);
       expect(loopResult.stuck).toBe(true);
       if (loopResult.stuck) {
         expect(loopResult.level).toBe("warning");
@@ -364,17 +415,13 @@ describe("tool-loop-detection", () => {
     });
 
     it("blocks known polling no-progress loops at critical threshold", () => {
-      const state = createState();
       const { params, result } = createNoProgressPollFixture("sess-1");
-      recordRepeatedSuccessfulCalls({
-        state,
+      const loopResult = detectLoopAfterRepeatedCalls({
         toolName: "process",
         toolParams: params,
         result,
         count: CRITICAL_THRESHOLD,
       });
-
-      const loopResult = detectToolCallLoop(state, "process", params, enabledLoopDetectionConfig);
       expect(loopResult.stuck).toBe(true);
       if (loopResult.stuck) {
         expect(loopResult.level).toBe("critical");
@@ -400,23 +447,83 @@ describe("tool-loop-detection", () => {
     });
 
     it("blocks any tool with global no-progress breaker at 30", () => {
-      const state = createState();
-      const params = { path: "/same.txt" };
-      const result = {
-        content: [{ type: "text", text: "same output" }],
-        details: { ok: true },
-      };
-
-      for (let i = 0; i < GLOBAL_CIRCUIT_BREAKER_THRESHOLD; i += 1) {
-        recordSuccessfulCall(state, "read", params, result, i);
-      }
-
-      const loopResult = detectToolCallLoop(state, "read", params, enabledLoopDetectionConfig);
+      const fixture = createReadNoProgressFixture();
+      const loopResult = detectLoopAfterRepeatedCalls({
+        toolName: fixture.toolName,
+        toolParams: fixture.params,
+        result: fixture.result,
+        count: GLOBAL_CIRCUIT_BREAKER_THRESHOLD,
+      });
       expect(loopResult.stuck).toBe(true);
       if (loopResult.stuck) {
         expect(loopResult.level).toBe("critical");
         expect(loopResult.detector).toBe("global_circuit_breaker");
         expect(loopResult.message).toContain("global circuit breaker");
+      }
+    });
+
+    it("does not block repeated unknown-tool failures before the unknown-tool threshold", () => {
+      const state = createState();
+      const toolName = "exec";
+      const unknownToolError = new Error("Tool exec not found");
+
+      for (let index = 0; index < UNKNOWN_TOOL_THRESHOLD - 1; index += 1) {
+        recordFailedCall(state, toolName, { command: `echo ${index}` }, unknownToolError, index);
+      }
+
+      const loopResult = detectToolCallLoop(
+        state,
+        toolName,
+        { command: "echo still allowed" },
+        enabledLoopDetectionConfig,
+      );
+
+      expect(loopResult.stuck).toBe(false);
+    });
+
+    it("blocks repeated unknown-tool failures even when the args keep changing", () => {
+      const state = createState();
+      const toolName = "exec";
+      const unknownToolError = new Error("Tool exec not found");
+
+      const attempts = [
+        { command: "ls" },
+        { command: "pwd" },
+        { input: "whoami" },
+        { cmd: "env" },
+        { shell: "bash -lc ls" },
+        { command: "printf ok" },
+        { cwd: "/tmp", command: "ls" },
+        { args: ["ls", "/tmp"] },
+        { command: "find . -maxdepth 1" },
+        { text: "run ls" },
+        { command: "uname -a" },
+        { command: "id" },
+        { command: "date" },
+        { command: "ps" },
+        { command: "df -h" },
+        { command: "free -m" },
+        { command: "ls /tmp" },
+        { command: "ls -la" },
+        { command: "cat /etc/hostname" },
+        { command: "echo done" },
+      ];
+
+      for (const [index, params] of attempts.entries()) {
+        recordFailedCall(state, toolName, params, unknownToolError, index);
+      }
+
+      const loopResult = detectToolCallLoop(
+        state,
+        toolName,
+        { command: "echo still looping" },
+        enabledLoopDetectionConfig,
+      );
+
+      expect(loopResult.stuck).toBe(true);
+      if (loopResult.stuck) {
+        expect(loopResult.detector).toBe("unknown_tool_repeat");
+        expect(loopResult.level).toBe("critical");
       }
     });
 
@@ -441,9 +548,7 @@ describe("tool-loop-detection", () => {
     });
 
     it("blocks ping-pong alternating patterns at critical threshold", () => {
-      const state = createState();
-      const readParams = { path: "/a.txt" };
-      const listParams = { dir: "/workspace" };
+      const { state, readParams, listParams } = createPingPongFixture();
 
       recordSuccessfulPingPongCalls({
         state,
@@ -465,9 +570,7 @@ describe("tool-loop-detection", () => {
     });
 
     it("does not block ping-pong at critical threshold when outcomes are progressing", () => {
-      const state = createState();
-      const readParams = { path: "/a.txt" };
-      const listParams = { dir: "/workspace" };
+      const { state, readParams, listParams } = createPingPongFixture();
 
       recordSuccessfulPingPongCalls({
         state,

@@ -1,44 +1,23 @@
 import { isDeepStrictEqual } from "node:util";
 import chokidar from "chokidar";
-import { type ChannelId, listChannelPlugins } from "../channels/plugins/index.js";
-import type { OpenClawConfig, ConfigFileSnapshot, GatewayReloadMode } from "../config/config.js";
-import { getActivePluginRegistry } from "../plugins/runtime.js";
+import { bumpSkillsSnapshotVersion } from "../agents/skills/refresh-state.js";
+import type {
+  OpenClawConfig,
+  ConfigFileSnapshot,
+  ConfigWriteNotification,
+  GatewayReloadMode,
+} from "../config/config.js";
+import { formatConfigIssueLines } from "../config/issue-format.js";
 import { isPlainObject } from "../utils.js";
+import { buildGatewayReloadPlan, type GatewayReloadPlan } from "./config-reload-plan.js";
+
+export { buildGatewayReloadPlan };
+export type { ChannelKind, GatewayReloadPlan } from "./config-reload-plan.js";
 
 export type GatewayReloadSettings = {
   mode: GatewayReloadMode;
   debounceMs: number;
 };
-
-export type ChannelKind = ChannelId;
-
-export type GatewayReloadPlan = {
-  changedPaths: string[];
-  restartGateway: boolean;
-  restartReasons: string[];
-  hotReasons: string[];
-  reloadHooks: boolean;
-  restartGmailWatcher: boolean;
-  restartBrowserControl: boolean;
-  restartCron: boolean;
-  restartHeartbeat: boolean;
-  restartChannels: Set<ChannelKind>;
-  noopPaths: string[];
-};
-
-type ReloadRule = {
-  prefix: string;
-  kind: "restart" | "hot" | "none";
-  actions?: ReloadAction[];
-};
-
-type ReloadAction =
-  | "reload-hooks"
-  | "restart-gmail-watcher"
-  | "restart-browser-control"
-  | "restart-cron"
-  | "restart-heartbeat"
-  | `restart-channel:${ChannelId}`;
 
 const DEFAULT_RELOAD_SETTINGS: GatewayReloadSettings = {
   mode: "hybrid",
@@ -47,89 +26,27 @@ const DEFAULT_RELOAD_SETTINGS: GatewayReloadSettings = {
 const MISSING_CONFIG_RETRY_DELAY_MS = 150;
 const MISSING_CONFIG_MAX_RETRIES = 2;
 
-const BASE_RELOAD_RULES: ReloadRule[] = [
-  { prefix: "gateway.remote", kind: "none" },
-  { prefix: "gateway.reload", kind: "none" },
-  { prefix: "hooks.gmail", kind: "hot", actions: ["restart-gmail-watcher"] },
-  { prefix: "hooks", kind: "hot", actions: ["reload-hooks"] },
-  {
-    prefix: "agents.defaults.heartbeat",
-    kind: "hot",
-    actions: ["restart-heartbeat"],
-  },
-  { prefix: "agent.heartbeat", kind: "hot", actions: ["restart-heartbeat"] },
-  { prefix: "cron", kind: "hot", actions: ["restart-cron"] },
-  {
-    prefix: "browser",
-    kind: "hot",
-    actions: ["restart-browser-control"],
-  },
-];
+/**
+ * Paths under `skills.*` always change the snapshot that sessions cache in
+ * sessions.json. Any prefix match here (for example `skills.allowBundled`,
+ * `skills.entries.X.enabled`, `skills.profile`) forces sessions to rebuild
+ * their snapshot on the next turn rather than silently advertising stale
+ * tools to the model.
+ */
+const SKILLS_INVALIDATION_PREFIXES = ["skills"] as const;
 
-const BASE_RELOAD_RULES_TAIL: ReloadRule[] = [
-  { prefix: "meta", kind: "none" },
-  { prefix: "identity", kind: "none" },
-  { prefix: "wizard", kind: "none" },
-  { prefix: "logging", kind: "none" },
-  { prefix: "models", kind: "none" },
-  { prefix: "agents", kind: "none" },
-  { prefix: "tools", kind: "none" },
-  { prefix: "bindings", kind: "none" },
-  { prefix: "audio", kind: "none" },
-  { prefix: "agent", kind: "none" },
-  { prefix: "routing", kind: "none" },
-  { prefix: "messages", kind: "none" },
-  { prefix: "session", kind: "none" },
-  { prefix: "talk", kind: "none" },
-  { prefix: "skills", kind: "none" },
-  { prefix: "secrets", kind: "none" },
-  { prefix: "plugins", kind: "restart" },
-  { prefix: "ui", kind: "none" },
-  { prefix: "gateway", kind: "restart" },
-  { prefix: "discovery", kind: "restart" },
-  { prefix: "canvasHost", kind: "restart" },
-];
-
-let cachedReloadRules: ReloadRule[] | null = null;
-let cachedRegistry: ReturnType<typeof getActivePluginRegistry> | null = null;
-
-function listReloadRules(): ReloadRule[] {
-  const registry = getActivePluginRegistry();
-  if (registry !== cachedRegistry) {
-    cachedReloadRules = null;
-    cachedRegistry = registry;
-  }
-  if (cachedReloadRules) {
-    return cachedReloadRules;
-  }
-  // Channel docking: plugins contribute hot reload/no-op prefixes here.
-  const channelReloadRules: ReloadRule[] = listChannelPlugins().flatMap((plugin) => [
-    ...(plugin.reload?.configPrefixes ?? []).map(
-      (prefix): ReloadRule => ({
-        prefix,
-        kind: "hot",
-        actions: [`restart-channel:${plugin.id}` as ReloadAction],
-      }),
-    ),
-    ...(plugin.reload?.noopPrefixes ?? []).map(
-      (prefix): ReloadRule => ({
-        prefix,
-        kind: "none",
-      }),
-    ),
-  ]);
-  const rules = [...BASE_RELOAD_RULES, ...channelReloadRules, ...BASE_RELOAD_RULES_TAIL];
-  cachedReloadRules = rules;
-  return rules;
+function matchesSkillsInvalidationPrefix(path: string): boolean {
+  return SKILLS_INVALIDATION_PREFIXES.some(
+    (prefix) => path === prefix || path.startsWith(`${prefix}.`),
+  );
 }
 
-function matchRule(path: string): ReloadRule | null {
-  for (const rule of listReloadRules()) {
-    if (path === rule.prefix || path.startsWith(`${rule.prefix}.`)) {
-      return rule;
-    }
-  }
-  return null;
+function firstSkillsChangedPath(changedPaths: string[]): string | undefined {
+  return changedPaths.find(matchesSkillsInvalidationPrefix);
+}
+
+export function shouldInvalidateSkillsSnapshotForPaths(changedPaths: string[]): boolean {
+  return firstSkillsChangedPath(changedPaths) !== undefined;
 }
 
 export function diffConfigPaths(prev: unknown, next: unknown, prefix = ""): string[] {
@@ -177,86 +94,24 @@ export function resolveGatewayReloadSettings(cfg: OpenClawConfig): GatewayReload
   return { mode, debounceMs };
 }
 
-export function buildGatewayReloadPlan(changedPaths: string[]): GatewayReloadPlan {
-  const plan: GatewayReloadPlan = {
-    changedPaths,
-    restartGateway: false,
-    restartReasons: [],
-    hotReasons: [],
-    reloadHooks: false,
-    restartGmailWatcher: false,
-    restartBrowserControl: false,
-    restartCron: false,
-    restartHeartbeat: false,
-    restartChannels: new Set(),
-    noopPaths: [],
-  };
-
-  const applyAction = (action: ReloadAction) => {
-    if (action.startsWith("restart-channel:")) {
-      const channel = action.slice("restart-channel:".length) as ChannelId;
-      plan.restartChannels.add(channel);
-      return;
-    }
-    switch (action) {
-      case "reload-hooks":
-        plan.reloadHooks = true;
-        break;
-      case "restart-gmail-watcher":
-        plan.restartGmailWatcher = true;
-        break;
-      case "restart-browser-control":
-        plan.restartBrowserControl = true;
-        break;
-      case "restart-cron":
-        plan.restartCron = true;
-        break;
-      case "restart-heartbeat":
-        plan.restartHeartbeat = true;
-        break;
-      default:
-        break;
-    }
-  };
-
-  for (const path of changedPaths) {
-    const rule = matchRule(path);
-    if (!rule) {
-      plan.restartGateway = true;
-      plan.restartReasons.push(path);
-      continue;
-    }
-    if (rule.kind === "restart") {
-      plan.restartGateway = true;
-      plan.restartReasons.push(path);
-      continue;
-    }
-    if (rule.kind === "none") {
-      plan.noopPaths.push(path);
-      continue;
-    }
-    plan.hotReasons.push(path);
-    for (const action of rule.actions ?? []) {
-      applyAction(action);
-    }
-  }
-
-  if (plan.restartGmailWatcher) {
-    plan.reloadHooks = true;
-  }
-
-  return plan;
-}
-
 export type GatewayConfigReloader = {
   stop: () => Promise<void>;
 };
 
 export function startGatewayConfigReloader(opts: {
   initialConfig: OpenClawConfig;
+  initialInternalWriteHash?: string | null;
   readSnapshot: () => Promise<ConfigFileSnapshot>;
   onHotReload: (plan: GatewayReloadPlan, nextConfig: OpenClawConfig) => Promise<void>;
   onRestart: (plan: GatewayReloadPlan, nextConfig: OpenClawConfig) => void | Promise<void>;
+  recoverSnapshot?: (snapshot: ConfigFileSnapshot, reason: string) => Promise<boolean>;
+  promoteSnapshot?: (snapshot: ConfigFileSnapshot, reason: string) => Promise<boolean>;
+  onRecovered?: (params: {
+    reason: string;
+    snapshot: ConfigFileSnapshot;
+    recoveredSnapshot: ConfigFileSnapshot;
+  }) => void | Promise<void>;
+  subscribeToWrites?: (listener: (event: ConfigWriteNotification) => void) => () => void;
   log: {
     info: (msg: string) => void;
     warn: (msg: string) => void;
@@ -272,6 +127,8 @@ export function startGatewayConfigReloader(opts: {
   let stopped = false;
   let restartQueued = false;
   let missingConfigRetries = 0;
+  let pendingInProcessConfig: { config: OpenClawConfig; persistedHash: string } | null = null;
+  let lastAppliedWriteHash = opts.initialInternalWriteHash ?? null;
 
   const scheduleAfter = (wait: number) => {
     if (stopped) {
@@ -325,9 +182,35 @@ export function startGatewayConfigReloader(opts: {
     if (snapshot.valid) {
       return false;
     }
-    const issues = snapshot.issues.map((issue) => `${issue.path}: ${issue.message}`).join(", ");
+    const issues = formatConfigIssueLines(snapshot.issues, "").join(", ");
     opts.log.warn(`config reload skipped (invalid config): ${issues}`);
     return true;
+  };
+
+  const recoverAndReadSnapshot = async (
+    snapshot: ConfigFileSnapshot,
+    reason: string,
+  ): Promise<ConfigFileSnapshot | null> => {
+    if (!opts.recoverSnapshot) {
+      return null;
+    }
+    const recovered = await opts.recoverSnapshot(snapshot, reason);
+    if (!recovered) {
+      return null;
+    }
+    opts.log.warn(`config reload restored last-known-good config after ${reason}`);
+    const nextSnapshot = await opts.readSnapshot();
+    if (!nextSnapshot.valid) {
+      const issues = formatConfigIssueLines(nextSnapshot.issues, "").join(", ");
+      opts.log.warn(`config reload recovery snapshot is invalid: ${issues}`);
+      return null;
+    }
+    try {
+      await opts.onRecovered?.({ reason, snapshot, recoveredSnapshot: nextSnapshot });
+    } catch (err) {
+      opts.log.warn(`config reload recovery notice failed: ${String(err)}`);
+    }
+    return nextSnapshot;
   };
 
   const applySnapshot = async (nextConfig: OpenClawConfig) => {
@@ -336,6 +219,16 @@ export function startGatewayConfigReloader(opts: {
     settings = resolveGatewayReloadSettings(nextConfig);
     if (changedPaths.length === 0) {
       return;
+    }
+
+    // Invalidate cached skills snapshots (persisted in sessions.json) whenever
+    // the user touches skills.* config. Without this, sessions keep advertising
+    // tools that no longer exist in the allowlist, which causes infinite
+    // tool-not-found loops against the model.
+    const skillsChangedPath = firstSkillsChangedPath(changedPaths);
+    if (skillsChangedPath !== undefined) {
+      bumpSkillsSnapshotVersion({ reason: "config-change", changedPath: skillsChangedPath });
+      opts.log.info(`skills snapshot invalidated by config change (${skillsChangedPath})`);
     }
 
     opts.log.info(`config change detected; evaluating reload (${changedPaths.join(", ")})`);
@@ -364,6 +257,32 @@ export function startGatewayConfigReloader(opts: {
     await opts.onHotReload(plan, nextConfig);
   };
 
+  const promoteAcceptedSnapshot = async (snapshot: ConfigFileSnapshot, reason: string) => {
+    if (!opts.promoteSnapshot || !snapshot.exists || !snapshot.valid) {
+      return;
+    }
+    try {
+      await opts.promoteSnapshot(snapshot, reason);
+    } catch (err) {
+      opts.log.warn(`config reload last-known-good promotion failed: ${String(err)}`);
+    }
+  };
+
+  const promoteAcceptedInProcessWrite = async (persistedHash: string) => {
+    if (!opts.promoteSnapshot) {
+      return;
+    }
+    try {
+      const snapshot = await opts.readSnapshot();
+      if (snapshot.hash !== persistedHash || !snapshot.valid) {
+        return;
+      }
+      await promoteAcceptedSnapshot(snapshot, "in-process-write");
+    } catch (err) {
+      opts.log.warn(`config reload in-process last-known-good promotion failed: ${String(err)}`);
+    }
+  };
+
   const runReload = async () => {
     if (stopped) {
       return;
@@ -378,14 +297,34 @@ export function startGatewayConfigReloader(opts: {
       debounceTimer = null;
     }
     try {
-      const snapshot = await opts.readSnapshot();
+      if (pendingInProcessConfig) {
+        const pendingWrite = pendingInProcessConfig;
+        pendingInProcessConfig = null;
+        missingConfigRetries = 0;
+        await applySnapshot(pendingWrite.config);
+        await promoteAcceptedInProcessWrite(pendingWrite.persistedHash);
+        return;
+      }
+      let snapshot = await opts.readSnapshot();
+      if (lastAppliedWriteHash && typeof snapshot.hash === "string") {
+        if (snapshot.hash === lastAppliedWriteHash) {
+          return;
+        }
+        lastAppliedWriteHash = null;
+      }
       if (handleMissingSnapshot(snapshot)) {
         return;
       }
-      if (handleInvalidSnapshot(snapshot)) {
-        return;
+      if (!snapshot.valid) {
+        const recoveredSnapshot = await recoverAndReadSnapshot(snapshot, "invalid-config");
+        if (!recoveredSnapshot) {
+          handleInvalidSnapshot(snapshot);
+          return;
+        }
+        snapshot = recoveredSnapshot;
       }
       await applySnapshot(snapshot.config);
+      await promoteAcceptedSnapshot(snapshot, "valid-config");
     } catch (err) {
       opts.log.error(`config reload failed: ${String(err)}`);
     } finally {
@@ -403,9 +342,26 @@ export function startGatewayConfigReloader(opts: {
     usePolling: Boolean(process.env.VITEST),
   });
 
-  watcher.on("add", schedule);
-  watcher.on("change", schedule);
-  watcher.on("unlink", schedule);
+  const scheduleFromWatcher = () => {
+    schedule();
+  };
+
+  const unsubscribeFromWrites =
+    opts.subscribeToWrites?.((event) => {
+      if (event.configPath !== opts.watchPath) {
+        return;
+      }
+      pendingInProcessConfig = {
+        config: event.runtimeConfig,
+        persistedHash: event.persistedHash,
+      };
+      lastAppliedWriteHash = event.persistedHash;
+      scheduleAfter(0);
+    }) ?? (() => {});
+
+  watcher.on("add", scheduleFromWatcher);
+  watcher.on("change", scheduleFromWatcher);
+  watcher.on("unlink", scheduleFromWatcher);
   let watcherClosed = false;
   watcher.on("error", (err) => {
     if (watcherClosed) {
@@ -424,6 +380,7 @@ export function startGatewayConfigReloader(opts: {
       }
       debounceTimer = null;
       watcherClosed = true;
+      unsubscribeFromWrites();
       await watcher.close().catch(() => {});
     },
   };

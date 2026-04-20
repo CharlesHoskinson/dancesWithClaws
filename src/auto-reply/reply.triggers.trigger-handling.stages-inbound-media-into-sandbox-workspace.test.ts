@@ -1,6 +1,8 @@
 import fs from "node:fs/promises";
-import { basename, join } from "node:path";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import path, { basename, dirname, join } from "node:path";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { MEDIA_MAX_BYTES } from "../media/store.js";
+import { stageSandboxMedia } from "./reply/stage-sandbox-media.js";
 import {
   createSandboxMediaContexts,
   createSandboxMediaStageConfig,
@@ -9,38 +11,152 @@ import {
 
 const sandboxMocks = vi.hoisted(() => ({
   ensureSandboxWorkspaceForSession: vi.fn(),
+  assertSandboxPath: vi.fn(),
 }));
 const childProcessMocks = vi.hoisted(() => ({
   spawn: vi.fn(),
 }));
+const fsSafeMocks = vi.hoisted(() => {
+  class MockSafeOpenError extends Error {
+    readonly code: string;
+
+    constructor(code: string, message: string) {
+      super(message);
+      this.name = "SafeOpenError";
+      this.code = code;
+    }
+  }
+
+  return {
+    SafeOpenError: MockSafeOpenError,
+    copyFileWithinRoot: vi.fn(),
+    readLocalFileSafely: vi.fn(),
+  };
+});
+const mediaRootMocks = vi.hoisted(() => ({
+  resolveChannelRemoteInboundAttachmentRoots: vi.fn(),
+}));
 
 vi.mock("../agents/sandbox.js", () => sandboxMocks);
+vi.mock("../agents/sandbox-paths.js", () => ({
+  assertSandboxPath: sandboxMocks.assertSandboxPath,
+}));
 vi.mock("node:child_process", () => childProcessMocks);
+vi.mock("../infra/fs-safe.js", () => fsSafeMocks);
+vi.mock("../media/channel-inbound-roots.js", () => mediaRootMocks);
 
-import { ensureSandboxWorkspaceForSession } from "../agents/sandbox.js";
-import { stageSandboxMedia } from "./reply/stage-sandbox-media.js";
+async function copyFileWithinRootForTest({
+  sourcePath,
+  rootDir,
+  relativePath,
+  maxBytes,
+}: {
+  sourcePath: string;
+  rootDir: string;
+  relativePath: string;
+  maxBytes?: number;
+}) {
+  const sourceStat = await fs.stat(sourcePath);
+  if (typeof maxBytes === "number" && sourceStat.size > maxBytes) {
+    throw new fsSafeMocks.SafeOpenError(
+      "too-large",
+      `file exceeds limit of ${maxBytes} bytes (got ${sourceStat.size})`,
+    );
+  }
+
+  await fs.mkdir(rootDir, { recursive: true });
+  const rootReal = await fs.realpath(rootDir);
+  const destPath = path.resolve(rootReal, relativePath);
+  const rootPrefix = `${rootReal}${path.sep}`;
+  if (destPath !== rootReal && !destPath.startsWith(rootPrefix)) {
+    throw new fsSafeMocks.SafeOpenError("outside-workspace", "file is outside workspace root");
+  }
+
+  const parentDir = dirname(destPath);
+  const relativeParent = path.relative(rootReal, parentDir);
+  if (relativeParent && !relativeParent.startsWith("..")) {
+    let cursor = rootReal;
+    for (const segment of relativeParent.split(path.sep)) {
+      cursor = path.join(cursor, segment);
+      try {
+        const stat = await fs.lstat(cursor);
+        if (stat.isSymbolicLink()) {
+          throw new fsSafeMocks.SafeOpenError("symlink", "symlink not allowed");
+        }
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+          await fs.mkdir(cursor, { recursive: true });
+          continue;
+        }
+        throw error;
+      }
+    }
+  }
+
+  try {
+    const destStat = await fs.lstat(destPath);
+    if (destStat.isSymbolicLink()) {
+      throw new fsSafeMocks.SafeOpenError("symlink", "symlink not allowed");
+    }
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
+      throw error;
+    }
+  }
+
+  await fs.copyFile(sourcePath, destPath);
+}
+
+beforeEach(() => {
+  sandboxMocks.ensureSandboxWorkspaceForSession.mockReset();
+  sandboxMocks.assertSandboxPath.mockReset().mockResolvedValue({ resolved: "", relative: "" });
+  childProcessMocks.spawn.mockClear();
+  fsSafeMocks.copyFileWithinRoot.mockReset().mockImplementation(copyFileWithinRootForTest);
+  mediaRootMocks.resolveChannelRemoteInboundAttachmentRoots
+    .mockReset()
+    .mockReturnValue(["/Users/demo/Library/Messages/Attachments"]);
+});
 
 afterEach(() => {
   vi.restoreAllMocks();
   childProcessMocks.spawn.mockClear();
 });
 
+async function setupSandboxWorkspace(home: string): Promise<{
+  cfg: ReturnType<typeof createSandboxMediaStageConfig>;
+  workspaceDir: string;
+  sandboxDir: string;
+}> {
+  const cfg = createSandboxMediaStageConfig(home);
+  const workspaceDir = join(home, "openclaw");
+  const sandboxDir = join(home, "sandboxes", "session");
+  await fs.mkdir(sandboxDir, { recursive: true });
+  sandboxMocks.ensureSandboxWorkspaceForSession.mockResolvedValue({
+    workspaceDir: sandboxDir,
+    containerWorkdir: "/work",
+  });
+  return { cfg, workspaceDir, sandboxDir };
+}
+
+async function writeInboundMedia(
+  home: string,
+  fileName: string,
+  payload: string | Buffer,
+): Promise<string> {
+  const inboundDir = join(home, ".openclaw", "media", "inbound");
+  await fs.mkdir(inboundDir, { recursive: true });
+  const mediaPath = join(inboundDir, fileName);
+  await fs.writeFile(mediaPath, payload);
+  return mediaPath;
+}
+
 describe("stageSandboxMedia", () => {
   it("stages allowed media and blocks unsafe paths", async () => {
     await withSandboxMediaTempHome("openclaw-triggers-", async (home) => {
-      const cfg = createSandboxMediaStageConfig(home);
-      const workspaceDir = join(home, "openclaw");
-      const sandboxDir = join(home, "sandboxes", "session");
-      vi.mocked(ensureSandboxWorkspaceForSession).mockResolvedValue({
-        workspaceDir: sandboxDir,
-        containerWorkdir: "/work",
-      });
+      const { cfg, workspaceDir, sandboxDir } = await setupSandboxWorkspace(home);
 
       {
-        const inboundDir = join(home, ".openclaw", "media", "inbound");
-        await fs.mkdir(inboundDir, { recursive: true });
-        const mediaPath = join(inboundDir, "photo.jpg");
-        await fs.writeFile(mediaPath, "test");
+        const mediaPath = await writeInboundMedia(home, "photo.jpg", "test");
         const { ctx, sessionCtx } = createSandboxMediaContexts(mediaPath);
 
         await stageSandboxMedia({
@@ -81,6 +197,7 @@ describe("stageSandboxMedia", () => {
       }
 
       {
+        expect(mediaRootMocks.resolveChannelRemoteInboundAttachmentRoots).not.toHaveBeenCalled();
         childProcessMocks.spawn.mockClear();
         const { ctx, sessionCtx } = createSandboxMediaContexts("/etc/passwd");
         ctx.Provider = "imessage";
@@ -99,6 +216,64 @@ describe("stageSandboxMedia", () => {
         expect(childProcessMocks.spawn).not.toHaveBeenCalled();
         expect(ctx.MediaPath).toBe("/etc/passwd");
       }
+    });
+  });
+
+  it("blocks destination symlink escapes when staging into sandbox workspace", async () => {
+    await withSandboxMediaTempHome("openclaw-triggers-", async (home) => {
+      const { cfg, workspaceDir, sandboxDir } = await setupSandboxWorkspace(home);
+
+      const mediaPath = await writeInboundMedia(home, "payload.txt", "PAYLOAD");
+
+      const outsideDir = join(home, "outside");
+      const outsideInboundDir = join(outsideDir, "inbound");
+      await fs.mkdir(outsideInboundDir, { recursive: true });
+      const victimPath = join(outsideDir, "victim.txt");
+      await fs.writeFile(victimPath, "ORIGINAL");
+
+      await fs.mkdir(sandboxDir, { recursive: true });
+      await fs.symlink(outsideDir, join(sandboxDir, "media"));
+      await fs.symlink(victimPath, join(outsideInboundDir, basename(mediaPath)));
+
+      const { ctx, sessionCtx } = createSandboxMediaContexts(mediaPath);
+      await stageSandboxMedia({
+        ctx,
+        sessionCtx,
+        cfg,
+        sessionKey: "agent:main:main",
+        workspaceDir,
+      });
+
+      await expect(fs.readFile(victimPath, "utf8")).resolves.toBe("ORIGINAL");
+      expect(ctx.MediaPath).toBe(mediaPath);
+      expect(sessionCtx.MediaPath).toBe(mediaPath);
+    });
+  });
+
+  it("skips oversized media staging and keeps original media paths", async () => {
+    await withSandboxMediaTempHome("openclaw-triggers-", async (home) => {
+      const { cfg, workspaceDir, sandboxDir } = await setupSandboxWorkspace(home);
+
+      const mediaPath = await writeInboundMedia(
+        home,
+        "oversized.bin",
+        Buffer.alloc(MEDIA_MAX_BYTES + 1, 0x41),
+      );
+
+      const { ctx, sessionCtx } = createSandboxMediaContexts(mediaPath);
+      await stageSandboxMedia({
+        ctx,
+        sessionCtx,
+        cfg,
+        sessionKey: "agent:main:main",
+        workspaceDir,
+      });
+
+      await expect(
+        fs.stat(join(sandboxDir, "media", "inbound", basename(mediaPath))),
+      ).rejects.toThrow();
+      expect(ctx.MediaPath).toBe(mediaPath);
+      expect(sessionCtx.MediaPath).toBe(mediaPath);
     });
   });
 });

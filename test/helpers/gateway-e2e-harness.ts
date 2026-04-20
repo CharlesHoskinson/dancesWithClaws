@@ -8,12 +8,11 @@ import path from "node:path";
 import { GatewayClient } from "../../src/gateway/client.js";
 import { connectGatewayClient } from "../../src/gateway/test-helpers.e2e.js";
 import { loadOrCreateDeviceIdentity } from "../../src/infra/device-identity.js";
+import { extractFirstTextBlock } from "../../src/shared/chat-message-content.js";
 import { sleep } from "../../src/utils.js";
 import { GATEWAY_CLIENT_MODES, GATEWAY_CLIENT_NAMES } from "../../src/utils/message-channel.js";
 
-type NodeListPayload = {
-  nodes?: Array<{ nodeId?: string; connected?: boolean; paired?: boolean }>;
-};
+export { extractFirstTextBlock };
 
 export type ChatEventPayload = {
   runId?: string;
@@ -309,7 +308,7 @@ async function connectStatusClient(
 
     const client = new GatewayClient({
       url: `ws://127.0.0.1:${inst.port}`,
-      connectDelayMs: 0,
+      connectChallengeTimeoutMs: 0,
       token: inst.gatewayToken,
       clientName: GATEWAY_CLIENT_NAMES.CLI,
       clientDisplayName: `status-${inst.name}`,
@@ -345,7 +344,7 @@ export async function waitForNodeStatus(
   );
   try {
     while (Date.now() < deadline) {
-      const list = await client.request<NodeListPayload>("node.list", {});
+      const list = await client.request("node.list", {});
       const match = list.nodes?.find((n) => n.nodeId === nodeId);
       if (match?.connected && match?.paired) {
         return;
@@ -356,22 +355,6 @@ export async function waitForNodeStatus(
     client.stop();
   }
   throw new Error(`timeout waiting for node status for ${nodeId}`);
-}
-
-export function extractFirstTextBlock(message: unknown): string | undefined {
-  if (!message || typeof message !== "object") {
-    return undefined;
-  }
-  const content = (message as { content?: unknown }).content;
-  if (!Array.isArray(content) || content.length === 0) {
-    return undefined;
-  }
-  const first = content[0];
-  if (!first || typeof first !== "object") {
-    return undefined;
-  }
-  const text = (first as { text?: unknown }).text;
-  return typeof text === "string" ? text : undefined;
 }
 
 export async function waitForChatFinalEvent(params: {

@@ -8,8 +8,8 @@ describe("subscribeEmbeddedPiSession", () => {
       runId: "run-3",
     });
 
-    emit({ type: "auto_compaction_end", willRetry: true });
-    emit({ type: "auto_compaction_end", willRetry: true });
+    emit({ type: "compaction_end", willRetry: true });
+    emit({ type: "compaction_end", willRetry: true });
 
     let resolved = false;
     const waitPromise = subscription.waitForCompactionRetry().then(() => {
@@ -35,14 +35,29 @@ describe("subscribeEmbeddedPiSession", () => {
       runId: "run-compaction-count",
     });
 
-    emit({ type: "auto_compaction_start" });
+    emit({ type: "compaction_start" });
     expect(subscription.getCompactionCount()).toBe(0);
 
-    emit({ type: "auto_compaction_end", willRetry: true });
-    expect(subscription.getCompactionCount()).toBe(0);
-
-    emit({ type: "auto_compaction_end", willRetry: false });
+    // willRetry with result — counter IS incremented (overflow compaction succeeded)
+    emit({ type: "compaction_end", willRetry: true, result: { summary: "s" } });
     expect(subscription.getCompactionCount()).toBe(1);
+
+    // willRetry=false with result — counter incremented again
+    emit({ type: "compaction_end", willRetry: false, result: { summary: "s2" } });
+    expect(subscription.getCompactionCount()).toBe(2);
+  });
+
+  it("does not count compaction when result is absent", async () => {
+    const { emit, subscription } = createSubscribedSessionHarness({
+      runId: "run-compaction-no-result",
+    });
+
+    // No result (e.g. aborted or cancelled) — counter stays at 0
+    emit({ type: "compaction_end", willRetry: false, result: undefined });
+    expect(subscription.getCompactionCount()).toBe(0);
+
+    emit({ type: "compaction_end", willRetry: false, aborted: true });
+    expect(subscription.getCompactionCount()).toBe(0);
   });
 
   it("emits compaction events on the agent event bus", async () => {
@@ -64,9 +79,9 @@ describe("subscribeEmbeddedPiSession", () => {
       });
     });
 
-    emit({ type: "auto_compaction_start" });
-    emit({ type: "auto_compaction_end", willRetry: true });
-    emit({ type: "auto_compaction_end", willRetry: false });
+    emit({ type: "compaction_start" });
+    emit({ type: "compaction_end", willRetry: true });
+    emit({ type: "compaction_end", willRetry: false });
 
     stop();
 
@@ -84,7 +99,7 @@ describe("subscribeEmbeddedPiSession", () => {
       sessionExtras: { isCompacting: true, abortCompaction },
     });
 
-    emit({ type: "auto_compaction_start" });
+    emit({ type: "compaction_start" });
 
     const waitPromise = subscription.waitForCompactionRetry();
     subscription.unsubscribe();

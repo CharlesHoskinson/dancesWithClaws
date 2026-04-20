@@ -1,91 +1,116 @@
-import fs from "node:fs/promises";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { assertMediaNotDataUrl, resolveSandboxedMediaSource } from "../../agents/sandbox-paths.js";
 import { readStringParam } from "../../agents/tools/common.js";
-import type {
-  ChannelId,
-  ChannelMessageActionName,
-  ChannelThreadingToolContext,
-} from "../../channels/plugins/types.js";
-import type { OpenClawConfig } from "../../config/config.js";
+import { resolveChannelMessageToolMediaSourceParamKeys } from "../../channels/plugins/message-action-discovery.js";
+import type { ChannelId, ChannelMessageActionName } from "../../channels/plugins/types.public.js";
+import type { OpenClawConfig } from "../../config/types.openclaw.js";
+import { createRootScopedReadFile } from "../../infra/fs-safe.js";
+import { basenameFromMediaSource } from "../../infra/local-file-access.js";
+import { resolveChannelAccountMediaMaxMb } from "../../media/configured-max-bytes.js";
+import {
+  buildOutboundMediaLoadOptions,
+  resolveOutboundMediaAccess,
+  resolveOutboundMediaLocalRoots,
+  type OutboundMediaAccess,
+  type OutboundMediaReadFile,
+} from "../../media/load-options.js";
 import { extensionForMime } from "../../media/mime.js";
-import { parseSlackTarget } from "../../slack/targets.js";
-import { parseTelegramTarget } from "../../telegram/targets.js";
-import { loadWebMedia } from "../../web/media.js";
+import { loadWebMedia } from "../../media/web-media.js";
+import { resolveSnakeCaseParamKey } from "../../param-key.js";
+import { readBooleanParam as readBooleanParamShared } from "../../plugin-sdk/boolean-param.js";
+import { normalizeOptionalString } from "../../shared/string-coerce.js";
+import { hasPotentialPluginActionParam } from "./message-action-param-keys.js";
 
-export function readBooleanParam(
-  params: Record<string, unknown>,
+export const readBooleanParam = readBooleanParamShared;
+
+export const BASE_ACTION_MEDIA_SOURCE_PARAM_KEYS = [
+  "media",
+  "path",
+  "filePath",
+  "mediaUrl",
+  "fileUrl",
+  "image",
+] as const;
+
+function readMediaParam(args: Record<string, unknown>, key: string): string | undefined {
+  return readStringParam(args, key, { trim: false });
+}
+
+function resolveMediaParamEntry(
+  args: Record<string, unknown>,
   key: string,
-): boolean | undefined {
-  const raw = params[key];
-  if (typeof raw === "boolean") {
-    return raw;
+): { key: string; value: string } | undefined {
+  const resolvedKey = resolveSnakeCaseParamKey(args, key);
+  if (!resolvedKey) {
+    return undefined;
   }
-  if (typeof raw === "string") {
-    const trimmed = raw.trim().toLowerCase();
-    if (trimmed === "true") {
-      return true;
-    }
-    if (trimmed === "false") {
-      return false;
-    }
+  const value = readMediaParam(args, key);
+  if (!value) {
+    return undefined;
   }
-  return undefined;
+  return {
+    key: resolvedKey,
+    value,
+  };
 }
 
-export function resolveSlackAutoThreadId(params: {
-  to: string;
-  toolContext?: ChannelThreadingToolContext;
-}): string | undefined {
-  const context = params.toolContext;
-  if (!context?.currentThreadTs || !context.currentChannelId) {
-    return undefined;
-  }
-  // Only mirror auto-threading when Slack would reply in the active thread for this channel.
-  if (context.replyToMode !== "all" && context.replyToMode !== "first") {
-    return undefined;
-  }
-  const parsedTarget = parseSlackTarget(params.to, { defaultKind: "channel" });
-  if (!parsedTarget || parsedTarget.kind !== "channel") {
-    return undefined;
-  }
-  if (parsedTarget.id.toLowerCase() !== context.currentChannelId.toLowerCase()) {
-    return undefined;
-  }
-  if (context.replyToMode === "first" && context.hasRepliedRef?.value) {
-    return undefined;
-  }
-  return context.currentThreadTs;
+function buildActionMediaSourceParamKeys(extraParamKeys?: readonly string[]): string[] {
+  const keys = new Set<string>(BASE_ACTION_MEDIA_SOURCE_PARAM_KEYS);
+  extraParamKeys?.forEach((key) => keys.add(key));
+  return Array.from(keys);
 }
 
-/**
- * Auto-inject Telegram forum topic thread ID when the message tool targets
- * the same chat the session originated from.  Mirrors the Slack auto-threading
- * pattern so media, buttons, and other tool-sent messages land in the correct
- * topic instead of the General Topic.
- *
- * Unlike Slack, we do not gate on `replyToMode` here: Telegram forum topics
- * are persistent sub-channels (not ephemeral reply threads), so auto-injection
- * should always apply when the target chat matches.
- */
-export function resolveTelegramAutoThreadId(params: {
-  to: string;
-  toolContext?: ChannelThreadingToolContext;
-}): string | undefined {
-  const context = params.toolContext;
-  if (!context?.currentThreadTs || !context.currentChannelId) {
-    return undefined;
+export function resolveExtraActionMediaSourceParamKeys(params: {
+  cfg: OpenClawConfig;
+  action?: ChannelMessageActionName;
+  args: Record<string, unknown>;
+  channel?: string;
+  accountId?: string | null;
+  sessionKey?: string | null;
+  sessionId?: string | null;
+  agentId?: string | null;
+  requesterSenderId?: string | null;
+  senderIsOwner?: boolean;
+}): string[] {
+  if (!hasPotentialPluginActionParam(params.args)) {
+    return [];
   }
-  // Use parseTelegramTarget to extract canonical chatId from both sides,
-  // mirroring how Slack uses parseSlackTarget. This handles format variations
-  // like `telegram:group:123:topic:456` vs `telegram:123`.
-  const parsedTo = parseTelegramTarget(params.to);
-  const parsedChannel = parseTelegramTarget(context.currentChannelId);
-  if (parsedTo.chatId.toLowerCase() !== parsedChannel.chatId.toLowerCase()) {
-    return undefined;
+  return resolveChannelMessageToolMediaSourceParamKeys({
+    cfg: params.cfg,
+    action: params.action,
+    channel: params.channel,
+    accountId: params.accountId,
+    sessionKey: params.sessionKey,
+    sessionId: params.sessionId,
+    agentId: params.agentId,
+    requesterSenderId: params.requesterSenderId,
+    senderIsOwner: params.senderIsOwner,
+  });
+}
+
+export function collectActionMediaSourceHints(
+  args: Record<string, unknown>,
+  extraParamKeys?: readonly string[],
+): string[] {
+  const sources: string[] = [];
+  for (const key of buildActionMediaSourceParamKeys(extraParamKeys)) {
+    const entry = resolveMediaParamEntry(args, key);
+    if (entry && normalizeOptionalString(entry.value)) {
+      sources.push(entry.value);
+    }
   }
-  return context.currentThreadTs;
+  return sources;
+}
+
+function readAttachmentMediaHint(args: Record<string, unknown>): string | undefined {
+  return readMediaParam(args, "media") ?? readMediaParam(args, "mediaUrl");
+}
+
+function readAttachmentFileHint(args: Record<string, unknown>): string | undefined {
+  return (
+    readMediaParam(args, "path") ??
+    readMediaParam(args, "filePath") ??
+    readMediaParam(args, "fileUrl")
+  );
 }
 
 function resolveAttachmentMaxBytes(params: {
@@ -93,28 +118,9 @@ function resolveAttachmentMaxBytes(params: {
   channel: ChannelId;
   accountId?: string | null;
 }): number | undefined {
-  const accountId = typeof params.accountId === "string" ? params.accountId.trim() : "";
-  const channelCfg = params.cfg.channels?.[params.channel];
-  const channelObj =
-    channelCfg && typeof channelCfg === "object"
-      ? (channelCfg as Record<string, unknown>)
-      : undefined;
-  const channelMediaMax =
-    typeof channelObj?.mediaMaxMb === "number" ? channelObj.mediaMaxMb : undefined;
-  const accountsObj =
-    channelObj?.accounts && typeof channelObj.accounts === "object"
-      ? (channelObj.accounts as Record<string, unknown>)
-      : undefined;
-  const accountCfg = accountId && accountsObj ? accountsObj[accountId] : undefined;
-  const accountMediaMax =
-    accountCfg && typeof accountCfg === "object"
-      ? (accountCfg as Record<string, unknown>).mediaMaxMb
-      : undefined;
   // Priority: account-specific > channel-level > global default
   const limitMb =
-    (typeof accountMediaMax === "number" ? accountMediaMax : undefined) ??
-    channelMediaMax ??
-    params.cfg.agents?.defaults?.mediaMaxMb;
+    resolveChannelAccountMediaMaxMb(params) ?? params.cfg.agents?.defaults?.mediaMaxMb;
   return typeof limitMb === "number" ? limitMb * 1024 * 1024 : undefined;
 }
 
@@ -124,27 +130,9 @@ function inferAttachmentFilename(params: {
 }): string | undefined {
   const mediaHint = params.mediaHint?.trim();
   if (mediaHint) {
-    try {
-      if (mediaHint.startsWith("file://")) {
-        const filePath = fileURLToPath(mediaHint);
-        const base = path.basename(filePath);
-        if (base) {
-          return base;
-        }
-      } else if (/^https?:\/\//i.test(mediaHint)) {
-        const url = new URL(mediaHint);
-        const base = path.basename(url.pathname);
-        if (base) {
-          return base;
-        }
-      } else {
-        const base = path.basename(mediaHint);
-        if (base) {
-          return base;
-        }
-      }
-    } catch {
-      // fall through to content-type based default
+    const base = basenameFromMediaSource(mediaHint);
+    if (base) {
+      return base;
     }
   }
   const ext = params.contentType ? extensionForMime(params.contentType) : undefined;
@@ -176,12 +164,16 @@ export type AttachmentMediaPolicy =
     }
   | {
       mode: "host";
-      localRoots?: readonly string[];
+      mediaAccess?: OutboundMediaAccess;
+      mediaLocalRoots?: readonly string[] | "any";
+      mediaReadFile?: OutboundMediaReadFile;
     };
 
 export function resolveAttachmentMediaPolicy(params: {
   sandboxRoot?: string;
-  mediaLocalRoots?: readonly string[];
+  mediaAccess?: OutboundMediaAccess;
+  mediaLocalRoots?: readonly string[] | "any";
+  mediaReadFile?: OutboundMediaReadFile;
 }): AttachmentMediaPolicy {
   const sandboxRoot = params.sandboxRoot?.trim();
   if (sandboxRoot) {
@@ -190,9 +182,20 @@ export function resolveAttachmentMediaPolicy(params: {
       sandboxRoot,
     };
   }
+  const explicitLocalRoots = resolveOutboundMediaLocalRoots(params.mediaLocalRoots);
   return {
     mode: "host",
-    localRoots: params.mediaLocalRoots,
+    mediaAccess: resolveOutboundMediaAccess({
+      mediaAccess: params.mediaAccess,
+      mediaLocalRoots: explicitLocalRoots === "any" ? undefined : explicitLocalRoots,
+      mediaReadFile: params.mediaAccess?.readFile ? undefined : params.mediaReadFile,
+    }),
+    ...(explicitLocalRoots !== undefined ? { mediaLocalRoots: explicitLocalRoots } : {}),
+    ...(params.mediaAccess?.readFile
+      ? {}
+      : params.mediaReadFile
+        ? { mediaReadFile: params.mediaReadFile }
+        : {}),
   };
 }
 
@@ -207,19 +210,26 @@ function buildAttachmentMediaLoadOptions(params: {
     }
   | {
       maxBytes?: number;
-      localRoots?: readonly string[];
+      localRoots?: readonly string[] | "any";
+      readFile?: OutboundMediaReadFile;
+      hostReadCapability?: boolean;
     } {
   if (params.policy.mode === "sandbox") {
+    const readSandboxFile = createRootScopedReadFile({
+      rootDir: params.policy.sandboxRoot.trim(),
+    });
     return {
       maxBytes: params.maxBytes,
       sandboxValidated: true,
-      readFile: (filePath: string) => fs.readFile(filePath),
+      readFile: readSandboxFile,
     };
   }
-  return {
+  return buildOutboundMediaLoadOptions({
     maxBytes: params.maxBytes,
-    localRoots: params.policy.localRoots,
-  };
+    mediaAccess: params.policy.mediaAccess,
+    mediaLocalRoots: params.policy.mediaLocalRoots,
+    mediaReadFile: params.policy.mediaReadFile,
+  });
 }
 
 async function hydrateAttachmentPayload(params: {
@@ -280,22 +290,22 @@ async function hydrateAttachmentPayload(params: {
 export async function normalizeSandboxMediaParams(params: {
   args: Record<string, unknown>;
   mediaPolicy: AttachmentMediaPolicy;
+  extraParamKeys?: readonly string[];
 }): Promise<void> {
   const sandboxRoot =
     params.mediaPolicy.mode === "sandbox" ? params.mediaPolicy.sandboxRoot.trim() : undefined;
-  const mediaKeys: Array<"media" | "path" | "filePath"> = ["media", "path", "filePath"];
-  for (const key of mediaKeys) {
-    const raw = readStringParam(params.args, key, { trim: false });
-    if (!raw) {
+  for (const key of buildActionMediaSourceParamKeys(params.extraParamKeys)) {
+    const entry = resolveMediaParamEntry(params.args, key);
+    if (!entry) {
       continue;
     }
-    assertMediaNotDataUrl(raw);
+    assertMediaNotDataUrl(entry.value);
     if (!sandboxRoot) {
       continue;
     }
-    const normalized = await resolveSandboxedMediaSource({ media: raw, sandboxRoot });
-    if (normalized !== raw) {
-      params.args[key] = normalized;
+    const normalized = await resolveSandboxedMediaSource({ media: entry.value, sandboxRoot });
+    if (normalized !== entry.value) {
+      params.args[entry.key] = normalized;
     }
   }
 }
@@ -335,10 +345,8 @@ async function hydrateAttachmentActionPayload(params: {
   allowMessageCaptionFallback?: boolean;
   mediaPolicy: AttachmentMediaPolicy;
 }): Promise<void> {
-  const mediaHint = readStringParam(params.args, "media", { trim: false });
-  const fileHint =
-    readStringParam(params.args, "path", { trim: false }) ??
-    readStringParam(params.args, "filePath", { trim: false });
+  const mediaHint = readAttachmentMediaHint(params.args);
+  const fileHint = readAttachmentFileHint(params.args);
   const contentTypeParam =
     readStringParam(params.args, "contentType") ?? readStringParam(params.args, "mimeType");
 
@@ -372,7 +380,12 @@ export async function hydrateAttachmentParamsForAction(params: {
   dryRun?: boolean;
   mediaPolicy: AttachmentMediaPolicy;
 }): Promise<void> {
-  if (params.action !== "sendAttachment" && params.action !== "setGroupIcon") {
+  const shouldHydrateUploadFile = params.action === "upload-file";
+  if (
+    params.action !== "sendAttachment" &&
+    params.action !== "setGroupIcon" &&
+    !shouldHydrateUploadFile
+  ) {
     return;
   }
   await hydrateAttachmentActionPayload({
@@ -382,7 +395,7 @@ export async function hydrateAttachmentParamsForAction(params: {
     args: params.args,
     dryRun: params.dryRun,
     mediaPolicy: params.mediaPolicy,
-    allowMessageCaptionFallback: params.action === "sendAttachment",
+    allowMessageCaptionFallback: params.action === "sendAttachment" || shouldHydrateUploadFile,
   });
 }
 
@@ -434,5 +447,22 @@ export function parseComponentsParam(params: Record<string, unknown>): void {
     params.components = JSON.parse(trimmed) as unknown;
   } catch {
     throw new Error("--components must be valid JSON");
+  }
+}
+
+export function parseInteractiveParam(params: Record<string, unknown>): void {
+  const raw = params.interactive;
+  if (typeof raw !== "string") {
+    return;
+  }
+  const trimmed = raw.trim();
+  if (!trimmed) {
+    delete params.interactive;
+    return;
+  }
+  try {
+    params.interactive = JSON.parse(trimmed) as unknown;
+  } catch {
+    throw new Error("--interactive must be valid JSON");
   }
 }
