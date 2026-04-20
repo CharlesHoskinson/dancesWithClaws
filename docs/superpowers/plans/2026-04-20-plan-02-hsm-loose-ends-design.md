@@ -3,7 +3,7 @@
 **Status:** Design — awaiting writing-plans handoff
 **Date:** 2026-04-20
 **Base branch:** `feature/hsm-loose-ends` (off `master`, with Plan 01 vendor-ported in a preceding commit)
-**Author:** Charles Hoskinson (with Claude)
+**Author:** Charles Hoskinson
 
 ---
 

@@ -2,7 +2,7 @@
 
 **Status:** Design approved — ready for implementation planning
 **Date:** 2026-04-19
-**Author:** Charles Hoskinson (with Claude)
+**Author:** Charles Hoskinson
 **Supersedes:** `mostlySecure.md` (kept as intent reference)
 **Companion repos reviewed:** `openclaw/openclaw`, `NVIDIA/NemoClaw`
 
