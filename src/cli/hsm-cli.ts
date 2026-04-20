@@ -182,8 +182,16 @@ function compareFirmware(a: { major: number; minor: number; patch: number }, b: 
   return a.patch - pa;
 }
 
+function resolveHomeDir(): string {
+  // Prefer env-var reads over node:os.homedir() so runtime overrides (tests,
+  // shared test setup with tempHome, XDG_STATE_HOME composition) take effect.
+  // On Windows, libuv's uv_os_homedir reads USERPROFILE at worker-init time
+  // in some Node/vitest combinations, which breaks per-test home isolation.
+  return process.env["USERPROFILE"] ?? process.env["HOME"] ?? homedir();
+}
+
 function halfAppliedMarkerPath(serial: number): string {
-  const dir = join(homedir(), ".openclaw");
+  const dir = join(resolveHomeDir(), ".openclaw");
   return join(dir, `hsm-bootstrap.${serial}.json`);
 }
 

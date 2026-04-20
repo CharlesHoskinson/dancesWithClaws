@@ -109,9 +109,6 @@ async function startHarness(store: ReturnType<typeof createStore>): Promise<Harn
   };
 }
 
-const ORIGINAL_HOME = process.env["HOME"];
-const ORIGINAL_USERPROFILE = process.env["USERPROFILE"];
-
 describe("openclaw hsm bootstrap", () => {
   let tempHome: string;
   let tempDir: string;
@@ -119,11 +116,12 @@ describe("openclaw hsm bootstrap", () => {
   beforeEach(() => {
     tempDir = mkdtempSync(join(tmpdir(), "hsm-bootstrap-"));
     tempHome = mkdtempSync(join(tmpdir(), "hsm-home-"));
-    // Both *nix and Windows code paths read homedir(); override both so the
-    // HALF_APPLIED marker writes into an isolated per-test dir instead of
-    // the developer's real home.
-    process.env["HOME"] = tempHome;
-    process.env["USERPROFILE"] = tempHome;
+    // Upstream's shared test setup enables `unstubEnvs: true` in vitest config,
+    // which auto-restores any `vi.stubEnv`-tracked vars between tests. Using
+    // stubEnv keeps our per-test home override within that tracked lifecycle
+    // and composes cleanly with the shared tempHome from setup.shared.ts.
+    vi.stubEnv("HOME", tempHome);
+    vi.stubEnv("USERPROFILE", tempHome);
     mocks.logs.length = 0;
     mocks.runtime.log.mockClear();
     mocks.runtime.writeJson.mockClear();
@@ -131,16 +129,7 @@ describe("openclaw hsm bootstrap", () => {
   });
 
   afterEach(() => {
-    if (ORIGINAL_HOME === undefined) {
-      delete process.env["HOME"];
-    } else {
-      process.env["HOME"] = ORIGINAL_HOME;
-    }
-    if (ORIGINAL_USERPROFILE === undefined) {
-      delete process.env["USERPROFILE"];
-    } else {
-      process.env["USERPROFILE"] = ORIGINAL_USERPROFILE;
-    }
+    vi.unstubAllEnvs();
   });
 
   it("rotates the factory admin, persists keys, applies blueprint, and diff converges", async () => {
