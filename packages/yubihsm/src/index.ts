@@ -20,3 +20,4 @@ export * from "./scp03/password-kdf.js";
 export * from "./blueprint/parse.js";
 export * from "./blueprint/reconcile.js";
 export * from "./blueprint/schema.js";
+export * from "./credential-resolver/index.js";

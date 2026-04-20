@@ -1,8 +1,13 @@
 import type { Command } from "commander";
 import {
   apply,
+  composeResolvers,
   createHttpTransport,
+  credentialManagerResolver,
   diff,
+  hexFlagResolver,
+  jsonFileResolver,
+  nullResolver,
   openSession,
   parseBlueprint,
   plan,
@@ -19,45 +24,46 @@ interface HsmSharedOptions {
   adminId?: string;
   adminEnc?: string;
   adminMac?: string;
+  credsFile?: string;
 }
 
 const DEFAULT_BLUEPRINT = "hsm-blueprint.yaml";
 const DEFAULT_CONNECTOR = "http://localhost:12345";
 
-function parseHex16(value: string, label: string): Uint8Array {
-  if (!/^[0-9a-fA-F]{32}$/.test(value)) {
-    throw new Error(`${label} must be 32 hex chars (16 bytes), got ${value.length}`);
-  }
-  const out = new Uint8Array(16);
-  for (let i = 0; i < 16; i++) {
-    out[i] = Number.parseInt(value.slice(i * 2, i * 2 + 2), 16);
-  }
-  return out;
-}
-
-function readAdminCreds(opts: HsmSharedOptions): {
+async function resolveAdminCreds(opts: HsmSharedOptions): Promise<{
   authKeyId: number;
   authEnc: Uint8Array;
   authMac: Uint8Array;
   preserveAuthKeyIds: number[];
-} {
+}> {
   const idStr = opts.adminId ?? process.env["HSM_ADMIN_ID"];
-  const encStr = opts.adminEnc ?? process.env["HSM_ADMIN_ENC_HEX"];
-  const macStr = opts.adminMac ?? process.env["HSM_ADMIN_MAC_HEX"];
-  if (!idStr || !encStr || !macStr) {
-    throw new Error(
-      "missing admin credentials: supply --admin-id / --admin-enc / --admin-mac " +
-        "or HSM_ADMIN_ID / HSM_ADMIN_ENC_HEX / HSM_ADMIN_MAC_HEX env vars",
-    );
+  if (!idStr) {
+    throw new Error("missing admin id: supply --admin-id or HSM_ADMIN_ID env var");
   }
   const authKeyId = Number.parseInt(idStr, 10);
   if (!Number.isInteger(authKeyId) || authKeyId < 1 || authKeyId > 0xfffe) {
     throw new Error(`admin id out of range: ${idStr}`);
   }
+
+  const encHex = opts.adminEnc ?? process.env["HSM_ADMIN_ENC_HEX"];
+  const macHex = opts.adminMac ?? process.env["HSM_ADMIN_MAC_HEX"];
+  const credsFile = opts.credsFile ?? process.env["HSM_CREDS_FILE"];
+
+  const chain = composeResolvers([
+    hexFlagResolver({ encHex, macHex, roleBinding: "admin" }),
+    credsFile ? jsonFileResolver(credsFile) : nullResolver,
+    credentialManagerResolver(),
+  ]);
+  const resolved = await chain.resolve("admin", authKeyId);
+  if (!resolved) {
+    // composeResolvers throws on all-null; this branch is defensive.
+    throw new Error("admin credential resolver returned no keys");
+  }
+
   return {
     authKeyId,
-    authEnc: parseHex16(encStr, "admin enc key"),
-    authMac: parseHex16(macStr, "admin mac key"),
+    authEnc: resolved.encKey,
+    authMac: resolved.macKey,
     preserveAuthKeyIds: [authKeyId],
   };
 }
@@ -67,7 +73,7 @@ async function withSession<T>(
   fn: (session: Scp03Session, preserveAuthKeyIds: number[]) => Promise<T>,
 ): Promise<T> {
   const url = opts.connector ?? process.env["HSM_CONNECTOR_URL"] ?? DEFAULT_CONNECTOR;
-  const creds = readAdminCreds(opts);
+  const creds = await resolveAdminCreds(opts);
   const transport = createHttpTransport({ url });
   try {
     const session = await openSession({
@@ -110,7 +116,11 @@ export function registerHsmCli(program: Command): void {
       .option("--connector <url>", "yubihsm-connector URL", DEFAULT_CONNECTOR)
       .option("--admin-id <id>", "Admin auth key id (u16)")
       .option("--admin-enc <hex>", "Admin SCP03 enc key (32 hex chars)")
-      .option("--admin-mac <hex>", "Admin SCP03 mac key (32 hex chars)");
+      .option("--admin-mac <hex>", "Admin SCP03 mac key (32 hex chars)")
+      .option(
+        "--creds-file <path>",
+        "JSON credential file (maps Credential Manager target names to { enc, mac } hex pairs)",
+      );
 
   addSharedOptions(hsm.command("plan"))
     .description("Show reconcile plan without mutating the device")

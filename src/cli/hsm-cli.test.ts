@@ -162,6 +162,44 @@ describe("openclaw hsm CLI", () => {
     }
   });
 
+  it("resolves admin creds from --creds-file when hex flags are absent", async () => {
+    const store = createStore();
+    seedBootstrap(store);
+    const sim = createSimulator(storeBackedHandler(store));
+    const port = await sim.start();
+    try {
+      const blueprintPath = writeBlueprint();
+      const credsDir = mkdtempSync(join(tmpdir(), "hsm-creds-"));
+      const credsPath = join(credsDir, "creds.json");
+      writeFileSync(
+        credsPath,
+        JSON.stringify({
+          "TeeVault-YubiHSM-Admin": { enc: ADMIN_ENC_HEX, mac: ADMIN_MAC_HEX },
+        }),
+      );
+      await createProgram().parseAsync([
+        "node",
+        "test",
+        "hsm",
+        "plan",
+        "--blueprint",
+        blueprintPath,
+        "--connector",
+        `http://127.0.0.1:${port}`,
+        "--admin-id",
+        "1",
+        "--creds-file",
+        credsPath,
+      ]);
+      expect(mocks.runtime.writeJson).toHaveBeenCalledTimes(1);
+      const arg = mocks.runtime.writeJson.mock.calls[0][0] as ReturnType<typeof JSON.parse>;
+      expect(arg.create).toHaveLength(1);
+      expect(arg.create[0].id).toBe(2);
+    } finally {
+      await sim.stop();
+    }
+  });
+
   it("diff exits 1 when drift is present", async () => {
     const store = createStore();
     seedBootstrap(store);
