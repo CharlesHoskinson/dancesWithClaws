@@ -1,0 +1,20 @@
+{
+  "name": "@dancesWithClaws/hsm-logan-e2e",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "tsx run.ts",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@dancesWithClaws/yubihsm": "workspace:*",
+    "@dancesWithClaws/yubihsm-sim": "workspace:*",
+    "undici": "^6.19.0"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0"
+  }
+}

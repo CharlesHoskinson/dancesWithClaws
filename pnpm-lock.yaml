@@ -609,6 +609,28 @@ importers:
         specifier: ^2.1.0
         version: 2.1.9(@types/node@25.1.0)(@vitest/browser@4.0.18(vite@7.3.1(@types/node@25.1.0)(jiti@2.6.1)(lightningcss@1.30.2)(tsx@4.21.0)(yaml@2.8.2))(vitest@4.0.18))(lightningcss@1.30.2)
 
+  tools/hsm-logan-e2e:
+    dependencies:
+      '@dancesWithClaws/yubihsm':
+        specifier: workspace:*
+        version: link:../../packages/yubihsm
+      '@dancesWithClaws/yubihsm-sim':
+        specifier: workspace:*
+        version: link:../../packages/yubihsm-sim
+      undici:
+        specifier: ^6.19.0
+        version: 6.25.0
+    devDependencies:
+      tsx:
+        specifier: ^4.19.0
+        version: 4.21.0
+      typescript:
+        specifier: ^5.6.0
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.0
+        version: 2.1.9(@types/node@25.1.0)(@vitest/browser@4.0.18(vite@7.3.1(@types/node@25.1.0)(jiti@2.6.1)(lightningcss@1.30.2)(tsx@4.21.0)(yaml@2.8.2))(vitest@4.0.18))(lightningcss@1.30.2)
+
   ui:
     dependencies:
       '@noble/ed25519':
