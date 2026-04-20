@@ -2,10 +2,16 @@
 
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import ts from "typescript";
+import {
+  collectTypeScriptFiles,
+  getPropertyNameText,
+  resolveRepoRoot,
+  runAsScript,
+  toLine,
+} from "./lib/ts-guard-utils.mjs";
 
-const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const repoRoot = resolveRepoRoot(import.meta.url);
 
 const acpCoreProtectedSources = [
   path.join(repoRoot, "src", "acp"),
@@ -17,6 +23,9 @@ const acpCoreProtectedSources = [
 const channelCoreProtectedSources = [
   path.join(repoRoot, "src", "channels", "thread-bindings-policy.ts"),
   path.join(repoRoot, "src", "channels", "thread-bindings-messages.ts"),
+  path.join(repoRoot, "src", "sessions", "send-policy.ts"),
+  path.join(repoRoot, "src", "sessions", "session-chat-type-shared.ts"),
+  path.join(repoRoot, "src", "utils", "delivery-context.ts"),
 ];
 const acpUserFacingTextSources = [
   path.join(repoRoot, "src", "auto-reply", "reply", "commands-acp"),
@@ -35,11 +44,18 @@ const channelIds = [
   "imessage",
   "irc",
   "line",
+  "mattermost",
   "matrix",
   "msteams",
+  "nextcloud-talk",
+  "nostr",
+  "qqbot",
   "signal",
   "slack",
+  "synology-chat",
   "telegram",
+  "tlon",
+  "twitch",
   "web",
   "whatsapp",
   "zalo",
@@ -56,50 +72,6 @@ const comparisonOperators = new Set([
 ]);
 
 const allowedViolations = new Set([]);
-
-function isTestLikeFile(filePath) {
-  return (
-    filePath.endsWith(".test.ts") ||
-    filePath.endsWith(".test-utils.ts") ||
-    filePath.endsWith(".test-harness.ts") ||
-    filePath.endsWith(".e2e-harness.ts")
-  );
-}
-
-async function collectTypeScriptFiles(targetPath) {
-  const stat = await fs.stat(targetPath);
-  if (stat.isFile()) {
-    if (!targetPath.endsWith(".ts") || isTestLikeFile(targetPath)) {
-      return [];
-    }
-    return [targetPath];
-  }
-
-  const entries = await fs.readdir(targetPath, { withFileTypes: true });
-  const files = [];
-  for (const entry of entries) {
-    const entryPath = path.join(targetPath, entry.name);
-    if (entry.isDirectory()) {
-      files.push(...(await collectTypeScriptFiles(entryPath)));
-      continue;
-    }
-    if (!entry.isFile()) {
-      continue;
-    }
-    if (!entryPath.endsWith(".ts")) {
-      continue;
-    }
-    if (isTestLikeFile(entryPath)) {
-      continue;
-    }
-    files.push(entryPath);
-  }
-  return files;
-}
-
-function toLine(sourceFile, node) {
-  return sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile)).line + 1;
-}
 
 function isChannelsPropertyAccess(node) {
   if (ts.isPropertyAccessExpression(node)) {
@@ -128,13 +100,6 @@ function isChannelLiteralNode(node) {
 
 function matchesChannelModuleSpecifier(specifier) {
   return channelSegmentRe.test(specifier.replaceAll("\\", "/"));
-}
-
-function getPropertyNameText(name) {
-  if (ts.isIdentifier(name) || ts.isStringLiteral(name) || ts.isNumericLiteral(name)) {
-    return name.text;
-  }
-  return null;
 }
 
 const userFacingChannelNameRe =
@@ -348,16 +313,12 @@ export async function main() {
   for (const ruleSet of boundaryRuleSets) {
     const files = (
       await Promise.all(
-        ruleSet.sources.map(async (sourcePath) => {
-          try {
-            return await collectTypeScriptFiles(sourcePath);
-          } catch (error) {
-            if (error && typeof error === "object" && "code" in error && error.code === "ENOENT") {
-              return [];
-            }
-            throw error;
-          }
-        }),
+        ruleSet.sources.map(
+          async (sourcePath) =>
+            await collectTypeScriptFiles(sourcePath, {
+              ignoreMissing: true,
+            }),
+        ),
       )
     ).flat();
     for (const filePath of files) {
@@ -389,17 +350,4 @@ export async function main() {
   process.exit(1);
 }
 
-const isDirectExecution = (() => {
-  const entry = process.argv[1];
-  if (!entry) {
-    return false;
-  }
-  return path.resolve(entry) === fileURLToPath(import.meta.url);
-})();
-
-if (isDirectExecution) {
-  main().catch((error) => {
-    console.error(error);
-    process.exit(1);
-  });
-}
+runAsScript(import.meta.url, main);

@@ -12,16 +12,22 @@ import {
   type SessionEntry,
   type SessionMaintenanceApplyReport,
 } from "../config/sessions.js";
-import type { RuntimeEnv } from "../runtime.js";
+import type { OpenClawConfig } from "../config/types.openclaw.js";
+import { type RuntimeEnv, writeRuntimeJson } from "../runtime.js";
 import { isRich, theme } from "../terminal/theme.js";
-import { resolveSessionStoreTargets, type SessionStoreTarget } from "./session-store-targets.js";
+import {
+  resolveSessionStoreTargetsOrExit,
+  type SessionStoreTarget,
+} from "./session-store-targets.js";
+import {
+  resolveSessionDisplayDefaults,
+  resolveSessionDisplayModel,
+} from "./sessions-display-model.js";
 import {
   formatSessionAgeCell,
   formatSessionFlagsCell,
   formatSessionKeyCell,
   formatSessionModelCell,
-  resolveSessionDisplayDefaults,
-  resolveSessionDisplayModel,
   SESSION_AGE_PAD,
   SESSION_KEY_PAD,
   SESSION_MODEL_PAD,
@@ -117,16 +123,17 @@ function buildActionRows(params: {
   cappedKeys: Set<string>;
   budgetEvictedKeys: Set<string>;
 }): SessionCleanupActionRow[] {
-  return toSessionDisplayRows(params.beforeStore).map((row) => ({
-    ...row,
-    action: resolveSessionCleanupAction({
-      key: row.key,
-      missingKeys: params.missingKeys,
-      staleKeys: params.staleKeys,
-      cappedKeys: params.cappedKeys,
-      budgetEvictedKeys: params.budgetEvictedKeys,
+  return toSessionDisplayRows(params.beforeStore).map((row) =>
+    Object.assign({}, row, {
+      action: resolveSessionCleanupAction({
+        key: row.key,
+        missingKeys: params.missingKeys,
+        staleKeys: params.staleKeys,
+        cappedKeys: params.cappedKeys,
+        budgetEvictedKeys: params.budgetEvictedKeys,
+      }),
     }),
-  }));
+  );
 }
 
 function pruneMissingTranscriptEntries(params: {
@@ -208,7 +215,8 @@ async function previewStoreCleanup(params: {
     missing > 0 ||
     pruned > 0 ||
     capped > 0 ||
-    Boolean((diskBudget?.removedEntries ?? 0) > 0 || (diskBudget?.removedFiles ?? 0) > 0);
+    (diskBudget?.removedEntries ?? 0) > 0 ||
+    (diskBudget?.removedFiles ?? 0) > 0;
 
   const summary: SessionCleanupSummary = {
     agentId: params.target.agentId,
@@ -237,7 +245,7 @@ async function previewStoreCleanup(params: {
 }
 
 function renderStoreDryRunPlan(params: {
-  cfg: ReturnType<typeof loadConfig>;
+  cfg: OpenClawConfig;
   summary: SessionCleanupSummary;
   actionRows: SessionCleanupActionRow[];
   displayDefaults: ReturnType<typeof resolveSessionDisplayDefaults>;
@@ -275,7 +283,7 @@ function renderStoreDryRunPlan(params: {
   ].join(" ");
   params.runtime.log(rich ? theme.heading(header) : header);
   for (const actionRow of params.actionRows) {
-    const model = resolveSessionDisplayModel(params.cfg, actionRow, params.displayDefaults);
+    const model = resolveSessionDisplayModel(params.cfg, actionRow);
     const line = [
       formatCleanupActionCell(actionRow.action, rich),
       formatSessionKeyCell(actionRow.key, rich),
@@ -291,16 +299,16 @@ export async function sessionsCleanupCommand(opts: SessionsCleanupOptions, runti
   const cfg = loadConfig();
   const displayDefaults = resolveSessionDisplayDefaults(cfg);
   const mode = opts.enforce ? "enforce" : resolveMaintenanceConfig().mode;
-  let targets: SessionStoreTarget[];
-  try {
-    targets = resolveSessionStoreTargets(cfg, {
+  const targets = resolveSessionStoreTargetsOrExit({
+    cfg,
+    opts: {
       store: opts.store,
       agent: opts.agent,
       allAgents: opts.allAgents,
-    });
-  } catch (error) {
-    runtime.error(error instanceof Error ? error.message : String(error));
-    runtime.exit(1);
+    },
+    runtime,
+  });
+  if (!targets) {
     return;
   }
 
@@ -322,21 +330,15 @@ export async function sessionsCleanupCommand(opts: SessionsCleanupOptions, runti
   if (opts.dryRun) {
     if (opts.json) {
       if (previewResults.length === 1) {
-        runtime.log(JSON.stringify(previewResults[0]?.summary ?? {}, null, 2));
+        writeRuntimeJson(runtime, previewResults[0]?.summary ?? {});
         return;
       }
-      runtime.log(
-        JSON.stringify(
-          {
-            allAgents: true,
-            mode,
-            dryRun: true,
-            stores: previewResults.map((result) => result.summary),
-          },
-          null,
-          2,
-        ),
-      );
+      writeRuntimeJson(runtime, {
+        allAgents: true,
+        mode,
+        dryRun: true,
+        stores: previewResults.map((result) => result.summary),
+      });
       return;
     }
 
@@ -421,10 +423,8 @@ export async function sessionsCleanupCommand(opts: SessionsCleanupOptions, runti
               missingApplied > 0 ||
               appliedReport.pruned > 0 ||
               appliedReport.capped > 0 ||
-              Boolean(
-                (appliedReport.diskBudget?.removedEntries ?? 0) > 0 ||
-                (appliedReport.diskBudget?.removedFiles ?? 0) > 0,
-              ),
+              (appliedReport.diskBudget?.removedEntries ?? 0) > 0 ||
+              (appliedReport.diskBudget?.removedFiles ?? 0) > 0,
             applied: true,
             appliedCount: Object.keys(afterStore).length,
           };
@@ -433,21 +433,15 @@ export async function sessionsCleanupCommand(opts: SessionsCleanupOptions, runti
 
   if (opts.json) {
     if (appliedSummaries.length === 1) {
-      runtime.log(JSON.stringify(appliedSummaries[0] ?? {}, null, 2));
+      writeRuntimeJson(runtime, appliedSummaries[0] ?? {});
       return;
     }
-    runtime.log(
-      JSON.stringify(
-        {
-          allAgents: true,
-          mode,
-          dryRun: false,
-          stores: appliedSummaries,
-        },
-        null,
-        2,
-      ),
-    );
+    writeRuntimeJson(runtime, {
+      allAgents: true,
+      mode,
+      dryRun: false,
+      stores: appliedSummaries,
+    });
     return;
   }
 

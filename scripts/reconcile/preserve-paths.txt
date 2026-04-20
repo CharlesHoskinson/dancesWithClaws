@@ -1,0 +1,17 @@
+packages/yubihsm/
+packages/yubihsm-sim/
+tools/hsm-logan-e2e/
+hsm-blueprint.yaml
+docs/security/BLUEPRINT.md
+docs/superpowers/specs/2026-04-19-yubihsm2-security-architecture-design.md
+docs/superpowers/specs/2026-04-20-upstream-reconcile-design.md
+docs/superpowers/plans/2026-04-19-plan-01-yubihsm-driver-and-simulator.md
+docs/superpowers/plans/2026-04-20-plan-02-hsm-loose-ends.md
+docs/superpowers/plans/2026-04-20-plan-02-hsm-loose-ends-design.md
+docs/superpowers/plans/2026-04-20-plan-03-upstream-reconcile.md
+.github/workflows/hsm-tests.yml
+src/cli/hsm-cli.ts
+src/cli/hsm-cli.test.ts
+src/cli/hsm-bootstrap.test.ts
+extensions/tee-vault/
+workspace/skills/moltbook-cardano/

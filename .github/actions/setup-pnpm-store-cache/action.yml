@@ -4,11 +4,19 @@ inputs:
   pnpm-version:
     description: pnpm version to activate via corepack.
     required: false
-    default: "10.23.0"
+    default: "10.32.1"
   cache-key-suffix:
     description: Suffix appended to the cache key.
     required: false
-    default: "node22"
+    default: "node24"
+  use-restore-keys:
+    description: Whether to use restore-keys fallback for actions/cache.
+    required: false
+    default: "true"
+  use-actions-cache:
+    description: Whether to restore/save pnpm store with actions/cache.
+    required: false
+    default: "true"
 runs:
   using: composite
   steps:
@@ -38,8 +46,16 @@ runs:
       shell: bash
       run: echo "path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
 
-    - name: Restore pnpm store cache
-      uses: actions/cache@v4
+    - name: Restore pnpm store cache (exact key only)
+      if: inputs.use-actions-cache == 'true' && inputs.use-restore-keys != 'true'
+      uses: actions/cache@v5
+      with:
+        path: ${{ steps.pnpm-store.outputs.path }}
+        key: ${{ runner.os }}-pnpm-store-${{ inputs.cache-key-suffix }}-${{ hashFiles('pnpm-lock.yaml') }}
+
+    - name: Restore pnpm store cache (with fallback keys)
+      if: inputs.use-actions-cache == 'true' && inputs.use-restore-keys == 'true'
+      uses: actions/cache@v5
       with:
         path: ${{ steps.pnpm-store.outputs.path }}
         key: ${{ runner.os }}-pnpm-store-${{ inputs.cache-key-suffix }}-${{ hashFiles('pnpm-lock.yaml') }}
