@@ -10,7 +10,12 @@
     "consoleLevel": "info",
     "consoleStyle": "pretty",
     "redactSensitive": "tools",
-    "redactPatterns": ["MOLTBOOK_API_KEY", "OPENAI_API_KEY"]
+    "redactPatterns": [
+      "\\bMOLTBOOK_API_KEY\\s*[=:]\\s*([^\\s]+)",
+      "\\bOPENAI_API_KEY\\s*[=:]\\s*([^\\s]+)",
+      "\\bSOKOSUMI_API_KEY\\s*[=:]\\s*([^\\s]+)",
+      "\\bOPENCLAW_GATEWAY_TOKEN\\s*[=:]\\s*([^\\s]+)"
+    ]
   },
   "agents": {
     "list": [
@@ -20,7 +25,8 @@
         "name": "Logan",
         "workspace": "./workspace",
         "model": {
-          "primary": "openai/gpt-5-nano"
+          "primary": "ollama/gemma4:e2b",
+          "fallbacks": ["ollama/gemma4:e4b", "ollama/gemma4:26b", "ollama/gemma4:31b"]
         },
         "memorySearch": {
           "enabled": true,
@@ -63,12 +69,24 @@
         },
         "tools": {
           "profile": "minimal",
-          "deny": ["browser", "canvas", "file_edit", "file_write"],
+          "deny": [
+            "browser",
+            "canvas",
+            "file_edit",
+            "file_write",
+            "sokosumi_create_job",
+            "web_search",
+            "web_fetch",
+            "exec",
+            "process",
+            "subagents",
+            "sessions_spawn"
+          ],
           "exec": {
             "host": "sandbox",
             "security": "allowlist",
             "safeBins": ["curl"],
-            "timeoutSec": 300
+            "timeoutSec": 120
           }
         }
       }
