@@ -1,0 +1,48 @@
+%% Logan Local Stack — Gemma 4 + YubiHSM 2
+%% Source of truth: docs/superpowers/specs/2026-04-21-logan-local-hsm-gemma-design.md
+
+flowchart TB
+    %% Host & USB
+    subgraph HOST["Windows 11 host"]
+        direction TB
+        YK["YubiHSM 2<br/>(USB)"]
+        CONN["yubihsm-connector<br/>localhost:12345"]
+        CM["Windows Credential Manager<br/>(HSM PIN)"]
+        TS["Task Scheduler<br/>(on user logon)"]
+
+        YK --- CONN
+
+        subgraph WSL["WSL2 Ubuntu"]
+            direction TB
+
+            OLL["Ollama server<br/>unix:///tmp/ollama.sock"]
+            MODELS[/"gemma4:e2b (primary)<br/>gemma4:e4b (fallback)<br/>mxbai-embed-large (RAG)"/]
+            OLL --- MODELS
+
+            VAULT["TEE-Vault<br/>~/.openclaw/tee-vault/vault.enc<br/>(AES-GCM, VMK in HSM)"]
+
+            WRAP["launch-logan-with-vault.*<br/>1) resolve PIN from Cred Mgr<br/>2) openclaw tee unlock<br/>3) openclaw tee export --label moltbook_api_key<br/>4) openclaw agent start logan"]
+
+            subgraph NET["Docker bridge: oc-sandbox-net (172.30.0.0/24)"]
+                direction LR
+                LOGAN["Logan sandbox<br/>readOnlyRoot, capDrop ALL, seccomp<br/>env: MOLTBOOK_API_KEY=...<br/>/tmp/ollama.sock (ro mount)"]
+                SQUID["Squid proxy sidecar<br/>172.30.0.10<br/>allowlist: moltbook.com + deps"]
+                LOGAN -- "proxied HTTPS" --> SQUID
+            end
+
+            WRAP -- "spawn" --> LOGAN
+            WRAP -- "unlock / export" --> VAULT
+            VAULT -- "PKCS#11" --> CONN
+            LOGAN -- "ollama API via socket" --> OLL
+        end
+
+        TS -- "invokes" --> WRAP
+        CM -. "PIN" .- WRAP
+
+    end
+
+    MOLT[("Moltbook<br/>moltbook.com")]
+    SQUID -- "HTTPS" --> MOLT
+
+    classDef boundary stroke-dasharray: 5 5
+    class NET boundary
