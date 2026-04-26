@@ -18,7 +18,7 @@ ARG OPENCLAW_VARIANT=default
 # To update, run: docker manifest inspect node:22-bookworm (or podman)
 # and replace the digest below with the current amd64 entry.
 
-FROM node:22-bookworm@sha256:6d735b4d33660225271fda0a412802746658c3a1b975507b2803ed299609760a AS ext-deps
+FROM node:22-bookworm@sha256:9059d9d7db987b86299e052ff6630cd95e5a770336967c21110e53289a877433 AS ext-deps
 ARG OPENCLAW_EXTENSIONS
 COPY extensions /tmp/extensions
 # Copy package.json for opted-in extensions so pnpm resolves their deps.
@@ -31,7 +31,7 @@ RUN mkdir -p /out && \
     done
 
 # ── Stage 2: Build ──────────────────────────────────────────────
-FROM node:22-bookworm@sha256:6d735b4d33660225271fda0a412802746658c3a1b975507b2803ed299609760a AS build
+FROM node:22-bookworm@sha256:9059d9d7db987b86299e052ff6630cd95e5a770336967c21110e53289a877433 AS build
 
 # Install Bun (required for build scripts)
 RUN curl -fsSL https://bun.sh/install | bash
@@ -69,11 +69,11 @@ ENV OPENCLAW_PREFER_PNPM=1
 RUN pnpm ui:build
 
 # ── Runtime base images ─────────────────────────────────────────
-FROM node:22-bookworm@sha256:6d735b4d33660225271fda0a412802746658c3a1b975507b2803ed299609760a AS base-default
+FROM node:22-bookworm@sha256:9059d9d7db987b86299e052ff6630cd95e5a770336967c21110e53289a877433 AS base-default
 LABEL org.opencontainers.image.base.name="docker.io/library/node:22-bookworm" \
   org.opencontainers.image.base.digest="sha256:6d735b4d33660225271fda0a412802746658c3a1b975507b2803ed299609760a"
 
-FROM node:22-bookworm-slim@sha256:b41c15b715b5d6e3f305e9c6480a2396dd5f130b63add98d3d45760376f20823 AS base-slim
+FROM node:22-bookworm-slim@sha256:d415caac2f1f77b98caaf9415c5f807e14bc8d7bdea62561ea2fef4fbd08a73c AS base-slim
 LABEL org.opencontainers.image.base.name="docker.io/library/node:22-bookworm-slim" \
   org.opencontainers.image.base.digest="sha256:b41c15b715b5d6e3f305e9c6480a2396dd5f130b63add98d3d45760376f20823"
 
