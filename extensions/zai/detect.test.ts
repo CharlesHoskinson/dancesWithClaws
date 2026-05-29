@@ -124,7 +124,7 @@ describe("detectZaiEndpoint", () => {
   it("caps oversized probe timeouts before scheduling", async () => {
     const timeoutSpy = vi
       .spyOn(globalThis, "setTimeout")
-      .mockImplementation((() => 1) as typeof setTimeout);
+      .mockReturnValue(1 as unknown as ReturnType<typeof setTimeout>);
     vi.spyOn(globalThis, "clearTimeout").mockImplementation(() => undefined);
     const fetchFn = makeFetch({
       "https://api.z.ai/api/paas/v4/chat/completions::glm-5.1": { status: 200 },

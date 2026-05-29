@@ -97,7 +97,7 @@ describe("Zalo API request methods", () => {
   it("caps oversized sendChatAction timeouts before scheduling the timer", async () => {
     const setTimeoutMock = vi
       .spyOn(globalThis, "setTimeout")
-      .mockImplementation((() => 1) as typeof setTimeout);
+      .mockReturnValue(1 as unknown as ReturnType<typeof setTimeout>);
     const clearTimeoutMock = vi
       .spyOn(globalThis, "clearTimeout")
       .mockImplementation(() => undefined);
