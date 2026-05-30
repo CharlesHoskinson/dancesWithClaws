@@ -1,5 +1,5 @@
-import { MAX_TIMER_TIMEOUT_MS } from "openclaw/plugin-sdk/number-runtime";
 import { describe, expect, it } from "vitest";
+import { MAX_SAFE_TIMEOUT_DELAY_MS } from "../timer-delay.js";
 import { normalizeActRequest } from "./agent.act.normalize.js";
 
 describe("normalizeActRequest numeric fields", () => {
@@ -43,7 +43,7 @@ describe("normalizeActRequest numeric fields", () => {
     ).toMatchObject({
       kind: "wait",
       text: "ready",
-      timeoutMs: MAX_TIMER_TIMEOUT_MS,
+      timeoutMs: MAX_SAFE_TIMEOUT_DELAY_MS,
     });
   });
 

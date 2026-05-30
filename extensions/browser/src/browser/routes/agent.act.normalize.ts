@@ -1,4 +1,3 @@
-import { resolveTimerTimeoutMs } from "openclaw/plugin-sdk/number-runtime";
 import {
   ACT_MAX_BATCH_ACTIONS,
   ACT_MAX_CLICK_DELAY_MS,
@@ -18,6 +17,7 @@ import {
   readRouteInteger,
   readRouteNonNegativeInteger,
   readRoutePositiveInteger,
+  readRouteTimerTimeoutMs,
 } from "./route-numeric.js";
 import { toBoolean, toNumber, toStringArray, toStringOrEmpty } from "./utils.js";
 
@@ -89,8 +89,7 @@ function readActionNonNegativeInteger(
 }
 
 function readActionTimeoutMs(body: Record<string, unknown>): number | undefined {
-  const timeoutMs = readActionPositiveInteger(body, "timeoutMs");
-  return timeoutMs === undefined ? undefined : resolveTimerTimeoutMs(timeoutMs, 1);
+  return readRouteTimerTimeoutMs(body.timeoutMs);
 }
 
 function readBoundedActionDurationMs(
