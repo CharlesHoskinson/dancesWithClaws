@@ -2647,6 +2647,23 @@ output="$(cat "$sampler_log")"
     expect(scenario).not.toMatch(/^\s*if ! timeout "\$command_timeout"/mu);
   });
 
+  it("bounds doctor install switch command log diagnostics", () => {
+    const scenario = readFileSync(DOCTOR_SWITCH_SCENARIO_PATH, "utf8");
+
+    expect(scenario).toContain('openclaw_e2e_print_log "$npm_log"');
+    expect(scenario).toContain('openclaw_e2e_print_log "$install_log"');
+    expect(scenario).toContain('openclaw_e2e_print_log "$doctor_log"');
+    expect(scenario).toContain('openclaw_e2e_print_log "$reinstall_log"');
+    expect(scenario).toContain('openclaw_e2e_print_log "$env_repair_log"');
+    expect(scenario).toContain('openclaw_e2e_print_log "$clear_log"');
+    expect(scenario).not.toContain('cat "$npm_log"');
+    expect(scenario).not.toContain('cat "$install_log"');
+    expect(scenario).not.toContain('cat "$doctor_log"');
+    expect(scenario).not.toContain('cat "$reinstall_log"');
+    expect(scenario).not.toContain('cat "$env_repair_log"');
+    expect(scenario).not.toContain('cat "$clear_log"');
+  });
+
   it("prepares pnpm workspace package fixtures without package dependencies", () => {
     const root = mkdtempSync(join(tmpdir(), "openclaw-update-channel-fixture-"));
     try {
