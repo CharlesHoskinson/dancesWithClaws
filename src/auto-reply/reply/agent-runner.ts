@@ -1688,6 +1688,7 @@ export async function runReplyAgent(params: {
       fallbackAttempts,
       directlySentBlockKeys,
       directlySentBlockTextFragments,
+      directlySentBlockMediaUrls,
     } = runOutcome;
     const { autoCompactionCount } = runOutcome;
     let { didLogHeartbeatStrip } = runOutcome;
@@ -1961,6 +1962,7 @@ export async function runReplyAgent(params: {
       blockReplyPipeline,
       directlySentBlockKeys,
       directlySentBlockTextFragments,
+      directlySentBlockMediaUrls,
       replyToMode,
       replyToChannel,
       currentMessageId,

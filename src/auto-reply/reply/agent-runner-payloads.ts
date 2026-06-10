@@ -169,6 +169,8 @@ export async function buildReplyPayloads(params: {
   directlySentBlockKeys?: Set<string>;
   /** Ordered text fragments successfully sent directly during tool flush. */
   directlySentBlockTextFragments?: string[];
+  /** Media URLs successfully sent directly during tool flush. */
+  directlySentBlockMediaUrls?: string[];
   replyToMode: ReplyToMode;
   replyToChannel?: OriginatingChannelType;
   currentMessageId?: string;
@@ -423,12 +425,15 @@ export async function buildReplyPayloads(params: {
             return unsent;
           })()
         : dedupedPayloads;
-  const blockSentMediaUrls = params.blockStreamingEnabled
-    ? await normalizeSentMediaUrlsForDedupe({
-        sentMediaUrls: params.blockReplyPipeline?.getSentMediaUrls() ?? [],
-        normalizeMediaPaths: params.normalizeMediaPaths,
-      })
-    : [];
+  const blockSentMediaUrls = await normalizeSentMediaUrlsForDedupe({
+    sentMediaUrls: [
+      ...(params.blockStreamingEnabled
+        ? (params.blockReplyPipeline?.getSentMediaUrls() ?? [])
+        : []),
+      ...(params.directlySentBlockMediaUrls ?? []),
+    ],
+    normalizeMediaPaths: params.normalizeMediaPaths,
+  });
   const filteredPayloads =
     blockSentMediaUrls.length > 0
       ? (
