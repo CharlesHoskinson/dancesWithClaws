@@ -2118,6 +2118,7 @@ async function runEmbeddedAgentInternal(
             onToolStreamBoundary: maybeAnnounceFastModeAutoOff,
             onRunProgress: notifyRunProgress,
             fastMode: attemptFastMode,
+            fastModeAuto: params.fastMode === "auto",
             ...(params.fastMode === "auto"
               ? {
                   fastModeStartedAtMs: fastModeStarted,

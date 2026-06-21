@@ -102,6 +102,8 @@ export type EmbeddedRunAttemptParams = EmbeddedRunAttemptBase & {
   modelRegistry: ModelRegistry;
   thinkLevel: ThinkLevel;
   fastMode?: EmbeddedRunFastModeParam;
+  /** True when this attempt is running the auto fast-mode policy. */
+  fastModeAuto?: boolean;
   beforeAgentStartResult?: PluginHookBeforeAgentStartResult;
   beforeAgentFinalizeRevisionAttempts?: number;
   maxBeforeAgentFinalizeRevisions?: number;

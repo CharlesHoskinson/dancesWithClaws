@@ -1818,7 +1818,7 @@ export async function runCodexAppServerAttempt(
   };
   const maybeAnnounceFastModeAutoOff = async (): Promise<void> => {
     if (
-      params.fastMode !== "auto" ||
+      params.fastModeAuto !== true ||
       fastModeAutoStartedAtMs === undefined ||
       fastModeAutoProgressState.offAnnounced
     ) {
