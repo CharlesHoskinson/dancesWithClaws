@@ -30,7 +30,7 @@ jobs:
           configuration-path: .github/labeler.yml
           sync-labels: true
       - name: Apply PR size label
-        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         with:
           script: |
             const pullRequest = context.payload.pull_request;
@@ -118,7 +118,7 @@ jobs:
               labels: [targetSizeLabel],
             });
       - name: Apply maintainer or trusted-contributor label
-        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         with:
           script: |
             const login = context.payload.pull_request?.user?.login;
@@ -188,7 +188,7 @@ jobs:
             //   });
             // }
       - name: Apply too-many-prs label
-        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         with:
           github-token: ${{ steps.app-token.outputs.token || steps.app-token-fallback.outputs.token }}
           script: |
@@ -341,7 +341,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Backfill PR labels
-        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         with:
           script: |
             const owner = context.repo.owner;
@@ -576,7 +576,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Apply maintainer or trusted-contributor label
-        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         with:
           script: |
             const login = context.payload.issue?.user?.login;
