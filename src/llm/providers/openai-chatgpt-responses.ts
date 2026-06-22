@@ -6,6 +6,7 @@ import type {
   ResponseInput,
   ResponseStreamEvent,
 } from "openai/resources/responses/responses.js";
+import { toErrorObject } from "../../infra/errors.js";
 
 // NEVER convert to top-level runtime imports - breaks browser/Vite builds
 let os: typeof NodeOs | null = null;
@@ -1325,7 +1326,7 @@ async function* parseWebSocket(
     }
 
     if (failed) {
-      throw toLintErrorObject(failed, "Non-Error thrown");
+      throw toErrorObject(failed, "Non-Error thrown");
     }
     if (!sawCompletion) {
       throw new Error("WebSocket stream closed before response.completed");
@@ -1638,18 +1639,4 @@ function buildWebSocketHeaders(
   headers.set("x-client-request-id", requestId);
   headers.set("session_id", requestId);
   return headers;
-}
-
-function toLintErrorObject(value: unknown, fallbackMessage: string): Error {
-  if (value instanceof Error) {
-    return value;
-  }
-  if (typeof value === "string") {
-    return new Error(value);
-  }
-  const error = new Error(fallbackMessage, { cause: value });
-  if ((typeof value === "object" && value !== null) || typeof value === "function") {
-    Object.assign(error, value);
-  }
-  return error;
 }
