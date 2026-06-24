@@ -240,7 +240,11 @@ flow:
             message:
               expr: "lastError instanceof Error ? formatErrorMessage(lastError) : String(lastError ?? 'fanout retry exhausted')"
         - if:
-            expr: "Boolean(env.mock)"
+            # Codex completes child sessions through its app-server path but
+            # does not relay the child marker back onto the parent QA channel.
+            # The shared assertions above already prove both child tool calls
+            # and child session rows; keep this transport-only proof OpenClaw-specific.
+            expr: "Boolean(env.mock) && env.gateway.runtimeEnv.OPENCLAW_QA_FORCE_RUNTIME !== 'codex'"
             then:
               - forEach:
                   items:
