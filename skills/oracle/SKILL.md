@@ -1,25 +1,21 @@
 ---
 name: oracle
-description: Best practices for using the oracle CLI (prompt + file bundling, engines, sessions, and file attachment patterns).
+description: Best practices for using the oracle CLI (prompt + file bundling, engines,
+  sessions, and file attachment patterns).
 homepage: https://askoracle.dev
 metadata:
-  {
-    "openclaw":
-      {
-        "emoji": "🧿",
-        "requires": { "bins": ["oracle"] },
-        "install":
-          [
-            {
-              "id": "node",
-              "kind": "node",
-              "package": "@steipete/oracle",
-              "bins": ["oracle"],
-              "label": "Install oracle (node)",
-            },
-          ],
-      },
-  }
+  openclaw:
+    emoji: 🧿
+    requires:
+      bins:
+        - oracle
+    install:
+      - id: node
+        kind: node
+        package: "@steipete/oracle"
+        bins:
+          - oracle
+        label: Install oracle (node)
 ---
 
 # oracle — best use
@@ -33,7 +29,7 @@ Default workflow here: `--engine browser` with GPT‑5.2 Pro in ChatGPT. This is
 Recommended defaults:
 
 - Engine: browser (`--engine browser`)
-- Model: GPT‑5.2 Pro (`--model gpt-5.2-pro` or `--model "5.2 Pro"`)
+- Model: GPT‑5.2 Pro (`--model gpt-5.4-pro` or `--model "5.2 Pro"`)
 
 ## Golden path
 
@@ -56,7 +52,7 @@ Recommended defaults:
   - `oracle --dry-run summary --files-report -p "<task>" --file "src/**"`
 
 - Browser run (main path; long-running is normal):
-  - `oracle --engine browser --model gpt-5.2-pro -p "<task>" --file "src/**"`
+  - `oracle --engine browser --model gpt-5.4-pro -p "<task>" --file "src/**"`
 
 - Manual paste fallback:
   - `oracle --render --copy -p "<task>" --file "src/**"`
