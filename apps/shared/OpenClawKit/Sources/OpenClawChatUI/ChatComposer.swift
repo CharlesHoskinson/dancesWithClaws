@@ -88,7 +88,6 @@ struct OpenClawChatComposer: View {
     let messagePlaceholder: String?
     let talkControl: OpenClawChatTalkControl?
     let voiceNoteControl: OpenClawChatVoiceNoteControl?
-    @State private var stagingVoiceNoteURL: URL?
 
     #if !os(macOS)
     @State private var pickerItems: [PhotosPickerItem] = []
@@ -174,13 +173,21 @@ struct OpenClawChatComposer: View {
                     guard recording != nil else { return }
                     self.stageCompletedVoiceNoteIfNeeded()
                 }
+                .onChange(of: self.voiceNoteControl?.recorder.ownsPendingChatAttachment) { _, _ in
+                    self.viewModel.attachmentOwnerActivityChanged()
+                }
                 .onChange(of: self.voiceNoteControl?.recorder.errorMessage) { _, message in
                     if let message {
                         self.viewModel.errorText = message
                     }
                 }
                 .onAppear {
+                    self.viewModel.attachmentOwnerActivityChanged()
                     self.stageCompletedVoiceNoteIfNeeded()
+                }
+                .onDisappear {
+                    self.cancelActiveVoiceNoteIfNeeded()
+                    self.viewModel.attachmentOwnerActivityChanged()
                 }
     }
 
@@ -1079,29 +1086,32 @@ struct OpenClawChatComposer: View {
 
     private var canSendMessage: Bool {
         self.isComposerEnabled
-            && self.voiceNoteControl?.recorder.completedRecording == nil
+            && self.voiceNoteControl?.recorder.ownsPendingChatAttachment != true
             && self.viewModel.canSend
             && (self.isAttachmentInputEnabled || self.viewModel.attachments.isEmpty)
     }
 
     private func stageCompletedVoiceNoteIfNeeded() {
         guard let recorder = self.voiceNoteControl?.recorder,
-              let recording = recorder.completedRecording,
-              self.stagingVoiceNoteURL != recording.fileURL
+              let recording = recorder.claimCompletedRecording()
         else { return }
 
-        self.stagingVoiceNoteURL = recording.fileURL
+        let viewModel = self.viewModel
         Task {
-            await self.viewModel.addVoiceNoteAttachment(
+            await viewModel.addVoiceNoteAttachment(
                 fileURL: recording.fileURL,
                 durationSeconds: recording.durationSeconds)
-            if recorder.completedRecording == recording {
-                recorder.clearCompletedRecording()
-            }
-            if self.stagingVoiceNoteURL == recording.fileURL {
-                self.stagingVoiceNoteURL = nil
-            }
+            recorder.completeStaging(recording)
         }
+    }
+
+    private func cancelActiveVoiceNoteIfNeeded() {
+        guard let recorder = self.voiceNoteControl?.recorder,
+              recorder.isRecording || recorder.isRequestingPermission
+        else { return }
+        // The app-owned recorder outlives this view. Release the microphone
+        // when its only recording UI disappears so capture never runs hidden.
+        recorder.cancel()
     }
 
     private var connectionStatusText: String {
