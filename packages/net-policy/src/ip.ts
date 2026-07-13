@@ -17,7 +17,9 @@ function normalizeLowercaseStringOrEmpty(value: unknown): string {
 export type ParsedIpAddress = ipaddr.IPv4 | ipaddr.IPv6;
 type Ipv4Range = ReturnType<ipaddr.IPv4["range"]>;
 type Ipv6Range = ReturnType<ipaddr.IPv6["range"]>;
-type BlockedIpv6Range = Ipv6Range | "discard";
+// ipaddr.js returns these at runtime for special-use ranges; published IPv6Range
+// unions lag (same reason "discard" was already extended for 100::/64).
+type BlockedIpv6Range = Ipv6Range | "discard" | "benchmarking" | "orchid2";
 type Ipv6Hextets = readonly [number, number, number, number, number, number, number, number];
 
 // ipaddr.js guarantees 8 hextets; throw loudly on an impossible shape instead of
@@ -338,13 +340,37 @@ export function isPrivateOrLoopbackIpAddress(raw: string | undefined): boolean {
   return isBlockedSpecialUseIpv6Address(normalized);
 }
 
+/**
+ * Prefix-based blocks for IPv6 special-use ranges that some ipaddr.js versions
+ * still label as plain "unicast" (range() labels drift across releases).
+ */
+function isBlockedIpv6ByPrefix(address: ipaddr.IPv6): boolean {
+  const [h0, h1, h2, h3] = expectIpv6Hextets(address.parts);
+  // Deprecated site-local fec0::/10 (ipaddr.js never treated as private).
+  if ((h0 & 0xffc0) === 0xfec0) {
+    return true;
+  }
+  // Discard-Only Address Block 100::/64 (RFC 6666).
+  if (h0 === 0x0100 && h1 === 0 && h2 === 0 && h3 === 0) {
+    return true;
+  }
+  // Network Interconnect Device Benchmark 2001:2::/48 (RFC 5180 / errata).
+  if (h0 === 0x2001 && h1 === 0x0002 && h2 === 0) {
+    return true;
+  }
+  // ORCHIDv2 2001:20::/28 (RFC 7343): second hextet 0x0020–0x002f.
+  if (h0 === 0x2001 && (h1 & 0xfff0) === 0x0020) {
+    return true;
+  }
+  return false;
+}
+
 /** Applies the SSRF block policy for parsed IPv6 special-use ranges. */
 export function isBlockedSpecialUseIpv6Address(
   address: ipaddr.IPv6,
   options: Ipv6SpecialUseBlockOptions = {},
 ): boolean {
-  // ipaddr.js returns "discard" at runtime for 100::/64, but its published
-  // TypeScript IPv6Range union omits that literal.
+  // Cast: published IPv6Range unions lag runtime labels (discard/benchmarking/orchid2).
   const range = address.range() as BlockedIpv6Range;
   if (range === "uniqueLocal" && options.allowUniqueLocalRange === true) {
     // Operators running fake-ip proxy stacks (sing-box, Clash, Surge) opt in
@@ -355,9 +381,7 @@ export function isBlockedSpecialUseIpv6Address(
   if (BLOCKED_IPV6_SPECIAL_USE_RANGES.has(range)) {
     return true;
   }
-  // ipaddr.js does not classify deprecated site-local fec0::/10 as private.
-  const [firstPart] = expectIpv6Hextets(address.parts);
-  return (firstPart & 0xffc0) === 0xfec0;
+  return isBlockedIpv6ByPrefix(address);
 }
 
 /** True for canonical IPv4 literals in RFC 1918 private ranges. */
