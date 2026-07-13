@@ -8,7 +8,7 @@ verdict: approve-with-conditions (all four)
 
 # Council Review — Logan Local Stack
 
-Four independent reviewers read the [unified design](../specs/2026-04-21-logan-local-hsm-gemma-design.md) and four [research artifacts](../research/). Summary verdicts:
+Four independent reviewers read the [unified design](../specs/2026-04-21-logan-local-hsm-gemma-design.md) and four research artifacts ([embeddings](../research/2026-04-21-embeddings.md), [sandbox network](../research/2026-04-21-sandbox-network.md), [HSM](../research/2026-04-21-hsm-workflow.md), [fallback](../research/2026-04-21-fallback-strategy.md)). Summary verdicts:
 
 | Lens         | Verdict                                                     | High | Med | Low |
 | ------------ | ----------------------------------------------------------- | ---- | --- | --- |
