@@ -1,160 +1,40 @@
 /**
- * OneDrive/SharePoint upload utilities for MS Teams file sending.
+ * SharePoint upload utilities for MS Teams file sending.
  *
  * For group chats and channels, files are uploaded to SharePoint and shared via a link.
  * This module provides utilities for:
- * - Uploading files to OneDrive (personal scope - now deprecated for bot use)
  * - Uploading files to SharePoint (group/channel scope)
  * - Creating sharing links (organization-wide or per-user)
  * - Getting chat members for per-user sharing
  */
 
+import { readProviderJsonResponse } from "openclaw/plugin-sdk/provider-http";
 import type { MSTeamsAccessTokenProvider } from "./attachments/types.js";
+import { createMSTeamsHttpError } from "./http-error.js";
+import { buildUserAgent } from "./user-agent.js";
 
 const GRAPH_ROOT = "https://graph.microsoft.com/v1.0";
 const GRAPH_BETA = "https://graph.microsoft.com/beta";
 const GRAPH_SCOPE = "https://graph.microsoft.com";
 
-export interface OneDriveUploadResult {
+export function requireMSTeamsSharePointSiteId(siteId?: string): string {
+  const normalized = siteId?.trim();
+  if (!normalized) {
+    throw new Error(
+      "channels.msteams.sharePointSiteId is required to send files to group chats or channels",
+    );
+  }
+  return normalized;
+}
+
+interface DriveUploadResult {
   id: string;
   webUrl: string;
   name: string;
 }
 
-/**
- * Upload a file to the user's OneDrive root folder.
- * For larger files, this uses the simple upload endpoint (up to 4MB).
- */
-export async function uploadToOneDrive(params: {
-  buffer: Buffer;
-  filename: string;
-  contentType?: string;
-  tokenProvider: MSTeamsAccessTokenProvider;
-  fetchFn?: typeof fetch;
-}): Promise<OneDriveUploadResult> {
-  const fetchFn = params.fetchFn ?? fetch;
-  const token = await params.tokenProvider.getAccessToken(GRAPH_SCOPE);
-
-  // Use "OpenClawShared" folder to organize bot-uploaded files
-  const uploadPath = `/OpenClawShared/${encodeURIComponent(params.filename)}`;
-
-  const res = await fetchFn(`${GRAPH_ROOT}/me/drive/root:${uploadPath}:/content`, {
-    method: "PUT",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": params.contentType ?? "application/octet-stream",
-    },
-    body: new Uint8Array(params.buffer),
-  });
-
-  if (!res.ok) {
-    const body = await res.text().catch(() => "");
-    throw new Error(`OneDrive upload failed: ${res.status} ${res.statusText} - ${body}`);
-  }
-
-  const data = (await res.json()) as {
-    id?: string;
-    webUrl?: string;
-    name?: string;
-  };
-
-  if (!data.id || !data.webUrl || !data.name) {
-    throw new Error("OneDrive upload response missing required fields");
-  }
-
-  return {
-    id: data.id,
-    webUrl: data.webUrl,
-    name: data.name,
-  };
-}
-
-export interface OneDriveSharingLink {
+interface SharingLinkResult {
   webUrl: string;
-}
-
-/**
- * Create a sharing link for a OneDrive file.
- * The link allows organization members to view the file.
- */
-export async function createSharingLink(params: {
-  itemId: string;
-  tokenProvider: MSTeamsAccessTokenProvider;
-  /** Sharing scope: "organization" (default) or "anonymous" */
-  scope?: "organization" | "anonymous";
-  fetchFn?: typeof fetch;
-}): Promise<OneDriveSharingLink> {
-  const fetchFn = params.fetchFn ?? fetch;
-  const token = await params.tokenProvider.getAccessToken(GRAPH_SCOPE);
-
-  const res = await fetchFn(`${GRAPH_ROOT}/me/drive/items/${params.itemId}/createLink`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      type: "view",
-      scope: params.scope ?? "organization",
-    }),
-  });
-
-  if (!res.ok) {
-    const body = await res.text().catch(() => "");
-    throw new Error(`Create sharing link failed: ${res.status} ${res.statusText} - ${body}`);
-  }
-
-  const data = (await res.json()) as {
-    link?: { webUrl?: string };
-  };
-
-  if (!data.link?.webUrl) {
-    throw new Error("Create sharing link response missing webUrl");
-  }
-
-  return {
-    webUrl: data.link.webUrl,
-  };
-}
-
-/**
- * Upload a file to OneDrive and create a sharing link.
- * Convenience function for the common case.
- */
-export async function uploadAndShareOneDrive(params: {
-  buffer: Buffer;
-  filename: string;
-  contentType?: string;
-  tokenProvider: MSTeamsAccessTokenProvider;
-  scope?: "organization" | "anonymous";
-  fetchFn?: typeof fetch;
-}): Promise<{
-  itemId: string;
-  webUrl: string;
-  shareUrl: string;
-  name: string;
-}> {
-  const uploaded = await uploadToOneDrive({
-    buffer: params.buffer,
-    filename: params.filename,
-    contentType: params.contentType,
-    tokenProvider: params.tokenProvider,
-    fetchFn: params.fetchFn,
-  });
-
-  const shareLink = await createSharingLink({
-    itemId: uploaded.id,
-    tokenProvider: params.tokenProvider,
-    scope: params.scope,
-    fetchFn: params.fetchFn,
-  });
-
-  return {
-    itemId: uploaded.id,
-    webUrl: uploaded.webUrl,
-    shareUrl: shareLink.webUrl,
-    name: uploaded.name,
-  };
 }
 
 // ============================================================================
@@ -174,7 +54,7 @@ export async function uploadToSharePoint(params: {
   tokenProvider: MSTeamsAccessTokenProvider;
   siteId: string;
   fetchFn?: typeof fetch;
-}): Promise<OneDriveUploadResult> {
+}): Promise<DriveUploadResult> {
   const fetchFn = params.fetchFn ?? fetch;
   const token = await params.tokenProvider.getAccessToken(GRAPH_SCOPE);
 
@@ -186,6 +66,7 @@ export async function uploadToSharePoint(params: {
     {
       method: "PUT",
       headers: {
+        "User-Agent": buildUserAgent(),
         Authorization: `Bearer ${token}`,
         "Content-Type": params.contentType ?? "application/octet-stream",
       },
@@ -194,15 +75,14 @@ export async function uploadToSharePoint(params: {
   );
 
   if (!res.ok) {
-    const body = await res.text().catch(() => "");
-    throw new Error(`SharePoint upload failed: ${res.status} ${res.statusText} - ${body}`);
+    throw await createMSTeamsHttpError(res, "SharePoint upload failed");
   }
 
-  const data = (await res.json()) as {
+  const data = await readProviderJsonResponse<{
     id?: string;
     webUrl?: string;
     name?: string;
-  };
+  }>(res, "msteams.graph-upload.uploadSharePointFile");
 
   if (!data.id || !data.webUrl || !data.name) {
     throw new Error("SharePoint upload response missing required fields");
@@ -215,9 +95,8 @@ export async function uploadToSharePoint(params: {
   };
 }
 
-export interface ChatMember {
+interface ChatMember {
   aadObjectId: string;
-  displayName?: string;
 }
 
 /**
@@ -251,19 +130,18 @@ export async function getDriveItemProperties(params: {
 
   const res = await fetchFn(
     `${GRAPH_ROOT}/sites/${params.siteId}/drive/items/${params.itemId}?$select=eTag,webDavUrl,name`,
-    { headers: { Authorization: `Bearer ${token}` } },
+    { headers: { "User-Agent": buildUserAgent(), Authorization: `Bearer ${token}` } },
   );
 
   if (!res.ok) {
-    const body = await res.text().catch(() => "");
-    throw new Error(`Get driveItem properties failed: ${res.status} ${res.statusText} - ${body}`);
+    throw await createMSTeamsHttpError(res, "Get driveItem properties failed");
   }
 
-  const data = (await res.json()) as {
+  const data = await readProviderJsonResponse<{
     eTag?: string;
     webDavUrl?: string;
     name?: string;
-  };
+  }>(res, "msteams.graph-upload.getDriveItemProperties");
 
   if (!data.eTag || !data.webDavUrl || !data.name) {
     throw new Error("DriveItem response missing required properties (eTag, webDavUrl, or name)");
@@ -280,7 +158,7 @@ export async function getDriveItemProperties(params: {
  * Get members of a Teams chat for per-user sharing.
  * Used to create sharing links scoped to only the chat participants.
  */
-export async function getChatMembers(params: {
+async function getChatMembers(params: {
   chatId: string;
   tokenProvider: MSTeamsAccessTokenProvider;
   fetchFn?: typeof fetch;
@@ -289,26 +167,19 @@ export async function getChatMembers(params: {
   const token = await params.tokenProvider.getAccessToken(GRAPH_SCOPE);
 
   const res = await fetchFn(`${GRAPH_ROOT}/chats/${params.chatId}/members`, {
-    headers: { Authorization: `Bearer ${token}` },
+    headers: { "User-Agent": buildUserAgent(), Authorization: `Bearer ${token}` },
   });
 
   if (!res.ok) {
-    const body = await res.text().catch(() => "");
-    throw new Error(`Get chat members failed: ${res.status} ${res.statusText} - ${body}`);
+    throw await createMSTeamsHttpError(res, "Get chat members failed");
   }
 
-  const data = (await res.json()) as {
-    value?: Array<{
-      userId?: string;
-      displayName?: string;
-    }>;
-  };
+  const data = await readProviderJsonResponse<{
+    value?: Array<{ userId?: string }>;
+  }>(res, "msteams.graph-upload.getChatMembers");
 
   return (data.value ?? [])
-    .map((m) => ({
-      aadObjectId: m.userId ?? "",
-      displayName: m.displayName,
-    }))
+    .map((m) => ({ aadObjectId: m.userId ?? "" }))
     .filter((m) => m.aadObjectId);
 }
 
@@ -317,7 +188,7 @@ export async function getChatMembers(params: {
  * For organization scope (default), uses v1.0 API.
  * For per-user scope, uses beta API with recipients.
  */
-export async function createSharePointSharingLink(params: {
+async function createSharePointSharingLink(params: {
   siteId: string;
   itemId: string;
   tokenProvider: MSTeamsAccessTokenProvider;
@@ -326,7 +197,7 @@ export async function createSharePointSharingLink(params: {
   /** Required when scope is "users": AAD object IDs of recipients */
   recipientObjectIds?: string[];
   fetchFn?: typeof fetch;
-}): Promise<OneDriveSharingLink> {
+}): Promise<SharingLinkResult> {
   const fetchFn = params.fetchFn ?? fetch;
   const token = await params.tokenProvider.getAccessToken(GRAPH_SCOPE);
   const scope = params.scope ?? "organization";
@@ -349,6 +220,7 @@ export async function createSharePointSharingLink(params: {
     {
       method: "POST",
       headers: {
+        "User-Agent": buildUserAgent(),
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
       },
@@ -357,15 +229,12 @@ export async function createSharePointSharingLink(params: {
   );
 
   if (!res.ok) {
-    const respBody = await res.text().catch(() => "");
-    throw new Error(
-      `Create SharePoint sharing link failed: ${res.status} ${res.statusText} - ${respBody}`,
-    );
+    throw await createMSTeamsHttpError(res, "Create SharePoint sharing link failed");
   }
 
-  const data = (await res.json()) as {
+  const data = await readProviderJsonResponse<{
     link?: { webUrl?: string };
-  };
+  }>(res, "msteams.graph-upload.createSharePointSharingLink");
 
   if (!data.link?.webUrl) {
     throw new Error("Create SharePoint sharing link response missing webUrl");

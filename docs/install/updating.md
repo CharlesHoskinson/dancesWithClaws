@@ -6,252 +6,305 @@ read_when:
 title: "Updating"
 ---
 
-# Updating
+Keep OpenClaw up to date.
 
-OpenClaw is moving fast (pre “1.0”). Treat updates like shipping infra: update → run checks → restart (or use `openclaw update`, which restarts) → verify.
+For Docker, Podman, and Kubernetes image replacements, see
+[Upgrading container images](/install/docker#upgrading-container-images). The
+gateway runs startup-safe upgrade work before readiness and exits if mounted
+state needs manual repair.
 
-## Recommended: re-run the website installer (upgrade in place)
+## Recommended: `openclaw update`
 
-The **preferred** update path is to re-run the installer from the website. It
-detects existing installs, upgrades in place, and runs `openclaw doctor` when
-needed.
+Detects your install type (npm or git), fetches the latest version, runs `openclaw doctor`, and restarts the gateway.
+
+```bash
+openclaw update
+```
+
+Switch channels or target a specific version:
+
+```bash
+openclaw update --channel beta
+openclaw update --channel extended-stable
+openclaw update --channel dev
+openclaw update --dry-run   # preview without applying
+```
+
+`openclaw update` has no `--verbose` flag (the installer does). For diagnostics use
+`--dry-run` to preview planned actions, `--json` for structured results, or
+`openclaw update status --json` to inspect channel and availability state.
+
+`--channel beta` prefers the beta npm dist-tag, but falls back to stable/latest
+when the beta tag is missing or its version is older than the latest stable
+release. Use `--tag beta` for a one-off package update pinned to the raw npm
+beta dist-tag instead.
+
+`--channel extended-stable` is package-only, and installation remains
+foreground-only. OpenClaw reads the public npm `extended-stable` selector,
+verifies the selected exact package, and installs that exact version. Missing
+or inconsistent registry data fails closed; it never falls back to `latest`.
+If the selected version is older than the installed version, the normal
+downgrade confirmation still applies. The CLI persists the channel after a
+successful core update; a direct `npm install -g openclaw@extended-stable`
+does not update `update.channel`.
+After the core swap, eligible official npm plugins with bare/default or
+`latest` intent converge to that exact core version. Exact pins and explicit
+non-`latest` tags, third-party plugins, and non-npm sources remain unchanged.
+Catalog installs created by current OpenClaw versions retain that default
+intent. Older records that contain only an exact version remain pinned because
+OpenClaw cannot safely distinguish an old automatic pin from a user pin; run
+`openclaw plugins update @openclaw/name` once on the extended-stable channel
+to opt that plugin back into exact-core tracking.
+
+`--channel dev` gives a persistent moving GitHub `main` checkout. For a one-off
+package update, `--tag main` maps to the `github:openclaw/openclaw#main` package
+spec and installs it directly through the target package manager (npm/pnpm/bun).
+
+For managed plugins, a missing beta release is a warning, not a failure: the
+core update can still succeed while a plugin falls back to its recorded
+default/latest release.
+
+See [Release channels](/install/development-channels) for channel semantics.
+
+## Switch between npm and git installs
+
+Use channels to change the install type. The updater keeps your state, config,
+credentials, and workspace in `~/.openclaw`; it only changes which OpenClaw
+code install the CLI and gateway use.
+
+```bash
+# npm package install -> editable git checkout
+openclaw update --channel dev
+
+# git checkout -> npm package install
+openclaw update --channel stable
+```
+
+Preview the install-mode switch first:
+
+```bash
+openclaw update --channel dev --dry-run
+openclaw update --channel stable --dry-run
+```
+
+`dev` ensures a git checkout, builds it, and installs the global CLI from that
+checkout. The `stable`, `extended-stable`, and `beta` channels use package
+installs. Extended-stable is rejected on a git checkout without mutating or
+converting it. If the gateway is already installed, `openclaw update` refreshes
+the service metadata and restarts it unless you pass `--no-restart`.
+
+For package installs with a managed Gateway service, `openclaw update` targets
+the package root used by that service. If the shell `openclaw` command comes
+from a different install, the updater prints both roots and the managed
+service's Node path, and checks that Node version against the target release's
+`engines.node` requirement before replacing the package.
+
+## Alternative: re-run the installer
 
 ```bash
 curl -fsSL https://openclaw.ai/install.sh | bash
 ```
 
-Notes:
+Add `--no-onboard` to skip onboarding. To force a specific install type, pass
+`--install-method git --no-onboard` or `--install-method npm --no-onboard`.
 
-- Add `--no-onboard` if you don’t want the onboarding wizard to run again.
-- For **source installs**, use:
+If `openclaw update` fails after the npm package install phase, re-run the
+installer instead. It does not call the updater; it runs the global package
+install directly and can recover a partially updated npm install.
 
-  ```bash
-  curl -fsSL https://openclaw.ai/install.sh | bash -s -- --install-method git --no-onboard
-  ```
+```bash
+curl -fsSL https://openclaw.ai/install.sh | bash -s -- --install-method npm
+```
 
-  The installer will `git pull --rebase` **only** if the repo is clean.
+Pin the recovery to a specific version or dist-tag with `--version`:
 
-- For **global installs**, the script uses `npm install -g openclaw@latest` under the hood.
-- Legacy note: `clawdbot` remains available as a compatibility shim.
+```bash
+curl -fsSL https://openclaw.ai/install.sh | bash -s -- --install-method npm --version <version-or-dist-tag>
+```
 
-## Before you update
-
-- Know how you installed: **global** (npm/pnpm) vs **from source** (git clone).
-- Know how your Gateway is running: **foreground terminal** vs **supervised service** (launchd/systemd).
-- Snapshot your tailoring:
-  - Config: `~/.openclaw/openclaw.json`
-  - Credentials: `~/.openclaw/credentials/`
-  - Workspace: `~/.openclaw/workspace`
-
-## Update (global install)
-
-Global install (pick one):
+## Alternative: manual npm, pnpm, or bun
 
 ```bash
 npm i -g openclaw@latest
 ```
 
+Prefer `openclaw update` for supervised installs: it can coordinate the package
+swap with the running Gateway service. If you update manually on a supervised
+install, stop the managed Gateway first. Package managers replace files in
+place, and a running Gateway can otherwise try to load core or plugin files
+mid-swap. Restart the Gateway after the package manager finishes so it picks up
+the new install.
+
+For a root-owned Linux system-global install, if `openclaw update` fails with
+`EACCES`, recover with system npm while keeping the Gateway stopped for the
+manual replacement. Use the same profile flags/environment you normally use for
+that Gateway. Replace `/usr/bin/npm` with the system npm that owns the
+root-owned global prefix on your host:
+
+```bash
+openclaw gateway stop
+sudo /usr/bin/npm i -g openclaw@latest
+openclaw gateway install --force
+openclaw gateway restart
+```
+
+Then verify:
+
+```bash
+openclaw --version
+curl -fsS http://127.0.0.1:18789/readyz
+openclaw plugins list --json
+openclaw gateway status --deep --json
+openclaw doctor --lint --json
+```
+
+When `openclaw update` manages a global npm install, it installs the target
+into a temporary npm prefix first, verifies the packaged `dist` inventory, then
+swaps the clean package tree into the real global prefix — avoiding npm
+overlaying a new package onto stale files from the old one. If the install
+command fails, OpenClaw retries once with `--omit=optional`, which helps hosts
+where native optional dependencies cannot compile.
+
+OpenClaw-managed npm update and plugin-update commands also clear npm's
+`min-release-age` supply-chain quarantine (or the older `before` config key)
+for the child npm process. That policy exists for general protection, but an
+explicit OpenClaw update means "install the selected release now."
+
 ```bash
 pnpm add -g openclaw@latest
 ```
 
-We do **not** recommend Bun for the Gateway runtime (WhatsApp/Telegram bugs).
-
-To switch update channels (git + npm installs):
-
 ```bash
-openclaw update --channel beta
-openclaw update --channel dev
-openclaw update --channel stable
+bun add -g openclaw@latest
 ```
 
-Use `--tag <dist-tag|version>` for a one-off install tag/version.
+### Advanced npm install topics
 
-See [Development channels](/install/development-channels) for channel semantics and release notes.
+<AccordionGroup>
+  <Accordion title="Read-only package tree">
+    OpenClaw treats packaged global installs as read-only at runtime, even when the global package directory is writable by the current user. Plugin package installs live in OpenClaw-owned npm/git roots under the user config directory, and Gateway startup does not mutate the OpenClaw package tree.
 
-Note: on npm installs, the gateway logs an update hint on startup (checks the current channel tag). Disable via `update.checkOnStart: false`.
+    Some Linux npm setups install global packages under root-owned directories such as `/usr/lib/node_modules/openclaw`. OpenClaw supports that layout because plugin install/update commands write outside that global package directory.
 
-### Core auto-updater (optional)
+  </Accordion>
+  <Accordion title="Hardened systemd units">
+    Give OpenClaw write access to its config/state roots so explicit plugin installs, plugin updates, and doctor cleanup can persist their changes:
 
-Auto-updater is **off by default** and is a core Gateway feature (not a plugin).
+    ```ini
+    ReadWritePaths=/var/lib/openclaw /home/openclaw/.openclaw /tmp
+    ```
 
-```json
+  </Accordion>
+  <Accordion title="Disk-space preflight">
+    Before package updates and explicit plugin installs, OpenClaw tries a best-effort disk-space check for the target volume. Low space produces a warning with the checked path, but does not block the update because filesystem quotas, snapshots, and network volumes can change after the check. The actual package-manager install and post-install verification remain authoritative.
+  </Accordion>
+</AccordionGroup>
+
+## Auto-updater
+
+Off by default. Enable it in `~/.openclaw/openclaw.json`:
+
+```json5
 {
-  "update": {
-    "channel": "stable",
-    "auto": {
-      "enabled": true,
-      "stableDelayHours": 6,
-      "stableJitterHours": 12,
-      "betaCheckIntervalHours": 1
-    }
-  }
+  update: {
+    channel: "stable",
+    auto: {
+      enabled: true,
+      stableDelayHours: 6,
+      stableJitterHours: 12,
+      betaCheckIntervalHours: 1,
+    },
+  },
 }
 ```
 
-Behavior:
+| Channel           | Behavior                                                                                                                                     |
+| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `stable`          | Waits `stableDelayHours` (default: 6), then applies with deterministic jitter across `stableJitterHours` (default: 12) for a spread rollout. |
+| `extended-stable` | Checks for a read-only update hint on startup and every 24 hours when `checkOnStart` is enabled. Never applies automatically.                |
+| `beta`            | Checks every `betaCheckIntervalHours` (default: 1) and applies immediately.                                                                  |
+| `dev`             | No automatic apply. Use `openclaw update` manually.                                                                                          |
 
-- `stable`: when a new version is seen, OpenClaw waits `stableDelayHours` and then applies a deterministic per-install jitter in `stableJitterHours` (spread rollout).
-- `beta`: checks on `betaCheckIntervalHours` cadence (default: hourly) and applies when an update is available.
-- `dev`: no automatic apply; use manual `openclaw update`.
+The gateway also logs an update hint on startup (disable with
+`update.checkOnStart: false`). Stored extended-stable selections use this
+read-only hint path and the existing 24-hour hint interval, but never invoke
+automatic installation, handoff, restart, stable delay/jitter, or beta polling.
+For downgrade or incident recovery, set `OPENCLAW_NO_AUTO_UPDATE=1` in the gateway environment to block automatic applies even when `update.auto.enabled` is configured. Startup update hints can still run unless `update.checkOnStart` is also disabled.
 
-Use `openclaw update --dry-run` to preview update actions before enabling automation.
+Package-manager updates requested through the live Gateway control-plane
+(`update.run`) do not replace the package tree inside the running Gateway
+process. On managed service installs, the Gateway starts a detached handoff,
+exits, and lets the normal `openclaw update --yes --json` CLI path stop the
+service, replace the package, refresh service metadata, restart, verify the
+Gateway version and reachability, and recover an installed-but-unloaded macOS
+LaunchAgent when possible. If the Gateway cannot make that handoff safely,
+`update.run` reports a safe shell command instead of running the package
+manager in-process.
 
-Then:
+The Control UI sidebar update card starts this same `update.run` flow. In the
+signed macOS app, the card updates the app through Sparkle first; after relaunch,
+the app brings its managed local Gateway to the matching version.
+
+## After updating
+
+<Steps>
+
+### Run doctor
 
 ```bash
 openclaw doctor
+```
+
+Migrates config, audits DM policies, and checks gateway health. Details: [Doctor](/gateway/doctor)
+
+### Restart the gateway
+
+```bash
 openclaw gateway restart
+```
+
+### Verify
+
+```bash
 openclaw health
 ```
 
-Notes:
+</Steps>
 
-- If your Gateway runs as a service, `openclaw gateway restart` is preferred over killing PIDs.
-- If you’re pinned to a specific version, see “Rollback / pinning” below.
+## Rollback
 
-## Update (`openclaw update`)
-
-For **source installs** (git checkout), prefer:
-
-```bash
-openclaw update
-```
-
-It runs a safe-ish update flow:
-
-- Requires a clean worktree.
-- Switches to the selected channel (tag or branch).
-- Fetches + rebases against the configured upstream (dev channel).
-- Installs deps, builds, builds the Control UI, and runs `openclaw doctor`.
-- Restarts the gateway by default (use `--no-restart` to skip).
-
-If you installed via **npm/pnpm** (no git metadata), `openclaw update` will try to update via your package manager. If it can’t detect the install, use “Update (global install)” instead.
-
-## Update (Control UI / RPC)
-
-The Control UI has **Update & Restart** (RPC: `update.run`). It:
-
-1. Runs the same source-update flow as `openclaw update` (git checkout only).
-2. Writes a restart sentinel with a structured report (stdout/stderr tail).
-3. Restarts the gateway and pings the last active session with the report.
-
-If the rebase fails, the gateway aborts and restarts without applying the update.
-
-## Update (from source)
-
-From the repo checkout:
-
-Preferred:
-
-```bash
-openclaw update
-```
-
-Manual (equivalent-ish):
-
-```bash
-git pull
-pnpm install
-pnpm build
-pnpm ui:build # auto-installs UI deps on first run
-openclaw doctor
-openclaw health
-```
-
-Notes:
-
-- `pnpm build` matters when you run the packaged `openclaw` binary ([`openclaw.mjs`](https://github.com/openclaw/openclaw/blob/main/openclaw.mjs)) or use Node to run `dist/`.
-- If you run from a repo checkout without a global install, use `pnpm openclaw ...` for CLI commands.
-- If you run directly from TypeScript (`pnpm openclaw ...`), a rebuild is usually unnecessary, but **config migrations still apply** → run doctor.
-- Switching between global and git installs is easy: install the other flavor, then run `openclaw doctor` so the gateway service entrypoint is rewritten to the current install.
-
-## Always Run: `openclaw doctor`
-
-Doctor is the “safe update” command. It’s intentionally boring: repair + migrate + warn.
-
-Note: if you’re on a **source install** (git checkout), `openclaw doctor` will offer to run `openclaw update` first.
-
-Typical things it does:
-
-- Migrate deprecated config keys / legacy config file locations.
-- Audit DM policies and warn on risky “open” settings.
-- Check Gateway health and can offer to restart.
-- Detect and migrate older gateway services (launchd/systemd; legacy schtasks) to current OpenClaw services.
-- On Linux, ensure systemd user lingering (so the Gateway survives logout).
-
-Details: [Doctor](/gateway/doctor)
-
-## Start / stop / restart the Gateway
-
-CLI (works regardless of OS):
-
-```bash
-openclaw gateway status
-openclaw gateway stop
-openclaw gateway restart
-openclaw gateway --port 18789
-openclaw logs --follow
-```
-
-If you’re supervised:
-
-- macOS launchd (app-bundled LaunchAgent): `launchctl kickstart -k gui/$UID/ai.openclaw.gateway` (use `ai.openclaw.<profile>`; legacy `com.openclaw.*` still works)
-- Linux systemd user service: `systemctl --user restart openclaw-gateway[-<profile>].service`
-- Windows (WSL2): `systemctl --user restart openclaw-gateway[-<profile>].service`
-  - `launchctl`/`systemctl` only work if the service is installed; otherwise run `openclaw gateway install`.
-
-Runbook + exact service labels: [Gateway runbook](/gateway)
-
-## Rollback / pinning (when something breaks)
-
-### Pin (global install)
-
-Install a known-good version (replace `<version>` with the last working one):
+### Pin a version (npm)
 
 ```bash
 npm i -g openclaw@<version>
-```
-
-```bash
-pnpm add -g openclaw@<version>
-```
-
-Tip: to see the current published version, run `npm view openclaw version`.
-
-Then restart + re-run doctor:
-
-```bash
 openclaw doctor
 openclaw gateway restart
 ```
 
-### Pin (source) by date
+<Tip>
+`npm view openclaw version` shows the current published version.
+</Tip>
 
-Pick a commit from a date (example: “state of main as of 2026-01-01”):
+### Pin a commit (source)
 
 ```bash
 git fetch origin
 git checkout "$(git rev-list -n 1 --before=\"2026-01-01\" origin/main)"
-```
-
-Then reinstall deps + restart:
-
-```bash
-pnpm install
-pnpm build
+pnpm install && pnpm build
 openclaw gateway restart
 ```
 
-If you want to go back to latest later:
+To return to latest: `git checkout main && git pull`.
 
-```bash
-git checkout main
-git pull
-```
+## If you are stuck
 
-## If you’re stuck
-
-- Run `openclaw doctor` again and read the output carefully (it often tells you the fix).
+- Run `openclaw doctor` again and read the output carefully.
+- For `openclaw update --channel dev` on source checkouts, the updater auto-bootstraps `pnpm` when needed. If you see a pnpm/corepack bootstrap error, install `pnpm` manually (or re-enable `corepack`) and rerun the update.
 - Check: [Troubleshooting](/gateway/troubleshooting)
 - Ask in Discord: [https://discord.gg/clawd](https://discord.gg/clawd)
+
+## Related
+
+- [Install overview](/install): all installation methods.
+- [Doctor](/gateway/doctor): health checks after updates.
+- [Migrating](/install/migrating): major version migration guides.

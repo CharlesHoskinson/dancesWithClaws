@@ -1,7 +1,7 @@
-import Foundation
-import UIKit
-
 import Darwin
+import Foundation
+import OpenClawKit
+import UIKit
 
 /// Shared device and platform info for Settings, gateway node payloads, and device status.
 enum DeviceInfoHelper {
@@ -22,8 +22,16 @@ enum DeviceInfoHelper {
 
     /// Always "iOS X.Y.Z" for UI display (e.g. Settings), matching legacy behavior on iPad.
     static func platformStringForDisplay() -> String {
-        let v = ProcessInfo.processInfo.operatingSystemVersion
-        return "iOS \(v.majorVersion).\(v.minorVersion).\(v.patchVersion)"
+        "iOS \(self.iOSVersionStringForDisplay())"
+    }
+
+    /// Version-only display string for About, e.g. "18.0.0".
+    static func iOSVersionStringForDisplay() -> String {
+        self.iOSVersionStringForDisplay(ProcessInfo.processInfo.operatingSystemVersion)
+    }
+
+    static func iOSVersionStringForDisplay(_ version: OperatingSystemVersion) -> String {
+        "\(version.majorVersion).\(version.minorVersion).\(version.patchVersion)"
     }
 
     /// Device family for display: "iPad", "iPhone", or "iOS".
@@ -50,9 +58,11 @@ enum DeviceInfoHelper {
         return trimmed.isEmpty ? "unknown" : trimmed
     }
 
-    /// App marketing version only, e.g. "2026.2.0" or "dev".
+    /// Canonical app version when present, otherwise the Apple marketing version.
     static func appVersion() -> String {
-        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "dev"
+        (Bundle.main.infoDictionary?["OpenClawCanonicalVersion"] as? String)
+            ?? (Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String)
+            ?? "dev"
     }
 
     /// App build string, e.g. "123" or "".
@@ -63,11 +73,21 @@ enum DeviceInfoHelper {
 
     /// Display string for Settings: "1.2.3" or "1.2.3 (456)" when build differs.
     static func openClawVersionString() -> String {
-        let version = appVersion()
-        let build = appBuild()
+        let version = self.appVersion()
+        let build = self.appBuild()
         if build.isEmpty || build == version {
             return version
         }
         return "\(version) (\(build))"
+    }
+
+    static func buildMetadata() -> ArtifactBuildInfo {
+        self.buildMetadata(infoDictionary: Bundle.main.infoDictionary ?? [:])
+    }
+
+    static func buildMetadata(infoDictionary: [String: Any]) -> ArtifactBuildInfo {
+        ArtifactBuildInfo(
+            infoDictionary: infoDictionary,
+            versionKeys: ["OpenClawCanonicalVersion", "CFBundleShortVersionString"])
     }
 }

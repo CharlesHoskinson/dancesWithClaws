@@ -1,3 +1,4 @@
+// Status update tests cover update check display and availability formatting.
 import { describe, expect, it } from "vitest";
 import type { UpdateCheckResult } from "../infra/update-check.js";
 import { VERSION } from "../version.js";
@@ -66,7 +67,7 @@ describe("resolveUpdateAvailability", () => {
 });
 
 describe("formatUpdateOneLiner", () => {
-  it("renders git status and registry latest summary", () => {
+  it("renders git status and registry summary without duplicating up to date", () => {
     const update = buildUpdate({
       installKind: "git",
       git: {
@@ -92,6 +93,95 @@ describe("formatUpdateOneLiner", () => {
     expect(formatUpdateOneLiner(update)).toBe(
       `Update: git main · ↔ origin/main · dirty · behind 2 · npm latest ${VERSION} · deps ok`,
     );
+  });
+
+  it("renders synced git installs with a single up to date label", () => {
+    const update = buildUpdate({
+      installKind: "git",
+      git: {
+        root: "/tmp/repo",
+        sha: "abc123456789",
+        tag: null,
+        branch: "main",
+        upstream: "origin/main",
+        dirty: false,
+        ahead: 0,
+        behind: 0,
+        fetchOk: true,
+      },
+      registry: { latestVersion: VERSION },
+      deps: {
+        manager: "pnpm",
+        status: "ok",
+        lockfilePath: "pnpm-lock.yaml",
+        markerPath: "node_modules/.modules.yaml",
+      },
+    });
+
+    expect(formatUpdateOneLiner(update)).toBe(
+      `Update: git main · ↔ origin/main · up to date · npm latest ${VERSION} · deps ok`,
+    );
+  });
+
+  it("renders package-manager mode with explicit up-to-date state", () => {
+    const update = buildUpdate({
+      installKind: "package",
+      packageManager: "npm",
+      registry: { latestVersion: VERSION },
+      deps: {
+        manager: "npm",
+        status: "ok",
+        lockfilePath: "package-lock.json",
+        markerPath: "node_modules",
+      },
+    });
+
+    expect(formatUpdateOneLiner(update)).toBe(
+      `Update: npm · up to date · npm latest ${VERSION} · deps ok`,
+    );
+  });
+
+  it("renders beta registry tags instead of calling them npm latest", () => {
+    const update = buildUpdate({
+      installKind: "package",
+      packageManager: "npm",
+      registry: { latestVersion: VERSION, tag: "beta" },
+      deps: {
+        manager: "npm",
+        status: "ok",
+        lockfilePath: "package-lock.json",
+        markerPath: "node_modules",
+      },
+    });
+
+    expect(formatUpdateOneLiner(update)).toBe(
+      `Update: npm · up to date · npm beta ${VERSION} · deps ok`,
+    );
+  });
+
+  it("renders an installed version newer than extended-stable as ahead", () => {
+    const update = buildUpdate({
+      installKind: "package",
+      packageManager: "npm",
+      registry: { latestVersion: "1.0.0", tag: "extended-stable" },
+    });
+
+    expect(formatUpdateOneLiner(update)).toBe("Update: npm · ahead of extended-stable (1.0.0)");
+  });
+
+  it("renders structured extended-stable resolver failures", () => {
+    const update = buildUpdate({
+      installKind: "git",
+      packageManager: "pnpm",
+      registry: {
+        latestVersion: null,
+        tag: "extended-stable",
+        error: "unsupported_git_channel",
+        reason: "unsupported_git_channel",
+      },
+    });
+
+    expect(formatUpdateOneLiner(update)).toContain("extended-stable requires a package install");
   });
 
   it("renders package-manager mode with registry error", () => {

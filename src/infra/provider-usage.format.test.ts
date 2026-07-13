@@ -1,3 +1,6 @@
+// Covers provider usage report formatting.
+
+import { expectDefined } from "@openclaw/normalization-core";
 import { describe, expect, it } from "vitest";
 import {
   formatUsageReportLines,
@@ -17,9 +20,11 @@ function makeSnapshot(windows: ProviderUsageSnapshot["windows"]): ProviderUsageS
 }
 
 describe("provider-usage.format", () => {
-  it("returns null summary for errored or empty snapshots", () => {
-    expect(formatUsageWindowSummary({ ...makeSnapshot([]), error: "HTTP 401" })).toBeNull();
-    expect(formatUsageWindowSummary(makeSnapshot([]))).toBeNull();
+  it.each([
+    { snapshot: { ...makeSnapshot([]), error: "HTTP 401" } as ProviderUsageSnapshot, now },
+    { snapshot: makeSnapshot([]), now },
+  ])("returns null summary for empty or errored snapshots", ({ snapshot, now: currentNow }) => {
+    expect(formatUsageWindowSummary(snapshot, { now: currentNow })).toBeNull();
   });
 
   it("formats reset windows across now/minute/hour/day/date buckets", () => {
@@ -54,6 +59,18 @@ describe("provider-usage.format", () => {
     expect(summary).toBe("A 90% left · B 80% left");
   });
 
+  it("treats non-positive max windows as all windows and clamps overused percentages", () => {
+    const summary = formatUsageWindowSummary(
+      makeSnapshot([
+        { label: "Over", usedPercent: 120, resetAt: now + 60_000 },
+        { label: "Under", usedPercent: -10 },
+      ]),
+      { now, maxWindows: 0, includeResets: true },
+    );
+
+    expect(summary).toBe("Over 0% left ⏱1m · Under 100% left");
+  });
+
   it("formats summary line from highest-usage window and provider cap", () => {
     const summary: UsageSummary = {
       updatedAt: now,
@@ -79,32 +96,167 @@ describe("provider-usage.format", () => {
     );
   });
 
-  it("formats report output for empty, error, no-data, and plan entries", () => {
-    expect(formatUsageReportLines({ updatedAt: now, providers: [] })).toEqual([
-      "Usage: no provider usage available.",
-    ]);
-
+  it("formats provider summary text for balance-only providers", () => {
     const summary: UsageSummary = {
       updatedAt: now,
       providers: [
         {
-          provider: "openai-codex",
-          displayName: "Codex",
+          provider: "deepseek",
+          displayName: "DeepSeek",
           windows: [],
-          error: "Token expired",
-          plan: "Plus",
-        },
-        {
-          provider: "xiaomi",
-          displayName: "Xiaomi",
-          windows: [],
+          summary: "Balance ¥42.50",
         },
       ],
     };
-    expect(formatUsageReportLines(summary)).toEqual([
+
+    expect(
+      formatUsageWindowSummary(
+        expectDefined(summary.providers[0], "summary.providers[0] test invariant"),
+        { now },
+      ),
+    ).toBe("Balance ¥42.50");
+    expect(formatUsageSummaryLine(summary, { now })).toBe("📊 Usage: DeepSeek Balance ¥42.50");
+    expect(formatUsageReportLines(summary, { now })).toEqual([
       "Usage:",
-      "  Codex (Plus): Token expired",
-      "  Xiaomi: no data",
+      "  DeepSeek: Balance ¥42.50",
     ]);
+  });
+
+  it("formats typed balances and budgets across compact and detailed surfaces", () => {
+    const summary: UsageSummary = {
+      updatedAt: now,
+      providers: [
+        {
+          provider: "openrouter",
+          displayName: "OpenRouter",
+          windows: [],
+          plan: "Production",
+          billing: [
+            { type: "balance", label: "Account balance", amount: 64.5, unit: "USD" },
+            {
+              type: "budget",
+              label: "API key budget",
+              used: 5,
+              limit: 20,
+              unit: "USD",
+            },
+          ],
+        },
+      ],
+    };
+
+    expect(
+      formatUsageWindowSummary(
+        expectDefined(summary.providers[0], "summary.providers[0] test invariant"),
+        { now },
+      ),
+    ).toBe("Account balance: $64.50");
+    expect(formatUsageSummaryLine(summary, { now })).toBe(
+      "📊 Usage: OpenRouter Account balance: $64.50",
+    );
+    expect(formatUsageReportLines(summary, { now })).toEqual([
+      "Usage:",
+      "  OpenRouter (Production)",
+      "    Account balance: $64.50",
+      "    API key budget: $5.00 / $20.00",
+    ]);
+  });
+
+  it("places a negative currency sign before the symbol", () => {
+    expect(
+      formatUsageWindowSummary({
+        provider: "openrouter",
+        displayName: "OpenRouter",
+        windows: [],
+        billing: [{ type: "balance", amount: -2.5, unit: "USD" }],
+      }),
+    ).toBe("Balance: -$2.50");
+  });
+
+  it("returns null summary line when providers are errored or have no windows", () => {
+    expect(
+      formatUsageSummaryLine({
+        updatedAt: now,
+        providers: [
+          {
+            provider: "anthropic",
+            displayName: "Claude",
+            windows: [],
+            error: "HTTP 401",
+          },
+          {
+            provider: "zai",
+            displayName: "z.ai",
+            windows: [],
+          },
+        ],
+      }),
+    ).toBeNull();
+  });
+
+  it.each([
+    {
+      name: "formats empty reports",
+      summary: { updatedAt: now, providers: [] } as UsageSummary,
+      opts: undefined,
+      expected: ["Usage: no provider usage available."],
+    },
+    {
+      name: "formats error, no-data, and plan entries",
+      summary: {
+        updatedAt: now,
+        providers: [
+          {
+            provider: "openai",
+            displayName: "Codex",
+            windows: [],
+            error: "Token expired",
+            plan: "Plus",
+          },
+          {
+            provider: "xiaomi",
+            displayName: "Xiaomi",
+            windows: [],
+          },
+        ],
+      } as UsageSummary,
+      opts: undefined,
+      expected: ["Usage:", "  Codex (Plus): Token expired", "  Xiaomi: no data"],
+    },
+    {
+      name: "formats plan plus summary entries without windows",
+      summary: {
+        updatedAt: now,
+        providers: [
+          {
+            provider: "deepseek",
+            displayName: "DeepSeek",
+            windows: [],
+            summary: "Balance ¥0.00",
+            plan: "Unavailable",
+          },
+        ],
+      } as UsageSummary,
+      opts: undefined,
+      expected: ["Usage:", "  DeepSeek (Unavailable): Balance ¥0.00"],
+    },
+    {
+      name: "formats detailed report lines with reset windows",
+      summary: {
+        updatedAt: now,
+        providers: [
+          {
+            provider: "anthropic",
+            displayName: "Claude",
+            plan: "Pro",
+            windows: [{ label: "Daily", usedPercent: 25, resetAt: now + 2 * 60 * 60_000 }],
+          },
+        ],
+      } as UsageSummary,
+      opts: { now },
+      expected: ["Usage:", "  Claude (Pro)", "    Daily: 75% left · resets 2h"],
+    },
+  ])("$name", ({ summary, opts, expected }) => {
+    expect(formatUsageReportLines(summary, opts)).toEqual(expected);
   });
 });

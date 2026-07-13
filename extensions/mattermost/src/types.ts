@@ -1,11 +1,16 @@
-import type {
-  BlockStreamingCoalesceConfig,
-  DmPolicy,
-  GroupPolicy,
-  SecretInput,
-} from "openclaw/plugin-sdk/mattermost";
+// Mattermost type declarations define plugin contracts.
+import type { ChannelPreviewStreamingConfig } from "openclaw/plugin-sdk/channel-outbound";
+import type { DmPolicy, GroupPolicy } from "./runtime-api.js";
+import type { SecretInput } from "./secret-input.js";
+
+export type MattermostReplyToMode = "off" | "first" | "all" | "batched";
+export type MattermostChatTypeKey = "direct" | "channel" | "group";
 
 export type MattermostChatMode = "oncall" | "onmessage" | "onchar";
+type MattermostNetworkConfig = {
+  /** Dangerous opt-in for self-hosted Mattermost on trusted private/internal hosts. */
+  dangerouslyAllowPrivateNetwork?: boolean;
+};
 
 export type MattermostAccountConfig = {
   /** Optional display name for this account (used in CLI/UI lists). */
@@ -46,14 +51,24 @@ export type MattermostAccountConfig = {
   groupPolicy?: GroupPolicy;
   /** Outbound text chunk size (chars). Default: 4000. */
   textChunkLimit?: number;
-  /** Chunking mode: "length" (default) splits by size; "newline" splits on every newline. */
-  chunkMode?: "length" | "newline";
-  /** Disable block streaming for this account. */
-  blockStreaming?: boolean;
-  /** Merge streamed block replies before sending. */
-  blockStreamingCoalesce?: BlockStreamingCoalesceConfig;
+  /** Preview streaming config (nested-only; scalar modes migrate via doctor). */
+  streaming?: ChannelPreviewStreamingConfig;
   /** Outbound response prefix override for this channel/account. */
   responsePrefix?: string;
+  /**
+   * Controls whether channel and group replies are sent as thread replies when
+   * `replyToModeByChatType` does not override that chat type.
+   * - "off" (default): only thread-reply when incoming message is already a thread reply
+   * - "first": reply in a thread under the triggering message
+   * - "all": always reply in a thread; uses existing thread root or starts a new thread under the message
+   * Direct messages default to "off" unless explicitly overridden.
+   */
+  replyToMode?: MattermostReplyToMode;
+  /**
+   * Per-chat-type reply threading overrides. Set `direct` to opt DMs into
+   * independent thread-scoped sessions; when omitted, DMs stay flat.
+   */
+  replyToModeByChatType?: Partial<Record<MattermostChatTypeKey, MattermostReplyToMode>>;
   /** Action toggles for this account. */
   actions?: {
     /** Enable message reaction actions. Default: true. */
@@ -78,6 +93,19 @@ export type MattermostAccountConfig = {
      * over a non-loopback path. Keep this narrow to the Mattermost server or trusted ingress.
      */
     allowedSourceIps?: string[];
+  };
+  /** Network policy overrides for self-hosted Mattermost on trusted private/internal hosts. */
+  network?: MattermostNetworkConfig;
+  /** Retry configuration for DM channel creation */
+  dmChannelRetry?: {
+    /** Maximum number of retry attempts (default: 3) */
+    maxRetries?: number;
+    /** Initial delay in milliseconds before first retry (default: 1000) */
+    initialDelayMs?: number;
+    /** Maximum delay in milliseconds between retries (default: 10000) */
+    maxDelayMs?: number;
+    /** Timeout for each individual request in milliseconds (default: 30000) */
+    timeoutMs?: number;
   };
 };
 

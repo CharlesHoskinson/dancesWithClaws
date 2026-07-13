@@ -1,14 +1,15 @@
-import type { PluginRuntime } from "openclaw/plugin-sdk/matrix";
+// Matrix plugin module implements runtime behavior.
+import { createPluginRuntimeStore } from "openclaw/plugin-sdk/runtime-store";
+import type { PluginRuntime } from "./runtime-api.js";
 
-let runtime: PluginRuntime | null = null;
+const {
+  setRuntime: setMatrixRuntime,
+  clearRuntime: clearMatrixRuntime,
+  getRuntime: getMatrixRuntime,
+  tryGetRuntime: getOptionalMatrixRuntime,
+} = createPluginRuntimeStore<PluginRuntime>({
+  pluginId: "matrix",
+  errorMessage: "Matrix runtime not initialized",
+});
 
-export function setMatrixRuntime(next: PluginRuntime) {
-  runtime = next;
-}
-
-export function getMatrixRuntime(): PluginRuntime {
-  if (!runtime) {
-    throw new Error("Matrix runtime not initialized");
-  }
-  return runtime;
-}
+export { clearMatrixRuntime, getMatrixRuntime, getOptionalMatrixRuntime, setMatrixRuntime };

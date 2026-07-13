@@ -5,6 +5,11 @@
  * a notification and can approve or deny the request.
  */
 
+// Extensions cannot import core internals directly, so use node:crypto here.
+import { randomBytes } from "node:crypto";
+import { expectDefined } from "openclaw/plugin-sdk/expect-runtime";
+import { normalizeLowercaseStringOrEmpty } from "openclaw/plugin-sdk/string-coerce-runtime";
+import { sliceUtf16Safe } from "openclaw/plugin-sdk/text-utility-runtime";
 import type { PendingApproval } from "../settings.js";
 
 export type { PendingApproval };
@@ -32,7 +37,7 @@ export type CreateApprovalParams = {
  */
 export function generateApprovalId(type: ApprovalType): string {
   const timestamp = Date.now();
-  const randomPart = Math.random().toString(36).substring(2, 6);
+  const randomPart = randomBytes(3).toString("hex");
   return `${type}-${timestamp}-${randomPart}`;
 }
 
@@ -46,7 +51,8 @@ export function createPendingApproval(params: CreateApprovalParams): PendingAppr
     requestingShip: params.requestingShip,
     channelNest: params.channelNest,
     groupFlag: params.groupFlag,
-    messagePreview: params.messagePreview,
+    messagePreview:
+      params.messagePreview != null ? sliceUtf16Safe(params.messagePreview, 0, 100) : undefined,
     originalMessage: params.originalMessage,
     timestamp: Date.now(),
   };
@@ -59,7 +65,7 @@ function truncate(text: string, maxLength: number): string {
   if (text.length <= maxLength) {
     return text;
   }
-  return text.substring(0, maxLength - 3) + "...";
+  return sliceUtf16Safe(text, 0, maxLength - 3) + "...";
 }
 
 /**
@@ -89,6 +95,7 @@ export function formatApprovalRequest(approval: PendingApproval): string {
         `(ID: ${approval.id})`
       );
   }
+  throw new Error("Unsupported approval type");
 }
 
 export type ApprovalResponse = {
@@ -104,7 +111,7 @@ export type ApprovalResponse = {
  *   - "block" permanently blocks the ship via Tlon's native blocking
  */
 export function parseApprovalResponse(text: string): ApprovalResponse | null {
-  const trimmed = text.trim().toLowerCase();
+  const trimmed = normalizeLowercaseStringOrEmpty(text);
 
   // Match "approve", "deny", or "block" optionally followed by an ID
   const match = trimmed.match(/^(approve|deny|block)(?:\s+(.+))?$/);
@@ -123,7 +130,7 @@ export function parseApprovalResponse(text: string): ApprovalResponse | null {
  * Used to determine if we should intercept the message before normal processing.
  */
 export function isApprovalResponse(text: string): boolean {
-  const trimmed = text.trim().toLowerCase();
+  const trimmed = normalizeLowercaseStringOrEmpty(text);
   return trimmed.startsWith("approve") || trimmed.startsWith("deny") || trimmed.startsWith("block");
 }
 
@@ -139,31 +146,6 @@ export function findPendingApproval(
   }
   // Return most recent
   return pendingApprovals[pendingApprovals.length - 1];
-}
-
-/**
- * Check if there's already a pending approval for the same ship/channel/group combo.
- * Used to avoid sending duplicate notifications.
- */
-export function hasDuplicatePending(
-  pendingApprovals: PendingApproval[],
-  type: ApprovalType,
-  requestingShip: string,
-  channelNest?: string,
-  groupFlag?: string,
-): boolean {
-  return pendingApprovals.some((approval) => {
-    if (approval.type !== type || approval.requestingShip !== requestingShip) {
-      return false;
-    }
-    if (type === "channel" && approval.channelNest !== channelNest) {
-      return false;
-    }
-    if (type === "group" && approval.groupFlag !== groupFlag) {
-      return false;
-    }
-    return true;
-  });
 }
 
 /**
@@ -208,6 +190,7 @@ export function formatApprovalConfirmation(
       }
       return `${actionText} group invite from ${approval.requestingShip} to ${approval.groupFlag}.`;
   }
+  throw new Error("Unsupported approval type");
 }
 
 // ============================================================================
@@ -227,7 +210,7 @@ export type AdminCommand =
  *   - "pending" - list all pending approvals
  */
 export function parseAdminCommand(text: string): AdminCommand | null {
-  const trimmed = text.trim().toLowerCase();
+  const trimmed = normalizeLowercaseStringOrEmpty(text);
 
   // "blocked" - list blocked ships
   if (trimmed === "blocked") {
@@ -242,7 +225,7 @@ export function parseAdminCommand(text: string): AdminCommand | null {
   // "unblock ~ship" - unblock a specific ship
   const unblockMatch = trimmed.match(/^unblock\s+(~[\w-]+)$/);
   if (unblockMatch) {
-    return { type: "unblock", ship: unblockMatch[1] };
+    return { type: "unblock", ship: expectDefined(unblockMatch[1], "unblock ship capture") };
   }
 
   return null;

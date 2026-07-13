@@ -10,7 +10,6 @@ final class TalkOverlayController {
     static let overlaySize: CGFloat = 440
     static let orbSize: CGFloat = 96
     static let orbPadding: CGFloat = 12
-    static let orbHitSlop: CGFloat = 10
 
     private let logger = Logger(subsystem: "ai.openclaw", category: "talk.overlay")
 
@@ -30,9 +29,11 @@ final class TalkOverlayController {
         self.ensureWindow()
         self.hostingView?.rootView = TalkOverlayView(controller: self)
         let target = self.targetFrame()
+        let isFirst = !self.model.isVisible
+        if isFirst { self.model.isVisible = true }
         OverlayPanelFactory.present(
             window: self.window,
-            isVisible: &self.model.isVisible,
+            isFirstPresent: isFirst,
             target: target)
         { window in
             window.setFrame(target, display: true)
@@ -69,15 +70,6 @@ final class TalkOverlayController {
     func updateLevel(_ level: Double) {
         guard self.model.isVisible else { return }
         self.model.level = max(0, min(1, level))
-    }
-
-    func currentWindowOrigin() -> CGPoint? {
-        self.window?.frame.origin
-    }
-
-    func setWindowOrigin(_ origin: CGPoint) {
-        guard let window else { return }
-        window.setFrameOrigin(origin)
     }
 
     // MARK: - Private

@@ -7,7 +7,7 @@ import Testing
 @Suite(.serialized)
 @MainActor
 struct WebChatSwiftUISmokeTests {
-    private struct TestTransport: OpenClawChatTransport, Sendable {
+    private struct TestTransport: OpenClawChatTransport {
         func requestHistory(sessionKey: String) async throws -> OpenClawChatHistoryPayload {
             let json = """
             {"sessionKey":"\(sessionKey)","sessionId":null,"messages":[],"thinkingLevel":"off"}
@@ -41,7 +41,7 @@ struct WebChatSwiftUISmokeTests {
         func setActiveSessionKey(_: String) async throws {}
     }
 
-    @Test func windowControllerShowAndClose() {
+    @Test func `window controller show and close`() {
         let controller = WebChatSwiftUIWindowController(
             sessionKey: "main",
             presentation: .window,
@@ -50,7 +50,7 @@ struct WebChatSwiftUISmokeTests {
         controller.close()
     }
 
-    @Test func panelControllerPresentAndClose() {
+    @Test func `panel controller present and close`() {
         let anchor = { NSRect(x: 200, y: 400, width: 40, height: 40) }
         let controller = WebChatSwiftUIWindowController(
             sessionKey: "main",
@@ -58,5 +58,16 @@ struct WebChatSwiftUISmokeTests {
             transport: TestTransport())
         controller.presentAnchored(anchorProvider: anchor)
         controller.close()
+    }
+
+    @Test func `max and Ultra thinking preferences survive reopen`() throws {
+        let suiteName = "WebChatSwiftUISmokeTests.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        for level in ["max", "ultra"] {
+            defaults.set(level, forKey: "openclaw.webchat.thinkingLevel")
+            #expect(WebChatSwiftUIWindowController.persistedThinkingLevel(defaults: defaults) == level)
+        }
     }
 }

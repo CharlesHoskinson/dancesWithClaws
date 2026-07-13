@@ -1,29 +1,21 @@
 ---
-summary: "Location command for nodes (location.get), permission modes, and background behavior"
+summary: "Location command for nodes (location.get), permission modes, and Android foreground behavior"
 read_when:
   - Adding location node support or permissions UI
-  - Designing background location + push flows
-title: "Location Command"
+  - Designing Android location permissions or foreground behavior
+title: "Location command"
 ---
-
-# Location command (nodes)
 
 ## TL;DR
 
-- `location.get` is a node command (via `node.invoke`).
+- `location.get` is a node command, invoked via `node.invoke` or `openclaw nodes location get`.
 - Off by default.
-- Settings use a selector: Off / While Using / Always.
-- Separate toggle: Precise Location.
+- Android third-party builds use a selector: Off / While Using / Always. Play builds remain Off / While Using.
+- Precise Location is a separate toggle.
 
 ## Why a selector (not just a switch)
 
-OS permissions are multi-level. We can expose a selector in-app, but the OS still decides the actual grant.
-
-- iOS/macOS: user can choose **While Using** or **Always** in system prompts/Settings. App can request upgrade, but OS may require Settings.
-- Android: background location is a separate permission; on Android 10+ it often requires a Settings flow.
-- Precise location is a separate grant (iOS 14+ “Precise”, Android “fine” vs “coarse”).
-
-Selector in UI drives our requested mode; actual grant lives in OS settings.
+OS location permissions are multi-level. Precise location is a separate OS grant too (iOS 14+ "Precise", Android "fine" vs "coarse"). The in-app selector drives the requested mode, but the OS still decides the actual grant.
 
 ## Settings model
 
@@ -35,18 +27,24 @@ Per node device:
 UI behavior:
 
 - Selecting `whileUsing` requests foreground permission.
-- Selecting `always` first ensures `whileUsing`, then requests background (or sends user to Settings if required).
-- If OS denies requested level, revert to the highest granted level and show status.
+- Selecting `always` in the Android third-party build first requests foreground permission, explains the background access, then opens Android app settings for the separate **Allow all the time** grant.
+- Android Play builds do not declare background location permission or show `always`.
+- If the OS denies the requested level, the app reverts to the highest granted level and shows status.
 
 ## Permissions mapping (node.permissions)
 
-Optional. macOS node reports `location` via the permissions map; iOS/Android may omit it.
+Optional. The macOS node reports `location` via the `permissions` map on `node.list`/`node.describe`; iOS/Android may omit it.
 
 ## Command: `location.get`
 
-Called via `node.invoke`.
+Called via `node.invoke`, or the CLI helper:
 
-Params (suggested):
+```bash
+openclaw nodes location get --node <idOrNameOrIp>
+openclaw nodes location get --node <idOrNameOrIp> --accuracy precise --max-age 15000 --location-timeout 10000
+```
+
+Params:
 
 ```json
 {
@@ -55,6 +53,8 @@ Params (suggested):
   "desiredAccuracy": "coarse|balanced|precise"
 }
 ```
+
+CLI flags map directly: `--location-timeout` -> `timeoutMs`, `--max-age` -> `maxAgeMs`, `--accuracy` -> `desiredAccuracy`.
 
 Response payload:
 
@@ -76,38 +76,32 @@ Errors (stable codes):
 
 - `LOCATION_DISABLED`: selector is off.
 - `LOCATION_PERMISSION_REQUIRED`: permission missing for requested mode.
-- `LOCATION_BACKGROUND_UNAVAILABLE`: app is backgrounded but only While Using allowed.
+- `LOCATION_BACKGROUND_UNAVAILABLE`: app is backgrounded but only While Using is granted.
 - `LOCATION_TIMEOUT`: no fix in time.
-- `LOCATION_UNAVAILABLE`: system failure / no providers.
+- `LOCATION_UNAVAILABLE`: system failure or no providers.
 
-## Background behavior (future)
+## Background behavior
 
-Goal: model can request location even when node is backgrounded, but only when:
-
-- User selected **Always**.
-- OS grants background location.
-- App is allowed to run in background for location (iOS background mode / Android foreground service or special allowance).
-
-Push-triggered flow (future):
-
-1. Gateway sends a push to the node (silent push or FCM data).
-2. Node wakes briefly and requests location from the device.
-3. Node forwards payload to Gateway.
-
-Notes:
-
-- iOS: Always permission + background location mode required. Silent push may be throttled; expect intermittent failures.
-- Android: background location may require a foreground service; otherwise, expect denial.
+- Android third-party builds accept background `location.get` only when the user selected `Always` and Android granted background location. The existing persistent node service adds the `location` service type and discloses `Location: Always` while active.
+- Android Play builds and `While Using` mode deny `location.get` while backgrounded.
+- Other node platforms may differ.
 
 ## Model/tooling integration
 
-- Tool surface: `nodes` tool adds `location_get` action (node required).
+- Agent tool: the `nodes` tool's `location_get` action (node required).
 - CLI: `openclaw nodes location get --node <id>`.
-- Agent guidelines: only call when user enabled location and understands the scope.
+- Agent guidelines: only call when the user enabled location and understands the scope.
 
 ## UX copy (suggested)
 
-- Off: “Location sharing is disabled.”
-- While Using: “Only when OpenClaw is open.”
-- Always: “Allow background location. Requires system permission.”
-- Precise: “Use precise GPS location. Toggle off to share approximate location.”
+- Off: "Location sharing is disabled."
+- While Using: "Only when OpenClaw is open."
+- Always: "Allow requested location checks while OpenClaw is in the background."
+- Precise: "Use precise GPS location. Toggle off to share approximate location."
+
+## Related
+
+- [Nodes overview](/nodes)
+- [Channel location parsing](/channels/location)
+- [Camera capture](/nodes/camera)
+- [Talk mode](/nodes/talk)

@@ -1,51 +1,112 @@
+// Determines CI scope from changed paths.
 import { execFileSync } from "node:child_process";
 import { appendFileSync } from "node:fs";
+import { getChangedPathFacts } from "./lib/changed-path-facts.mjs";
+import { isDirectRunUrl } from "./lib/direct-run.mjs";
+import { resolveMergeHeadDiffBase } from "./lib/merge-head-diff-base.mjs";
+import { isProductionTypeScriptFile } from "./lib/ts-loc-policy.mjs";
 
-/** @typedef {{ runNode: boolean; runMacos: boolean; runAndroid: boolean; runWindows: boolean; runSkillsPython: boolean }} ChangedScope */
+/** @typedef {{ runNode: boolean; runMacos: boolean; runIosBuild: boolean; runAndroid: boolean; runWindows: boolean; runSkillsPython: boolean; runChangedSmoke: boolean; runControlUiI18n: boolean; runUiTests: boolean }} ChangedScope */
+/** @typedef {{ runFastOnly: boolean; runPluginContracts: boolean; runCiRouting: boolean }} NodeFastScope */
+/** @typedef {{ runFastInstallSmoke: boolean; runFullInstallSmoke: boolean }} InstallSmokeScope */
 
-const DOCS_PATH_RE = /^(docs\/|.*\.mdx?$)/;
-const SKILLS_PYTHON_SCOPE_RE = /^skills\//;
-const MACOS_PROTOCOL_GEN_RE =
-  /^(apps\/macos\/Sources\/OpenClawProtocol\/|apps\/shared\/OpenClawKit\/Sources\/OpenClawProtocol\/)/;
-const MACOS_NATIVE_RE = /^(apps\/macos\/|apps\/ios\/|apps\/shared\/|Swabble\/)/;
+const FULL_SCOPE = {
+  runNode: true,
+  runMacos: true,
+  runIosBuild: true,
+  runAndroid: true,
+  runWindows: true,
+  runSkillsPython: true,
+  runChangedSmoke: true,
+  runControlUiI18n: true,
+  runUiTests: true,
+};
+
+const EMPTY_SCOPE = {
+  runNode: false,
+  runMacos: false,
+  runIosBuild: false,
+  runAndroid: false,
+  runWindows: false,
+  runSkillsPython: false,
+  runChangedSmoke: false,
+  runControlUiI18n: false,
+  runUiTests: false,
+};
+
+const SKILLS_PYTHON_SCOPE_RE = /^(skills\/|skills\/pyproject\.toml$)/;
+const INSTALL_SMOKE_WORKFLOW_SCOPE_RE = /^\.github\/workflows\/install-smoke\.yml$/;
+const NATIVE_PROTOCOL_GEN_RE = /^apps\/shared\/OpenClawKit\/Sources\/OpenClawProtocol\//;
+const APPLE_SWIFT_CONFIG_RE = /^config\/(?:swiftformat|swiftlint\.yml)$/;
+const MACOS_NATIVE_RE =
+  /^(apps\/macos\/|apps\/macos-mlx-tts\/|apps\/ios\/|apps\/shared\/|apps\/swabble\/|Swabble\/)/;
+const MACOS_SCRIPT_SCOPE_RE =
+  /^(?:scripts\/(?:check-swift-tools|codesign-mac-app|create-dmg|format-swift|install-swift-tools|lint-swift|notarize-mac-artifact|package-mac-app|package-mac-dist)\.sh|scripts\/lib\/(?:plistbuddy|swift-toolchain)\.sh|test\/scripts\/(?:codesign-mac-app|create-dmg|notarize-mac-artifact|package-mac-app|package-mac-dist)\.test\.ts)$/;
+const IOS_BUILD_RE =
+  /^(apps\/ios\/|apps\/shared\/|apps\/swabble\/|Swabble\/|scripts\/(?:check-swift-tools|format-swift|install-swift-tools|lint-swift)\.sh$|scripts\/(?:ios-(?:configure-signing|team-id|write-version-xcconfig)\.sh|ios-write-swift-filelist\.mjs|ios-version\.ts)$|scripts\/lib\/(?:ios-version\.ts|npm-publish-plan\.mjs|version-script-args\.ts)$)/;
 const ANDROID_NATIVE_RE = /^(apps\/android\/|apps\/shared\/)/;
 const NODE_SCOPE_RE =
   /^(src\/|test\/|extensions\/|packages\/|scripts\/|ui\/|\.github\/|openclaw\.mjs$|package\.json$|pnpm-lock\.yaml$|pnpm-workspace\.yaml$|tsconfig.*\.json$|vitest.*\.ts$|tsdown\.config\.ts$|\.oxlintrc\.json$|\.oxfmtrc\.jsonc$)/;
 const WINDOWS_SCOPE_RE =
-  /^(src\/|test\/|extensions\/|packages\/|scripts\/|ui\/|openclaw\.mjs$|package\.json$|pnpm-lock\.yaml$|pnpm-workspace\.yaml$|tsconfig.*\.json$|vitest.*\.ts$|tsdown\.config\.ts$|\.github\/workflows\/ci\.yml$|\.github\/actions\/setup-node-env\/action\.yml$|\.github\/actions\/setup-pnpm-store-cache\/action\.yml$)/;
-const NATIVE_ONLY_RE =
-  /^(apps\/android\/|apps\/ios\/|apps\/macos\/|apps\/shared\/|Swabble\/|appcast\.xml$)/;
+  /^(src\/process\/|src\/infra\/windows-install-roots\.ts$|src\/shared\/(?:import-specifier|runtime-import)(?:\.test)?\.ts$|scripts\/(?:install\.ps1|openclaw-cross-os-release-checks\.ts|github\/run-openclaw-cross-os-release-checks\.sh|(?:npm-runner|pnpm-runner|ui|vitest-process-group)\.(?:mjs|js)|lib\/(?:format-generated-module\.mjs|cross-os-release-checks\/[^/]+\.ts))$|test\/scripts\/(?:format-generated-module|install-ps1|npm-runner|openclaw-cross-os-release-workflow|pnpm-runner|ui|vitest-process-group)\.test\.ts$|package\.json$|pnpm-lock\.yaml$|pnpm-workspace\.yaml$|\.github\/workflows\/(?:ci|openclaw-cross-os-release-checks-reusable)\.yml$|\.github\/actions\/setup-node-env\/action\.yml$|\.github\/actions\/setup-pnpm-store-cache\/action\.yml$)/;
+const WINDOWS_TEST_SCOPE_RE =
+  /^(src\/process\/(?:exec\.windows|windows-command)\.test\.ts$|src\/infra\/windows-install-roots\.test\.ts$|src\/shared\/runtime-import\.test\.ts$|test\/scripts\/(?:format-generated-module|npm-runner|openclaw-cross-os-release-workflow|pnpm-runner|ui|vitest-process-group)\.test\.ts$)/;
+const WINDOWS_DAEMON_SCOPE_RE =
+  /^src\/daemon\/(?:schtasks(?:[-.][^/]+)?|runtime-hints\.windows-paths(?:\.test)?|test-helpers\/schtasks-(?:base-mocks|fixtures))\.ts$/;
+const CONTROL_UI_I18N_SCOPE_RE =
+  /^(ui\/src\/i18n\/|scripts\/control-ui-i18n\.ts$|\.github\/workflows\/control-ui-locale-refresh\.yml$)/;
+const CONTROL_UI_TEST_SCOPE_RE =
+  /^(ui\/|test\/vitest\/vitest\.shared\.config\.ts$|scripts\/ensure-playwright-chromium\.mjs$)/;
+const NATIVE_I18N_SCOPE_RE =
+  /^(?:apps\/\.i18n\/|apps\/android\/app\/src\/main\/|apps\/ios\/|apps\/macos\/Sources\/|apps\/shared\/OpenClawKit\/Sources\/|scripts\/(?:android-app-i18n|apple-app-i18n|native-app-i18n)\.ts$|test\/scripts\/(?:android-app-i18n|apple-app-i18n|native-app-i18n)\.test\.ts$|\.github\/workflows\/(?:ci|native-app-locale-refresh)\.yml$)/;
+const FAST_INSTALL_SMOKE_SCOPE_RE =
+  /^(Dockerfile$|\.npmrc$|package\.json$|pnpm-lock\.yaml$|pnpm-workspace\.yaml$|scripts\/ci-changed-scope\.mjs$|scripts\/postinstall-bundled-plugins\.mjs$|scripts\/e2e\/(?:Dockerfile(?:\.qr-import)?|agents-delete-shared-workspace-docker\.sh|gateway-network-docker\.sh)$|extensions\/[^/]+\/(?:package\.json|openclaw\.plugin\.json)$|\.github\/workflows\/install-smoke\.yml$|\.github\/actions\/setup-node-env\/action\.yml$)/;
+const FULL_INSTALL_SMOKE_SCOPE_RE =
+  /^(Dockerfile$|\.npmrc$|package\.json$|pnpm-lock\.yaml$|pnpm-workspace\.yaml$|scripts\/ci-changed-scope\.mjs$|scripts\/install(?:-cli)?\.sh$|scripts\/install\.ps1$|scripts\/test-install-sh-docker\.sh$|scripts\/docker\/|scripts\/e2e\/(?:Dockerfile(?:\.qr-import)?|qr-import-docker\.sh|bun-global-install-smoke\.sh)$|\.github\/workflows\/(?:install-smoke|website-installer-sync)\.yml$|\.github\/actions\/setup-node-env\/action\.yml$)/;
+const FAST_INSTALL_SMOKE_RUNTIME_SCOPE_RE =
+  /^(?:src\/(?:channels|gateway|plugin-sdk|plugins)\/|packages\/gateway-(?:client|protocol)\/src\/)/;
+const NODE_FAST_PLUGIN_CONTRACT_SCOPE_RE =
+  /^src\/plugins\/contracts\/(?:inventory\/bundled-capability-metadata|registry|tts-contract-suites)\.ts$/;
+const NODE_FAST_CI_ROUTING_SCOPE_RE =
+  /^(scripts\/(?:ci-changed-scope|check-changed|run-vitest|test-projects(?:\.test-support)?)\.mjs$|scripts\/(?:test-projects\.test-support|lib\/changed-path-facts)\.d\.mts$|scripts\/lib\/changed-path-facts\.mjs$|src\/commands\/status\.scan-result\.test\.ts$|src\/scripts\/ci-changed-scope\.test\.ts$|test\/scripts\/(?:changed-lanes|changed-path-facts|run-vitest|test-projects)\.test\.ts$)/;
+const NODE_FAST_SCOPE_RE = new RegExp(
+  `${NODE_FAST_PLUGIN_CONTRACT_SCOPE_RE.source}|${NODE_FAST_CI_ROUTING_SCOPE_RE.source}`,
+);
 
 /**
  * @param {string[]} changedPaths
  * @returns {ChangedScope}
  */
+/**
+ * Detects high-level CI scope from changed file paths.
+ */
 export function detectChangedScope(changedPaths) {
   if (!Array.isArray(changedPaths) || changedPaths.length === 0) {
-    return {
-      runNode: true,
-      runMacos: true,
-      runAndroid: true,
-      runWindows: true,
-      runSkillsPython: true,
-    };
+    return { ...FULL_SCOPE };
   }
 
   let runNode = false;
   let runMacos = false;
+  let runIosBuild = false;
   let runAndroid = false;
   let runWindows = false;
   let runSkillsPython = false;
+  let runChangedSmoke = false;
+  let runControlUiI18n = false;
+  let runUiTests = false;
   let hasNonDocs = false;
   let hasNonNativeNonDocs = false;
 
   for (const rawPath of changedPaths) {
-    const path = String(rawPath).trim();
+    const facts = getChangedPathFacts(rawPath);
+    const { path } = facts;
     if (!path) {
       continue;
     }
 
-    if (DOCS_PATH_RE.test(path)) {
+    const isAppleSwiftConfig = APPLE_SWIFT_CONFIG_RE.test(path);
+
+    if (facts.surface === "docs") {
       continue;
     }
 
@@ -55,11 +116,22 @@ export function detectChangedScope(changedPaths) {
       runSkillsPython = true;
     }
 
-    if (!MACOS_PROTOCOL_GEN_RE.test(path) && MACOS_NATIVE_RE.test(path)) {
+    if (INSTALL_SMOKE_WORKFLOW_SCOPE_RE.test(path)) {
+      runChangedSmoke = true;
+    }
+
+    if (
+      !NATIVE_PROTOCOL_GEN_RE.test(path) &&
+      (MACOS_NATIVE_RE.test(path) || MACOS_SCRIPT_SCOPE_RE.test(path) || isAppleSwiftConfig)
+    ) {
       runMacos = true;
     }
 
-    if (ANDROID_NATIVE_RE.test(path)) {
+    if (IOS_BUILD_RE.test(path) || isAppleSwiftConfig) {
+      runIosBuild = true;
+    }
+
+    if (!NATIVE_PROTOCOL_GEN_RE.test(path) && ANDROID_NATIVE_RE.test(path)) {
       runAndroid = true;
     }
 
@@ -67,11 +139,26 @@ export function detectChangedScope(changedPaths) {
       runNode = true;
     }
 
-    if (WINDOWS_SCOPE_RE.test(path)) {
+    if (
+      (WINDOWS_SCOPE_RE.test(path) || WINDOWS_DAEMON_SCOPE_RE.test(path)) &&
+      (!facts.isTestOnly || WINDOWS_TEST_SCOPE_RE.test(path) || WINDOWS_DAEMON_SCOPE_RE.test(path))
+    ) {
       runWindows = true;
     }
 
-    if (!NATIVE_ONLY_RE.test(path)) {
+    if (detectInstallSmokeScopeForPath(path).runFastInstallSmoke) {
+      runChangedSmoke = true;
+    }
+
+    if (CONTROL_UI_I18N_SCOPE_RE.test(path)) {
+      runControlUiI18n = true;
+    }
+
+    if (CONTROL_UI_TEST_SCOPE_RE.test(path)) {
+      runUiTests = true;
+    }
+
+    if (!facts.isNativeOnly) {
       hasNonNativeNonDocs = true;
     }
   }
@@ -80,19 +167,142 @@ export function detectChangedScope(changedPaths) {
     runNode = true;
   }
 
-  return { runNode, runMacos, runAndroid, runWindows, runSkillsPython };
+  return {
+    runNode,
+    runMacos,
+    runIosBuild,
+    runAndroid,
+    runWindows,
+    runSkillsPython,
+    runChangedSmoke,
+    runControlUiI18n,
+    runUiTests,
+  };
+}
+
+export function shouldRunNativeI18n(changedPaths) {
+  return (
+    !Array.isArray(changedPaths) ||
+    changedPaths.length === 0 ||
+    changedPaths.some((path) => NATIVE_I18N_SCOPE_RE.test(path.trim()))
+  );
+}
+
+/** Returns whether the changed paths include TypeScript governed by the LOC ratchet. */
+export function shouldRunTsLoc(changedPaths) {
+  return (
+    !Array.isArray(changedPaths) ||
+    changedPaths.some((path) => isProductionTypeScriptFile(path.trim()))
+  );
+}
+
+/**
+ * @param {string[]} changedPaths
+ * @returns {NodeFastScope}
+ */
+/**
+ * Detects whether node-fast CI can cover the changed paths.
+ */
+export function detectNodeFastScope(changedPaths) {
+  if (!Array.isArray(changedPaths) || changedPaths.length === 0) {
+    return { runFastOnly: false, runPluginContracts: false, runCiRouting: false };
+  }
+
+  let hasNonDocs = false;
+  let runPluginContracts = false;
+  let runCiRouting = false;
+
+  for (const rawPath of changedPaths) {
+    const facts = getChangedPathFacts(rawPath);
+    const { path } = facts;
+    if (!path || facts.surface === "docs") {
+      continue;
+    }
+
+    hasNonDocs = true;
+    runPluginContracts ||= NODE_FAST_PLUGIN_CONTRACT_SCOPE_RE.test(path);
+    runCiRouting ||= NODE_FAST_CI_ROUTING_SCOPE_RE.test(path);
+
+    if (!NODE_FAST_SCOPE_RE.test(path)) {
+      return { runFastOnly: false, runPluginContracts: false, runCiRouting: false };
+    }
+  }
+
+  const runFastOnly = hasNonDocs && (runPluginContracts || runCiRouting);
+  return {
+    runFastOnly,
+    runPluginContracts: runFastOnly && runPluginContracts,
+    runCiRouting: runFastOnly && runCiRouting,
+  };
+}
+
+/**
+ * @param {string} path
+ * @returns {InstallSmokeScope}
+ */
+function detectInstallSmokeScopeForPath(path) {
+  const facts = getChangedPathFacts(path);
+  const runFullInstallSmoke = FULL_INSTALL_SMOKE_SCOPE_RE.test(path);
+  const runFastInstallSmoke =
+    runFullInstallSmoke ||
+    FAST_INSTALL_SMOKE_SCOPE_RE.test(path) ||
+    (FAST_INSTALL_SMOKE_RUNTIME_SCOPE_RE.test(path) && !facts.isTestOnly);
+  return { runFastInstallSmoke, runFullInstallSmoke };
+}
+
+/**
+ * @param {string[]} changedPaths
+ * @returns {InstallSmokeScope}
+ */
+/**
+ * Detects whether install-smoke CI should run for changed paths.
+ */
+export function detectInstallSmokeScope(changedPaths) {
+  if (!Array.isArray(changedPaths) || changedPaths.length === 0) {
+    return { runFastInstallSmoke: true, runFullInstallSmoke: true };
+  }
+
+  let runFastInstallSmoke = false;
+  let runFullInstallSmoke = false;
+  for (const rawPath of changedPaths) {
+    const facts = getChangedPathFacts(rawPath);
+    const { path } = facts;
+    if (!path || facts.surface === "docs") {
+      continue;
+    }
+    const pathScope = detectInstallSmokeScopeForPath(path);
+    runFastInstallSmoke ||= pathScope.runFastInstallSmoke;
+    runFullInstallSmoke ||= pathScope.runFullInstallSmoke;
+  }
+  return { runFastInstallSmoke, runFullInstallSmoke };
 }
 
 /**
  * @param {string} base
  * @param {string} [head]
+ * @param {string} [cwd]
  * @returns {string[]}
  */
-export function listChangedPaths(base, head = "HEAD") {
+/**
+ * Lists changed paths for CI base/head inputs.
+ */
+export function listChangedPaths(
+  base,
+  head = "HEAD",
+  cwd = process.cwd(),
+  preferMergeHeadFirstParent = false,
+) {
   if (!base) {
     return [];
   }
-  const output = execFileSync("git", ["diff", "--name-only", base, head], {
+  const diffBase = resolveMergeHeadDiffBase({
+    base,
+    head,
+    cwd,
+    preferFirstParent: preferMergeHeadFirstParent,
+  });
+  const output = execFileSync("git", ["diff", "--name-only", diffBase, head], {
+    cwd,
     stdio: ["ignore", "pipe", "pipe"],
     encoding: "utf8",
   });
@@ -105,62 +315,111 @@ export function listChangedPaths(base, head = "HEAD") {
 /**
  * @param {ChangedScope} scope
  * @param {string} [outputPath]
+ * @param {InstallSmokeScope} [installSmokeScope]
  */
-export function writeGitHubOutput(scope, outputPath = process.env.GITHUB_OUTPUT) {
+/**
+ * Writes CI scope decisions to GitHub Actions output.
+ */
+export function writeGitHubOutput(
+  scope,
+  outputPath = process.env.GITHUB_OUTPUT,
+  installSmokeScope = {
+    runFastInstallSmoke: scope.runChangedSmoke,
+    runFullInstallSmoke: scope.runChangedSmoke,
+  },
+  nodeFastScope = { runFastOnly: false, runPluginContracts: false, runCiRouting: false },
+  runNativeI18n = true,
+  runTsLoc = true,
+) {
   if (!outputPath) {
     throw new Error("GITHUB_OUTPUT is required");
   }
   appendFileSync(outputPath, `run_node=${scope.runNode}\n`, "utf8");
   appendFileSync(outputPath, `run_macos=${scope.runMacos}\n`, "utf8");
+  appendFileSync(outputPath, `run_ios_build=${scope.runIosBuild}\n`, "utf8");
   appendFileSync(outputPath, `run_android=${scope.runAndroid}\n`, "utf8");
   appendFileSync(outputPath, `run_windows=${scope.runWindows}\n`, "utf8");
   appendFileSync(outputPath, `run_skills_python=${scope.runSkillsPython}\n`, "utf8");
+  appendFileSync(outputPath, `run_changed_smoke=${scope.runChangedSmoke}\n`, "utf8");
+  appendFileSync(outputPath, `run_node_fast_only=${nodeFastScope.runFastOnly}\n`, "utf8");
+  appendFileSync(
+    outputPath,
+    `run_node_fast_plugin_contracts=${nodeFastScope.runPluginContracts}\n`,
+    "utf8",
+  );
+  appendFileSync(outputPath, `run_node_fast_ci_routing=${nodeFastScope.runCiRouting}\n`, "utf8");
+  appendFileSync(
+    outputPath,
+    `run_fast_install_smoke=${installSmokeScope.runFastInstallSmoke}\n`,
+    "utf8",
+  );
+  appendFileSync(
+    outputPath,
+    `run_full_install_smoke=${installSmokeScope.runFullInstallSmoke}\n`,
+    "utf8",
+  );
+  appendFileSync(outputPath, `run_control_ui_i18n=${scope.runControlUiI18n}\n`, "utf8");
+  appendFileSync(outputPath, `run_ui_tests=${scope.runUiTests}\n`, "utf8");
+  appendFileSync(outputPath, `run_native_i18n=${runNativeI18n}\n`, "utf8");
+  appendFileSync(outputPath, `run_ts_loc=${runTsLoc}\n`, "utf8");
 }
 
 function isDirectRun() {
-  const direct = process.argv[1];
-  return Boolean(direct && import.meta.url.endsWith(direct));
+  return isDirectRunUrl(process.argv[1], import.meta.url);
 }
 
 /** @param {string[]} argv */
-function parseArgs(argv) {
-  const args = { base: "", head: "HEAD" };
+function readRefValue(argv, index, optionName) {
+  const value = argv[index + 1];
+  if (value === undefined || value === "" || value.startsWith("-")) {
+    throw new Error(`${optionName} requires a value`);
+  }
+  return value;
+}
+
+/** @param {string[]} argv */
+export function parseArgs(argv) {
+  const args = { base: "", head: "HEAD", mergeHeadFirstParent: false };
   for (let i = 0; i < argv.length; i += 1) {
     if (argv[i] === "--base") {
-      args.base = argv[i + 1] ?? "";
+      args.base = readRefValue(argv, i, "--base");
       i += 1;
       continue;
     }
     if (argv[i] === "--head") {
-      args.head = argv[i + 1] ?? "HEAD";
+      args.head = readRefValue(argv, i, "--head");
       i += 1;
+      continue;
+    }
+    if (argv[i] === "--merge-head-first-parent") {
+      args.mergeHeadFirstParent = true;
     }
   }
   return args;
 }
 
 if (isDirectRun()) {
-  const args = parseArgs(process.argv.slice(2));
   try {
-    const changedPaths = listChangedPaths(args.base, args.head);
+    const args = parseArgs(process.argv.slice(2));
+    const changedPaths = listChangedPaths(
+      args.base,
+      args.head,
+      process.cwd(),
+      args.mergeHeadFirstParent,
+    );
     if (changedPaths.length === 0) {
-      writeGitHubOutput({
-        runNode: true,
-        runMacos: true,
-        runAndroid: true,
-        runWindows: true,
-        runSkillsPython: true,
-      });
+      writeGitHubOutput(EMPTY_SCOPE, process.env.GITHUB_OUTPUT, undefined, undefined, false, false);
       process.exit(0);
     }
-    writeGitHubOutput(detectChangedScope(changedPaths));
+    writeGitHubOutput(
+      detectChangedScope(changedPaths),
+      process.env.GITHUB_OUTPUT,
+      detectInstallSmokeScope(changedPaths),
+      detectNodeFastScope(changedPaths),
+      shouldRunNativeI18n(changedPaths),
+      shouldRunTsLoc(changedPaths),
+    );
   } catch {
-    writeGitHubOutput({
-      runNode: true,
-      runMacos: true,
-      runAndroid: true,
-      runWindows: true,
-      runSkillsPython: true,
-    });
+    writeGitHubOutput(FULL_SCOPE, process.env.GITHUB_OUTPUT, undefined, undefined, true, true);
   }
 }

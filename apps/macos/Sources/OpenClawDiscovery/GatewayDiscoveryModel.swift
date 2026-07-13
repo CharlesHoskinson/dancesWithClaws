@@ -30,6 +30,8 @@ public final class GatewayDiscoveryModel {
         public var tailnetDns: String?
         public var sshPort: Int
         public var gatewayPort: Int?
+        public var gatewayTls: Bool
+        public var gatewayDirectReachable: Bool
         public var cliPath: String?
         public var stableID: String
         public var debugID: String
@@ -43,6 +45,8 @@ public final class GatewayDiscoveryModel {
             tailnetDns: String? = nil,
             sshPort: Int,
             gatewayPort: Int? = nil,
+            gatewayTls: Bool = false,
+            gatewayDirectReachable: Bool = false,
             cliPath: String? = nil,
             stableID: String,
             debugID: String,
@@ -55,6 +59,8 @@ public final class GatewayDiscoveryModel {
             self.tailnetDns = tailnetDns
             self.sshPort = sshPort
             self.gatewayPort = gatewayPort
+            self.gatewayTls = gatewayTls
+            self.gatewayDirectReachable = gatewayDirectReachable
             self.cliPath = cliPath
             self.stableID = stableID
             self.debugID = debugID
@@ -184,6 +190,8 @@ public final class GatewayDiscoveryModel {
                 tailnetDns: beacon.tailnetDns,
                 sshPort: beacon.sshPort ?? 22,
                 gatewayPort: beacon.gatewayPort,
+                gatewayTls: beacon.gatewayTls,
+                gatewayDirectReachable: beacon.gatewayDirectReachable,
                 cliPath: beacon.cliPath,
                 stableID: stableID,
                 debugID: "\(beacon.instanceName)@\(beacon.host):\(beacon.port)",
@@ -210,6 +218,8 @@ public final class GatewayDiscoveryModel {
                 tailnetDns: beacon.tailnetDns,
                 sshPort: 22,
                 gatewayPort: beacon.port,
+                gatewayTls: true,
+                gatewayDirectReachable: true,
                 cliPath: nil,
                 stableID: stableID,
                 debugID: "\(beacon.host):\(beacon.port)",
@@ -282,6 +292,8 @@ public final class GatewayDiscoveryModel {
                 tailnetDns: parsedTXT.tailnetDns,
                 sshPort: parsedTXT.sshPort,
                 gatewayPort: parsedTXT.gatewayPort,
+                gatewayTls: parsedTXT.gatewayTls,
+                gatewayDirectReachable: parsedTXT.gatewayDirectReachable,
                 cliPath: parsedTXT.cliPath,
                 stableID: stableID,
                 debugID: GatewayEndpointID.prettyDescription(result.endpoint),
@@ -338,13 +350,12 @@ public final class GatewayDiscoveryModel {
             var attempt = 0
             let startedAt = Date()
             while !Task.isCancelled, Date().timeIntervalSince(startedAt) < 35.0 {
-                let hasResults = await MainActor.run {
-                    if self.filterLocalGateways {
-                        return !self.gateways.isEmpty
-                    }
-                    return self.gateways.contains(where: { !$0.isLocal })
+                let shouldContinue = await MainActor.run {
+                    Self.shouldContinueTailscaleServeDiscovery(
+                        currentGateways: self.gateways,
+                        tailscaleServeGateways: self.tailscaleServeFallbackGateways)
                 }
-                if hasResults { return }
+                if !shouldContinue { return }
 
                 let beacons = await TailscaleServeGatewayDiscovery.discover(timeoutSeconds: 2.4)
                 if !beacons.isEmpty {
@@ -363,6 +374,15 @@ public final class GatewayDiscoveryModel {
         }
     }
 
+    static func shouldContinueTailscaleServeDiscovery(
+        currentGateways _: [DiscoveredGateway],
+        tailscaleServeGateways: [DiscoveredGateway]) -> Bool
+    {
+        // Tailscale Serve is a parallel discovery source. DNS-SD results should not suppress the
+        // probe, otherwise Serve-only gateways disappear as soon as any other remote gateway is found.
+        tailscaleServeGateways.isEmpty
+    }
+
     private var hasUsableWideAreaResults: Bool {
         guard let domain = OpenClawBonjour.wideAreaGatewayServiceDomain else { return false }
         guard let gateways = self.gatewaysByDomain[domain], !gateways.isEmpty else { return false }
@@ -374,9 +394,9 @@ public final class GatewayDiscoveryModel {
         if let host = gateway.serviceHost?
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .lowercased(),
-           !host.isEmpty,
-           let port = gateway.servicePort,
-           port > 0
+            !host.isEmpty,
+            let port = gateway.servicePort,
+            port > 0
         {
             return "endpoint|\(host):\(port)"
         }
@@ -437,6 +457,8 @@ public final class GatewayDiscoveryModel {
         public var tailnetDns: String?
         public var sshPort: Int
         public var gatewayPort: Int?
+        public var gatewayTls: Bool
+        public var gatewayDirectReachable: Bool
         public var cliPath: String?
     }
 
@@ -445,6 +467,8 @@ public final class GatewayDiscoveryModel {
         var tailnetDns: String?
         var sshPort = 22
         var gatewayPort: Int?
+        var gatewayTls = false
+        var gatewayDirectReachable = false
         var cliPath: String?
 
         if let value = txt["lanHost"] {
@@ -467,6 +491,14 @@ public final class GatewayDiscoveryModel {
         {
             gatewayPort = parsed
         }
+        if let value = txt["gatewayTls"] {
+            let normalized = value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            gatewayTls = normalized == "1" || normalized == "true" || normalized == "yes"
+        }
+        if let value = txt["gatewayDirectReachable"] {
+            let normalized = value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            gatewayDirectReachable = normalized == "1" || normalized == "true" || normalized == "yes"
+        }
         if let value = txt["cliPath"] {
             let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
             cliPath = trimmed.isEmpty ? nil : trimmed
@@ -477,6 +509,8 @@ public final class GatewayDiscoveryModel {
             tailnetDns: tailnetDns,
             sshPort: sshPort,
             gatewayPort: gatewayPort,
+            gatewayTls: gatewayTls,
+            gatewayDirectReachable: gatewayDirectReachable,
             cliPath: cliPath)
     }
 
@@ -674,7 +708,7 @@ public final class GatewayDiscoveryModel {
     }
 }
 
-struct ResolvedGatewayService: Equatable, Sendable {
+struct ResolvedGatewayService: Equatable {
     var txt: [String: String]
     var host: String?
     var port: Int?

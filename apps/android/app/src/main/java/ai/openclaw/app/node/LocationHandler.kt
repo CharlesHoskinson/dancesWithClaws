@@ -1,83 +1,155 @@
 package ai.openclaw.app.node
 
+import ai.openclaw.app.LocationMode
+import ai.openclaw.app.gateway.GatewaySession
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
 import android.location.LocationManager
 import androidx.core.content.ContextCompat
-import ai.openclaw.app.LocationMode
-import ai.openclaw.app.gateway.GatewaySession
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 
-class LocationHandler(
+/**
+ * Injectable location facade for command tests and Android runtime access.
+ */
+internal interface LocationDataSource {
+  fun hasFinePermission(context: Context): Boolean
+
+  fun hasCoarsePermission(context: Context): Boolean
+
+  fun hasBackgroundPermission(context: Context): Boolean
+
+  suspend fun fetchLocation(
+    desiredProviders: List<String>,
+    maxAgeMs: Long?,
+    timeoutMs: Long,
+    isPrecise: Boolean,
+  ): LocationCaptureManager.Payload
+}
+
+private class DefaultLocationDataSource(
+  private val capture: LocationCaptureManager,
+) : LocationDataSource {
+  override fun hasFinePermission(context: Context): Boolean =
+    ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) ==
+      PackageManager.PERMISSION_GRANTED
+
+  override fun hasCoarsePermission(context: Context): Boolean =
+    ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) ==
+      PackageManager.PERMISSION_GRANTED
+
+  override fun hasBackgroundPermission(context: Context): Boolean =
+    ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_BACKGROUND_LOCATION) ==
+      PackageManager.PERMISSION_GRANTED
+
+  override suspend fun fetchLocation(
+    desiredProviders: List<String>,
+    maxAgeMs: Long?,
+    timeoutMs: Long,
+    isPrecise: Boolean,
+  ): LocationCaptureManager.Payload =
+    capture.getLocation(
+      desiredProviders = desiredProviders,
+      maxAgeMs = maxAgeMs,
+      timeoutMs = timeoutMs,
+      isPrecise = isPrecise,
+    )
+}
+
+class LocationHandler private constructor(
   private val appContext: Context,
-  private val location: LocationCaptureManager,
+  private val dataSource: LocationDataSource,
   private val json: Json,
   private val isForeground: () -> Boolean,
   private val locationMode: () -> LocationMode,
+  private val backgroundLocationEnabled: () -> Boolean,
   private val locationPreciseEnabled: () -> Boolean,
 ) {
-  fun hasFineLocationPermission(): Boolean {
-    return (
-      ContextCompat.checkSelfPermission(appContext, Manifest.permission.ACCESS_FINE_LOCATION) ==
-        PackageManager.PERMISSION_GRANTED
+  constructor(
+    appContext: Context,
+    location: LocationCaptureManager,
+    json: Json,
+    isForeground: () -> Boolean,
+    locationMode: () -> LocationMode,
+    backgroundLocationEnabled: () -> Boolean,
+    locationPreciseEnabled: () -> Boolean,
+  ) : this(
+    appContext = appContext,
+    dataSource = DefaultLocationDataSource(location),
+    json = json,
+    isForeground = isForeground,
+    locationMode = locationMode,
+    backgroundLocationEnabled = backgroundLocationEnabled,
+    locationPreciseEnabled = locationPreciseEnabled,
+  )
+
+  /** Reports whether precise GPS-backed location can be requested from Android. */
+  fun hasFineLocationPermission(): Boolean = dataSource.hasFinePermission(appContext)
+
+  /** Reports whether network/coarse location can be requested from Android. */
+  fun hasCoarseLocationPermission(): Boolean = dataSource.hasCoarsePermission(appContext)
+
+  companion object {
+    /** Creates a handler with injected location state for permission and payload tests. */
+    internal fun forTesting(
+      appContext: Context,
+      dataSource: LocationDataSource,
+      json: Json = Json { ignoreUnknownKeys = true },
+      isForeground: () -> Boolean = { true },
+      locationMode: () -> LocationMode = { LocationMode.WhileUsing },
+      backgroundLocationEnabled: () -> Boolean = { false },
+      locationPreciseEnabled: () -> Boolean = { true },
+    ): LocationHandler =
+      LocationHandler(
+        appContext = appContext,
+        dataSource = dataSource,
+        json = json,
+        isForeground = isForeground,
+        locationMode = locationMode,
+        backgroundLocationEnabled = backgroundLocationEnabled,
+        locationPreciseEnabled = locationPreciseEnabled,
       )
   }
 
-  fun hasCoarseLocationPermission(): Boolean {
-    return (
-      ContextCompat.checkSelfPermission(appContext, Manifest.permission.ACCESS_COARSE_LOCATION) ==
-        PackageManager.PERMISSION_GRANTED
-      )
-  }
-
-  fun hasBackgroundLocationPermission(): Boolean {
-    return (
-      ContextCompat.checkSelfPermission(appContext, Manifest.permission.ACCESS_BACKGROUND_LOCATION) ==
-        PackageManager.PERMISSION_GRANTED
-      )
-  }
-
+  /** Handles location.get with foreground, permission, and user precision gates applied. */
   suspend fun handleLocationGet(paramsJson: String?): GatewaySession.InvokeResult {
-    val mode = locationMode()
-    if (!isForeground() && mode != LocationMode.Always) {
+    if (!isForeground() && !allowsBackgroundLocation()) {
+      // Android foreground restrictions and user expectation keep live location tied to the visible app.
       return GatewaySession.InvokeResult.error(
         code = "LOCATION_BACKGROUND_UNAVAILABLE",
-        message = "LOCATION_BACKGROUND_UNAVAILABLE: background location requires Always",
+        message =
+          "LOCATION_BACKGROUND_UNAVAILABLE: choose Always and grant background location access",
       )
     }
-    if (!hasFineLocationPermission() && !hasCoarseLocationPermission()) {
+    if (!dataSource.hasFinePermission(appContext) && !dataSource.hasCoarsePermission(appContext)) {
       return GatewaySession.InvokeResult.error(
         code = "LOCATION_PERMISSION_REQUIRED",
         message = "LOCATION_PERMISSION_REQUIRED: grant Location permission",
       )
     }
-    if (!isForeground() && mode == LocationMode.Always && !hasBackgroundLocationPermission()) {
-      return GatewaySession.InvokeResult.error(
-        code = "LOCATION_PERMISSION_REQUIRED",
-        message = "LOCATION_PERMISSION_REQUIRED: enable Always in system Settings",
-      )
-    }
     val (maxAgeMs, timeoutMs, desiredAccuracy) = parseLocationParams(paramsJson)
     val preciseEnabled = locationPreciseEnabled()
+    // Gateway requests are advisory; Android permission and user settings decide
+    // whether precise capture is actually allowed for this invocation.
     val accuracy =
       when (desiredAccuracy) {
-        "precise" -> if (preciseEnabled && hasFineLocationPermission()) "precise" else "balanced"
+        "precise" -> if (preciseEnabled && dataSource.hasFinePermission(appContext)) "precise" else "balanced"
         "coarse" -> "coarse"
-        else -> if (preciseEnabled && hasFineLocationPermission()) "precise" else "balanced"
+        else -> if (preciseEnabled && dataSource.hasFinePermission(appContext)) "precise" else "balanced"
       }
     val providers =
       when (accuracy) {
+        // Provider order is part of the accuracy policy: GPS first for precise, network first otherwise.
         "precise" -> listOf(LocationManager.GPS_PROVIDER, LocationManager.NETWORK_PROVIDER)
         "coarse" -> listOf(LocationManager.NETWORK_PROVIDER, LocationManager.GPS_PROVIDER)
         else -> listOf(LocationManager.NETWORK_PROVIDER, LocationManager.GPS_PROVIDER)
       }
     try {
       val payload =
-        location.getLocation(
+        dataSource.fetchLocation(
           desiredProviders = providers,
           maxAgeMs = maxAgeMs,
           timeoutMs = timeoutMs,
@@ -89,11 +161,18 @@ class LocationHandler(
         code = "LOCATION_TIMEOUT",
         message = "LOCATION_TIMEOUT: no fix in time",
       )
+    } catch (err: CancellationException) {
+      throw err
     } catch (err: Throwable) {
       val message = err.message ?: "LOCATION_UNAVAILABLE: no fix"
       return GatewaySession.InvokeResult.error(code = "LOCATION_UNAVAILABLE", message = message)
     }
   }
+
+  private fun allowsBackgroundLocation(): Boolean =
+    backgroundLocationEnabled() &&
+      locationMode() == LocationMode.Always &&
+      dataSource.hasBackgroundPermission(appContext)
 
   private fun parseLocationParams(paramsJson: String?): Triple<Long?, Long, String?> {
     if (paramsJson.isNullOrBlank()) {
@@ -109,6 +188,7 @@ class LocationHandler(
     val timeoutMs =
       (root?.get("timeoutMs") as? JsonPrimitive)?.content?.toLongOrNull()?.coerceIn(1_000L, 60_000L)
         ?: 10_000L
+    // desiredAccuracy is advisory; invalid values fall through to the default policy.
     val desiredAccuracy =
       (root?.get("desiredAccuracy") as? JsonPrimitive)?.content?.trim()?.lowercase()
     return Triple(maxAgeMs, timeoutMs, desiredAccuracy)

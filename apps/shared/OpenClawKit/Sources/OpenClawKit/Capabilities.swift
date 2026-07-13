@@ -2,9 +2,12 @@ import Foundation
 
 public enum OpenClawCapability: String, Codable, Sendable {
     case canvas
+    case browser
     case camera
     case screen
+    case computer
     case voiceWake
+    case talk
     case location
     case device
     case watch
@@ -13,4 +16,5 @@ public enum OpenClawCapability: String, Codable, Sendable {
     case calendar
     case reminders
     case motion
+    case health
 }

@@ -1,9 +1,30 @@
+// Defines message queue and delivery configuration types.
 import type { QueueDropPolicy, QueueMode, QueueModeByProvider } from "./types.queue.js";
 import type { TtsConfig } from "./types.tts.js";
+
+export type MentionPatternsMode = "allow" | "deny";
+
+export type MentionPatternsPolicyConfig = {
+  mode?: MentionPatternsMode;
+  allowIn?: string[];
+  denyIn?: string[];
+};
 
 export type GroupChatConfig = {
   mentionPatterns?: string[];
   historyLimit?: number;
+  /**
+   * Controls how unmentioned always-on group chatter is submitted.
+   * Default: "user_request".
+   */
+  unmentionedInbound?: "user_request" | "room_event";
+  /**
+   * Controls how group/channel inbound events produce visible room replies. The
+   * message-tool mode requires explicit message sends for visible room output;
+   * final text stays private when the model misses the tool.
+   * Default: "automatic".
+   */
+  visibleReplies?: "automatic" | "message_tool";
 };
 
 export type DmConfig = {
@@ -50,22 +71,27 @@ export type AudioConfig = {
 };
 
 export type StatusReactionsEmojiConfig = {
+  queued?: string;
   thinking?: string;
   tool?: string;
   coding?: string;
   web?: string;
+  deploy?: string;
+  build?: string;
+  concierge?: string;
   done?: string;
   error?: string;
   stallSoft?: string;
   stallHard?: string;
+  compacting?: string;
 };
 
 export type StatusReactionsTimingConfig = {
   /** Debounce interval for intermediate states (ms). Default: 700. */
   debounceMs?: number;
-  /** Soft stall warning timeout (ms). Default: 25000. */
+  /** Soft stall warning timeout (ms). Default: 10000. */
   stallSoftMs?: number;
-  /** Hard stall warning timeout (ms). Default: 60000. */
+  /** Hard stall warning timeout (ms). Default: 30000. */
   stallHardMs?: number;
   /** How long to hold done emoji before cleanup (ms). Default: 1500. */
   doneHoldMs?: number;
@@ -86,6 +112,15 @@ export type MessagesConfig = {
   /** @deprecated Use `whatsapp.messagePrefix` (WhatsApp-only inbound prefix). */
   messagePrefix?: string;
   /**
+   * Controls how source inbound events produce visible replies across direct,
+   * group, and channel conversations. Group/channel events still default to
+   * `groupChat.visibleReplies` when it is set.
+   *
+   * Default: "automatic". In group/channel rooms, "message_tool" keeps final
+   * text private unless the model sends visibly through the message tool.
+   */
+  visibleReplies?: "automatic" | "message_tool";
+  /**
    * Prefix auto-added to all outbound replies.
    *
    * - string: explicit prefix (may include template variables)
@@ -105,6 +140,25 @@ export type MessagesConfig = {
    * Default: none
    */
   responsePrefix?: string;
+  /** Custom `/usage full` footer template, inline or JSON file path. */
+  usageTemplate?: string | Record<string, unknown>;
+  /**
+   * Default per-reply usage footer mode (`responseUsage`) seeded into any session
+   * that has not set its own via `/usage`. Precedence: session value → channel entry
+   * → `default` → `off`. Absent ⇒ `off` (unchanged behavior).
+   *
+   * - string: one default for every channel, e.g. `"full"`.
+   * - object: per-channel with a fallback, e.g. `{ "default": "off", "discord": "full" }`.
+   */
+  responseUsage?:
+    | "on"
+    | "off"
+    | "tokens"
+    | "full"
+    | {
+        default?: "on" | "off" | "tokens" | "full";
+        [channel: string]: "on" | "off" | "tokens" | "full" | undefined;
+      };
   groupChat?: GroupChatConfig;
   queue?: QueueConfig;
   /** Debounce rapid inbound messages per sender (global + per-channel overrides). */
@@ -147,13 +201,17 @@ export type CommandsConfig = {
   bashForegroundMs?: number;
   /** Allow /config command (default: false). */
   config?: boolean;
+  /** Allow /mcp command for OpenClaw-managed MCP settings (default: false). */
+  mcp?: boolean;
+  /** Allow /plugins command for plugin listing and enablement toggles (default: false). */
+  plugins?: boolean;
   /** Allow /debug command (default: false). */
   debug?: boolean;
   /** Allow restart commands/tools (default: true). */
   restart?: boolean;
   /** Enforce access-group allowlists/policies for commands (default: true). */
   useAccessGroups?: boolean;
-  /** Explicit owner allowlist for owner-only tools/commands (channel-native IDs). */
+  /** Explicit owner allowlist for owner-scoped commands (channel-native IDs). */
   ownerAllowFrom?: Array<string | number>;
   /** How owner IDs are rendered in system prompts. */
   ownerDisplay?: CommandOwnerDisplay;

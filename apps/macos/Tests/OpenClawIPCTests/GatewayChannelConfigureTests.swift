@@ -1,10 +1,11 @@
 import Foundation
+import OpenClawChatUI
 import OpenClawKit
 import os
 import Testing
 @testable import OpenClaw
 
-@Suite struct GatewayConnectionTests {
+struct GatewayConnectionTests {
     private func makeConnection(
         session: GatewayTestWebSocketSession,
         token: String? = nil) throws -> (GatewayConnection, ConfigSource)
@@ -17,7 +18,10 @@ import Testing
         return (conn, cfg)
     }
 
-    private func makeSession(helloDelayMs: Int = 0) -> GatewayTestWebSocketSession {
+    private func makeSession(
+        helloDelayMs: Int = 0,
+        serverCapabilities: [String] = []) -> GatewayTestWebSocketSession
+    {
         GatewayTestWebSocketSession(
             taskFactory: {
                 GatewayTestWebSocketTask(
@@ -35,9 +39,25 @@ import Testing
                             try await Task.sleep(nanoseconds: UInt64(helloDelayMs) * 1_000_000)
                         }
                         let id = task.snapshotConnectRequestID() ?? "connect"
-                        return .data(GatewayWebSocketTestSupport.connectOkData(id: id))
+                        return .data(Self.connectOkData(id: id, capabilities: serverCapabilities))
                     })
             })
+    }
+
+    private static func connectOkData(id: String, capabilities: [String]) -> Data {
+        let encodedCapabilities = capabilities.map { "\"\($0)\"" }.joined(separator: ",")
+        return Data(
+            """
+            {
+              "type":"res","id":"\(id)","ok":true,"payload":{
+                "type":"hello-ok","protocol":4,
+                "server":{"version":"test","connId":"test"},
+                "features":{"methods":[],"events":[],"capabilities":[\(encodedCapabilities)]},
+                "snapshot":{"presence":[],"health":{},"stateVersion":{"presence":0,"health":0},"uptimeMs":0},
+                "auth":{},"policy":{}
+              }
+            }
+            """.utf8)
     }
 
     private final class ConfigSource: @unchecked Sendable {
@@ -56,9 +76,9 @@ import Testing
         }
     }
 
-    @Test func requestReusesSingleWebSocketForSameConfig() async throws {
+    @Test func `request reuses single web socket for same config`() async throws {
         let session = self.makeSession()
-        let (conn, _) = try self.makeConnection(session: session)
+        let (conn, _) = try makeConnection(session: session)
 
         _ = try await conn.request(method: "status", params: nil)
         #expect(session.snapshotMakeCount() == 1)
@@ -68,9 +88,91 @@ import Testing
         #expect(session.snapshotCancelCount() == 0)
     }
 
-    @Test func requestReconfiguresAndCancelsOnTokenChange() async throws {
+    @Test func `first connection admits hello capabilities before lease readiness`() async throws {
+        let session = self.makeSession(serverCapabilities: ["crestodian-setup-model-ref"])
+        let (conn, _) = try makeConnection(session: session)
+
+        let lease = try await conn.acquireServerLease()
+
+        #expect(await conn.supportsServerCapability(
+            .crestodianSetupModelRef,
+            ifCurrentServerLease: lease) == true)
+        #expect(await conn.cachedGatewayVersion() == "test")
+        #expect(session.snapshotMakeCount() == 1)
+        // Connect handshake plus the recovery-aware health preflight.
+        #expect(session.latestTask()?.snapshotSendCount() == 2)
+        await conn.shutdown()
+    }
+
+    @Test func `disconnected server lease rejects before dispatch`() async throws {
+        let session = self.makeSession(serverCapabilities: ["crestodian-setup-model-ref"])
+        let (conn, _) = try makeConnection(session: session)
+        let lease = try await conn.acquireServerLease()
+
+        await conn._test_handleDisconnect(socketGeneration: 1)
+        do {
+            _ = try await conn.request(
+                method: "crestodian.setup.detect",
+                params: [:],
+                ifCurrentServerLease: lease)
+            Issue.record("expected disconnected server lease rejection")
+        } catch is OpenClawChatTransportSendError {} catch {
+            Issue.record("unexpected disconnected lease error: \(error)")
+        }
+
+        #expect(session.snapshotMakeCount() == 1)
+        #expect(session.latestTask()?.snapshotSendCount() == 2)
+        await conn.shutdown()
+    }
+
+    @Test func `server lease preserves caller cancellation after dispatch`() async throws {
+        let requestSent = AsyncStream<Void>.makeStream()
+        let session = GatewayTestWebSocketSession(
+            taskFactory: {
+                GatewayTestWebSocketTask(
+                    sendHook: { task, message, sendIndex in
+                        guard sendIndex > 0 else { return }
+                        if sendIndex == 2 {
+                            requestSent.continuation.yield()
+                            return
+                        }
+                        guard let id = GatewayWebSocketTestSupport.requestID(from: message) else { return }
+                        task.emitReceiveSuccess(.data(GatewayWebSocketTestSupport.okResponseData(id: id)))
+                    },
+                    receiveHook: { task, receiveIndex in
+                        if receiveIndex == 0 {
+                            return .data(GatewayWebSocketTestSupport.connectChallengeData())
+                        }
+                        let id = task.snapshotConnectRequestID() ?? "connect"
+                        return .data(Self.connectOkData(
+                            id: id,
+                            capabilities: ["crestodian-setup-model-ref"]))
+                    })
+            })
+        let (conn, _) = try makeConnection(session: session)
+        let lease = try await conn.acquireServerLease()
+        let request = Task {
+            try await conn.request(
+                method: "crestodian.setup.activate",
+                params: [:],
+                timeoutMs: 5000,
+                ifCurrentServerLease: lease)
+        }
+        var sentIterator = requestSent.stream.makeAsyncIterator()
+        _ = await sentIterator.next()
+
+        request.cancel()
+
+        await #expect(throws: CancellationError.self) {
+            try await request.value
+        }
+        requestSent.continuation.finish()
+        await conn.shutdown()
+    }
+
+    @Test func `request reconfigures and cancels on token change`() async throws {
         let session = self.makeSession()
-        let (conn, cfg) = try self.makeConnection(session: session, token: "a")
+        let (conn, cfg) = try makeConnection(session: session, token: "a")
 
         _ = try await conn.request(method: "status", params: nil)
         #expect(session.snapshotMakeCount() == 1)
@@ -81,9 +183,38 @@ import Testing
         #expect(session.snapshotCancelCount() == 1)
     }
 
-    @Test func concurrentRequestsStillUseSingleWebSocket() async throws {
+    @Test func `captured route cancels instead of reconfiguring on token change`() async throws {
+        let session = self.makeSession()
+        let (conn, cfg) = try makeConnection(session: session, token: "a")
+
+        _ = try await conn.request(method: "status", params: nil)
+        let route = try #require(await conn.captureRoute())
+        cfg.setToken("b")
+
+        do {
+            _ = try await conn.request(
+                method: "status",
+                params: nil,
+                ifCurrentRoute: route)
+            Issue.record("expected stale route cancellation")
+        } catch is CancellationError {}
+
+        do {
+            _ = try await conn.request(
+                method: "status",
+                params: nil,
+                ifCurrentRoute: route,
+                distinguishPreDispatchRouteChange: true)
+            Issue.record("expected typed stale route rejection")
+        } catch is OpenClawChatTransportSendError {}
+
+        #expect(session.snapshotMakeCount() == 1)
+        #expect(session.snapshotCancelCount() == 0)
+    }
+
+    @Test func `concurrent requests still use single web socket`() async throws {
         let session = self.makeSession(helloDelayMs: 150)
-        let (conn, _) = try self.makeConnection(session: session)
+        let (conn, _) = try makeConnection(session: session)
 
         async let r1: Data = conn.request(method: "status", params: nil)
         async let r2: Data = conn.request(method: "status", params: nil)
@@ -92,9 +223,33 @@ import Testing
         #expect(session.snapshotMakeCount() == 1)
     }
 
-    @Test func subscribeReplaysLatestSnapshot() async throws {
+    @Test func `request can disable retries for non idempotent mutations`() async throws {
+        let session = GatewayTestWebSocketSession(
+            taskFactory: {
+                GatewayTestWebSocketTask(sendHook: { _, _, sendIndex in
+                    if sendIndex > 0 {
+                        throw URLError(.timedOut)
+                    }
+                })
+            })
+        let (conn, _) = try makeConnection(session: session)
+
+        do {
+            _ = try await conn.request(
+                method: "sessions.compact",
+                params: nil,
+                timeoutMs: 10,
+                retryTransportFailures: false)
+            Issue.record("expected sessions.compact transport failure")
+        } catch {}
+
+        #expect(session.snapshotMakeCount() == 1)
+        #expect(session.latestTask()?.snapshotSendCount() == 2)
+    }
+
+    @Test func `subscribe replays latest snapshot`() async throws {
         let session = self.makeSession()
-        let (conn, _) = try self.makeConnection(session: session)
+        let (conn, _) = try makeConnection(session: session)
 
         _ = try await conn.request(method: "status", params: nil)
 
@@ -109,9 +264,9 @@ import Testing
         #expect(snap.type == "hello-ok")
     }
 
-    @Test func subscribeEmitsSeqGapBeforeEvent() async throws {
+    @Test func `subscribe emits seq gap before event`() async throws {
         let session = self.makeSession()
-        let (conn, _) = try self.makeConnection(session: session)
+        let (conn, _) = try makeConnection(session: session)
 
         let stream = await conn.subscribe(bufferingNewest: 10)
         var iterator = stream.makeAsyncIterator()

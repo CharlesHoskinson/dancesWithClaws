@@ -1,5 +1,6 @@
+// Mattermost tests cover monitor.channel kind plugin behavior.
 import { describe, expect, it } from "vitest";
-import { mapMattermostChannelTypeToChatType } from "./monitor.js";
+import { mapMattermostChannelTypeToChatType } from "./monitor-gating.js";
 
 describe("mapMattermostChannelTypeToChatType", () => {
   it("maps direct and group dm channel types", () => {
@@ -12,9 +13,14 @@ describe("mapMattermostChannelTypeToChatType", () => {
     expect(mapMattermostChannelTypeToChatType(" p ")).toBe("group");
   });
 
-  it("keeps public channels and unknown values as channel", () => {
+  it("keeps public channels and unknown typed values as channel", () => {
     expect(mapMattermostChannelTypeToChatType("O")).toBe("channel");
     expect(mapMattermostChannelTypeToChatType("x")).toBe("channel");
-    expect(mapMattermostChannelTypeToChatType(undefined)).toBe("channel");
+  });
+
+  it("treats missing channel type as direct", () => {
+    expect(mapMattermostChannelTypeToChatType(undefined)).toBe("direct");
+    expect(mapMattermostChannelTypeToChatType(null)).toBe("direct");
+    expect(mapMattermostChannelTypeToChatType("")).toBe("direct");
   });
 });

@@ -1,6 +1,5 @@
 import AppKit
 import Foundation
-import OpenClawIPC
 import OpenClawKit
 import WebKit
 
@@ -9,22 +8,68 @@ final class CanvasA2UIActionMessageHandler: NSObject, WKScriptMessageHandler {
     static let allMessageNames = [messageName]
 
     private let sessionKey: String
+    private var expectedRemoteURL: URL?
 
     init(sessionKey: String) {
         self.sessionKey = sessionKey
         super.init()
     }
 
+    func setTrustedRemoteURL(_ url: URL?) {
+        self.expectedRemoteURL = url.flatMap {
+            CanvasHostedURLResolver.isCapabilityScopedA2UIURL($0) ? $0 : nil
+        }
+    }
+
+    func updateTrustForMainFrameNavigation(to url: URL) {
+        guard let expectedRemoteURL = self.expectedRemoteURL else { return }
+        // Hosted action trust is load-scoped. Once the main frame leaves the
+        // selected A2UI request, page navigation must never re-arm it.
+        if !Self.isExactRemoteSourceURL(url, expectedRemoteURL: expectedRemoteURL) {
+            self.expectedRemoteURL = nil
+        }
+    }
+
+    func isTrustedSourceURL(_ url: URL) -> Bool {
+        Self.isTrustedSourceURL(url, expectedRemoteURL: self.expectedRemoteURL)
+    }
+
+    static func isTrustedSourceURL(_ url: URL, expectedRemoteURL: URL?) -> Bool {
+        if let scheme = url.scheme?.lowercased(), CanvasScheme.allSchemes.contains(scheme) {
+            return true
+        }
+        return self.isExactRemoteSourceURL(url, expectedRemoteURL: expectedRemoteURL)
+    }
+
+    private static func isExactRemoteSourceURL(_ url: URL, expectedRemoteURL: URL?) -> Bool {
+        guard let expectedRemoteURL,
+              CanvasHostedURLResolver.isCapabilityScopedA2UIURL(expectedRemoteURL),
+              let actual = URLComponents(url: url, resolvingAgainstBaseURL: false),
+              let expected = URLComponents(url: expectedRemoteURL, resolvingAgainstBaseURL: false),
+              let actualScheme = actual.scheme?.lowercased(),
+              let expectedScheme = expected.scheme?.lowercased(),
+              actualScheme == expectedScheme,
+              actual.host?.lowercased() == expected.host?.lowercased(),
+              self.effectivePort(actual) == self.effectivePort(expected),
+              actual.user == nil,
+              actual.password == nil,
+              expected.user == nil,
+              expected.password == nil
+        else {
+            return false
+        }
+        return actual.percentEncodedPath == expected.percentEncodedPath &&
+            actual.percentEncodedQuery == expected.percentEncodedQuery
+    }
+
     func userContentController(_: WKUserContentController, didReceive message: WKScriptMessage) {
         guard Self.allMessageNames.contains(message.name) else { return }
 
-        // Only accept actions from local Canvas content (not arbitrary web pages).
-        guard let webView = message.webView, let url = webView.url else { return }
-        if let scheme = url.scheme, CanvasScheme.allSchemes.contains(scheme) {
-            // ok
-        } else if Self.isLocalNetworkCanvasURL(url) {
-            // ok
-        } else {
+        // Only the main in-app document or the exact capability-scoped A2UI
+        // document may dispatch. Other web content remains render-only.
+        guard message.frameInfo.isMainFrame else { return }
+        guard let webView = message.webView, let url = message.frameInfo.request.url else { return }
+        guard self.isTrustedSourceURL(url) else {
             return
         }
 
@@ -108,9 +153,13 @@ final class CanvasA2UIActionMessageHandler: NSObject, WKScriptMessageHandler {
         }
     }
 
-    static func isLocalNetworkCanvasURL(_ url: URL) -> Bool {
-        LocalNetworkURLSupport.isLocalNetworkHTTPURL(url)
+    private static func effectivePort(_ components: URLComponents) -> Int? {
+        if let port = components.port { return port }
+        return switch components.scheme?.lowercased() {
+        case "http": 80
+        case "https": 443
+        default: nil
+        }
     }
-
     // Formatting helpers live in OpenClawKit (`OpenClawCanvasA2UIAction`).
 }

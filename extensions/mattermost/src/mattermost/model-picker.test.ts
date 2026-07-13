@@ -1,9 +1,10 @@
+// Mattermost tests cover model picker plugin behavior.
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import type { OpenClawConfig } from "openclaw/plugin-sdk/mattermost";
-import { buildModelsProviderData } from "openclaw/plugin-sdk/mattermost";
+import { upsertSessionEntry } from "openclaw/plugin-sdk/session-store-runtime";
 import { describe, expect, it } from "vitest";
+import type { OpenClawConfig } from "../../runtime-api.js";
 import {
   buildMattermostAllowedModelRefs,
   parseMattermostModelPickerContext,
@@ -24,6 +25,7 @@ const data = {
     provider: "anthropic",
     model: "claude-opus-4-5",
   },
+  modelNames: new Map<string, string>(),
 };
 
 describe("Mattermost model picker", () => {
@@ -57,7 +59,26 @@ describe("Mattermost model picker", () => {
     expect(view.text).toContain("Current: openai/gpt-5");
     expect(view.text).toContain("Tap below to browse models");
     expect(view.text).toContain("/oc_model <provider/model> to switch");
-    expect(view.buttons[0]?.[0]?.text).toBe("Browse providers");
+    expect(view.text).toContain("Browse keeps the current runtime");
+    expect(view.text).toContain("/oc_model <provider/model> --runtime <runtime>");
+    const firstRow = view.buttons[0];
+    if (!firstRow) {
+      throw new Error("expected Mattermost model picker button row");
+    }
+    const browseButton = firstRow[0];
+    if (!browseButton) {
+      throw new Error("expected Mattermost browse providers button");
+    }
+    expect(browseButton.text).toBe("Browse providers");
+  });
+
+  it("trims accidental model spacing in Mattermost current-model text", () => {
+    const view = renderMattermostModelSummaryView({
+      ownerUserId: "user-1",
+      currentModel: " OpenAI/ gpt-5 ",
+    });
+
+    expect(view.text).toContain("Current: openai/gpt-5");
   });
 
   it("renders providers and models with Telegram-style navigation", () => {
@@ -117,7 +138,38 @@ describe("Mattermost model picker", () => {
     expect(parseMattermostModelPickerContext({ action: "select" })).toBeNull();
   });
 
-  it("falls back to the routed agent default model when no override is stored", async () => {
+  it("does not coerce partial page strings in signed picker contexts", () => {
+    expect(
+      parseMattermostModelPickerContext({
+        oc_model_picker: true,
+        action: "list",
+        ownerUserId: "user-1",
+        provider: "openai",
+        page: "+02",
+      }),
+    ).toEqual({
+      action: "list",
+      ownerUserId: "user-1",
+      provider: "openai",
+      page: 2,
+    });
+    expect(
+      parseMattermostModelPickerContext({
+        oc_model_picker: true,
+        action: "list",
+        ownerUserId: "user-1",
+        provider: "openai",
+        page: "2next",
+      }),
+    ).toEqual({
+      action: "list",
+      ownerUserId: "user-1",
+      provider: "openai",
+      page: 1,
+    });
+  });
+
+  it("falls back to the routed agent default model when no override is stored", () => {
     const testDir = fs.mkdtempSync(path.join(os.tmpdir(), "mm-model-picker-"));
     try {
       const cfg: OpenClawConfig = {
@@ -136,7 +188,18 @@ describe("Mattermost model picker", () => {
           ],
         },
       };
-      const providerData = await buildModelsProviderData(cfg, "support");
+      const providerData = {
+        byProvider: new Map<string, Set<string>>([
+          ["anthropic", new Set(["claude-opus-4-5"])],
+          ["openai", new Set(["gpt-5"])],
+        ]),
+        providers: ["anthropic", "openai"],
+        resolvedDefault: {
+          provider: "openai",
+          model: "gpt-5",
+        },
+        modelNames: new Map<string, string>(),
+      };
 
       expect(
         resolveMattermostModelPickerCurrentModel({
@@ -148,6 +211,85 @@ describe("Mattermost model picker", () => {
           data: providerData,
         }),
       ).toBe("openai/gpt-5");
+    } finally {
+      fs.rmSync(testDir, { recursive: true, force: true });
+    }
+  });
+
+  it("resolves current and parent model overrides from targeted session entries", async () => {
+    const testDir = fs.mkdtempSync(path.join(os.tmpdir(), "mm-model-picker-"));
+    try {
+      const storePath = path.join(testDir, "agents", "{agentId}", "sessions", "sessions.json");
+      const supportStorePath = path.join(testDir, "agents", "support", "sessions", "sessions.json");
+      const parentSessionKey = "agent:support:mattermost:default:channel-1";
+      const childSessionKey = "agent:support:mattermost:default:child-with-explicit-parent";
+      const directSessionKey = "agent:support:mattermost:default:direct-1";
+      await upsertSessionEntry({
+        agentId: "support",
+        storePath: supportStorePath,
+        sessionKey: parentSessionKey,
+        entry: {
+          providerOverride: "anthropic",
+          modelOverride: "claude-sonnet-4-5",
+          chatType: "channel",
+          channel: "channel-1",
+          sessionId: "parent-session",
+          updatedAt: 1,
+        },
+      });
+      await upsertSessionEntry({
+        agentId: "support",
+        storePath: supportStorePath,
+        sessionKey: childSessionKey,
+        entry: {
+          parentSessionKey,
+          chatType: "channel",
+          channel: "child-with-explicit-parent",
+          sessionId: "child-session",
+          updatedAt: 2,
+        },
+      });
+      await upsertSessionEntry({
+        agentId: "support",
+        storePath: supportStorePath,
+        sessionKey: directSessionKey,
+        entry: {
+          providerOverride: "openai",
+          modelOverride: "gpt-5",
+          chatType: "channel",
+          channel: "direct-1",
+          sessionId: "direct-session",
+          updatedAt: 3,
+        },
+      });
+      const cfg: OpenClawConfig = {
+        session: {
+          store: storePath,
+        },
+      };
+
+      expect(
+        resolveMattermostModelPickerCurrentModel({
+          cfg,
+          route: {
+            agentId: "support",
+            sessionKey: directSessionKey,
+          },
+          data,
+          readConsistency: "latest",
+        }),
+      ).toBe("openai/gpt-5");
+      expect(
+        resolveMattermostModelPickerCurrentModel({
+          cfg,
+          route: {
+            agentId: "support",
+            sessionKey: childSessionKey,
+          },
+          data,
+          readConsistency: "latest",
+        }),
+      ).toBe("anthropic/claude-sonnet-4-5");
     } finally {
       fs.rmSync(testDir, { recursive: true, force: true });
     }

@@ -1,66 +1,170 @@
+/**
+ * Control UI gateway routing tests.
+ */
 import { describe, expect, it } from "vitest";
-import { classifyControlUiRequest } from "./control-ui-routing.js";
+import {
+  classifyControlUiRequest,
+  isControlUiApprovalDocumentPath,
+  isControlUiPluginManagerRequest,
+} from "./control-ui-routing.js";
+
+describe("isControlUiPluginManagerRequest", () => {
+  it.each([
+    { basePath: "", pathname: "/settings/plugins", method: "GET", expected: true },
+    { basePath: "", pathname: "/settings/plugins/", method: "HEAD", expected: true },
+    {
+      basePath: "/openclaw",
+      pathname: "/openclaw/settings/plugins",
+      method: "GET",
+      expected: true,
+    },
+    { basePath: "", pathname: "/settings/plugins", method: "POST", expected: false },
+    { basePath: "", pathname: "/plugins", method: "GET", expected: false },
+  ])("classifies $method $pathname", ({ basePath, pathname, method, expected }) => {
+    expect(isControlUiPluginManagerRequest({ basePath, pathname, method })).toBe(expected);
+  });
+});
+
+describe("isControlUiApprovalDocumentPath", () => {
+  it.each([
+    { basePath: "", pathname: "/approve" },
+    { basePath: "", pathname: "/approve/" },
+    { basePath: "", pathname: "/approve/plugin%3Arequest.json" },
+    { basePath: "/openclaw", pathname: "/openclaw/approve/exec%3Aa%2Fb" },
+  ])("reserves $pathname", ({ basePath, pathname }) => {
+    expect(isControlUiApprovalDocumentPath({ basePath, pathname })).toBe(true);
+  });
+
+  it.each([
+    { basePath: "", pathname: "/approvals/id" },
+    { basePath: "", pathname: "/approve/id/extra" },
+    { basePath: "/openclaw", pathname: "/approve/id" },
+  ])("does not reserve $pathname", ({ basePath, pathname }) => {
+    expect(isControlUiApprovalDocumentPath({ basePath, pathname })).toBe(false);
+  });
+});
 
 describe("classifyControlUiRequest", () => {
-  it("falls through non-read root requests for plugin webhooks", () => {
-    const classified = classifyControlUiRequest({
-      basePath: "",
-      pathname: "/bluebubbles-webhook",
-      search: "",
-      method: "POST",
+  describe("root-mounted control ui", () => {
+    it.each([
+      {
+        name: "serves the root entrypoint",
+        pathname: "/",
+        method: "GET",
+        expected: { kind: "serve" as const },
+      },
+      {
+        name: "serves other read-only SPA routes",
+        pathname: "/chat",
+        method: "HEAD",
+        expected: { kind: "serve" as const },
+      },
+      {
+        name: "serves the plugin manager without claiming plugin HTTP routes",
+        pathname: "/settings/plugins",
+        method: "GET",
+        expected: { kind: "serve" as const },
+      },
+      {
+        name: "keeps health probes outside the SPA catch-all",
+        pathname: "/healthz",
+        method: "GET",
+        expected: { kind: "not-control-ui" as const },
+      },
+      {
+        name: "keeps readiness probes outside the SPA catch-all",
+        pathname: "/ready",
+        method: "HEAD",
+        expected: { kind: "not-control-ui" as const },
+      },
+      {
+        name: "keeps plugin routes outside the SPA catch-all",
+        pathname: "/plugins/webhook",
+        method: "GET",
+        expected: { kind: "not-control-ui" as const },
+      },
+      {
+        name: "keeps the plugin HTTP root outside the SPA catch-all",
+        pathname: "/plugins",
+        method: "GET",
+        expected: { kind: "not-control-ui" as const },
+      },
+      {
+        name: "keeps API routes outside the SPA catch-all",
+        pathname: "/api/sessions",
+        method: "GET",
+        expected: { kind: "not-control-ui" as const },
+      },
+      {
+        name: "returns not-found for legacy ui routes",
+        pathname: "/ui/settings",
+        method: "GET",
+        expected: { kind: "not-found" as const },
+      },
+      {
+        name: "falls through non-read requests",
+        pathname: "/imessage-webhook",
+        method: "POST",
+        expected: { kind: "not-control-ui" as const },
+      },
+    ])("$name", ({ pathname, method, expected }) => {
+      expect(
+        classifyControlUiRequest({
+          basePath: "",
+          pathname,
+          search: "",
+          method,
+        }),
+      ).toEqual(expected);
     });
-    expect(classified).toEqual({ kind: "not-control-ui" });
   });
 
-  it("returns not-found for legacy /ui routes when root-mounted", () => {
-    const classified = classifyControlUiRequest({
-      basePath: "",
-      pathname: "/ui/settings",
-      search: "",
-      method: "GET",
-    });
-    expect(classified).toEqual({ kind: "not-found" });
-  });
-
-  it("falls through basePath non-read methods for plugin webhooks", () => {
-    const classified = classifyControlUiRequest({
-      basePath: "/openclaw",
-      pathname: "/openclaw",
-      search: "",
-      method: "POST",
-    });
-    expect(classified).toEqual({ kind: "not-control-ui" });
-  });
-
-  it("falls through PUT/DELETE/PATCH/OPTIONS under basePath for plugin handlers", () => {
-    for (const method of ["PUT", "DELETE", "PATCH", "OPTIONS"]) {
-      const classified = classifyControlUiRequest({
-        basePath: "/openclaw",
+  describe("basePath-mounted control ui", () => {
+    it.each([
+      {
+        name: "redirects the basePath entrypoint",
+        pathname: "/openclaw",
+        search: "?foo=1",
+        method: "GET",
+        expected: { kind: "redirect" as const, location: "/openclaw/?foo=1" },
+      },
+      {
+        name: "serves nested read-only routes",
+        pathname: "/openclaw/chat",
+        search: "",
+        method: "HEAD",
+        expected: { kind: "serve" as const },
+      },
+      {
+        name: "falls through unmatched paths",
+        pathname: "/elsewhere/chat",
+        search: "",
+        method: "GET",
+        expected: { kind: "not-control-ui" as const },
+      },
+      {
+        name: "falls through write requests to the basePath entrypoint",
+        pathname: "/openclaw",
+        search: "",
+        method: "POST",
+        expected: { kind: "not-control-ui" as const },
+      },
+      ...["PUT", "DELETE", "PATCH", "OPTIONS"].map((method) => ({
+        name: `falls through ${method} subroute requests`,
         pathname: "/openclaw/webhook",
         search: "",
         method,
-      });
-      expect(classified, `${method} should fall through`).toEqual({ kind: "not-control-ui" });
-    }
-  });
-
-  it("returns redirect for basePath entrypoint GET", () => {
-    const classified = classifyControlUiRequest({
-      basePath: "/openclaw",
-      pathname: "/openclaw",
-      search: "?foo=1",
-      method: "GET",
+        expected: { kind: "not-control-ui" as const },
+      })),
+    ])("$name", ({ pathname, search, method, expected }) => {
+      expect(
+        classifyControlUiRequest({
+          basePath: "/openclaw",
+          pathname,
+          search,
+          method,
+        }),
+      ).toEqual(expected);
     });
-    expect(classified).toEqual({ kind: "redirect", location: "/openclaw/?foo=1" });
-  });
-
-  it("classifies basePath subroutes as control ui", () => {
-    const classified = classifyControlUiRequest({
-      basePath: "/openclaw",
-      pathname: "/openclaw/chat",
-      search: "",
-      method: "HEAD",
-    });
-    expect(classified).toEqual({ kind: "serve" });
   });
 });

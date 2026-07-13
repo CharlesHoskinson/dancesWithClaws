@@ -6,14 +6,14 @@ import OpenClawKit
 import OSLog
 
 actor CameraCaptureService {
-    struct CameraDeviceInfo: Encodable, Sendable {
+    struct CameraDeviceInfo: Encodable {
         let id: String
         let name: String
         let position: String
         let deviceType: String
     }
 
-    enum CameraError: LocalizedError, Sendable {
+    enum CameraError: LocalizedError {
         case cameraUnavailable
         case microphoneUnavailable
         case permissionDenied(kind: String)
@@ -80,7 +80,7 @@ actor CameraCaptureService {
 
         session.startRunning()
         defer { session.stopRunning() }
-        await CameraCapturePipelineSupport.warmUpCaptureSession()
+        try await CameraCapturePipelineSupport.warmUpCaptureSession()
         await self.waitForExposureAndWhiteBalance(device: device)
         await self.sleepDelayMs(delayMs)
 
@@ -124,10 +124,11 @@ actor CameraCaptureService {
         }
 
         let prepared = try await CameraCapturePipelineSupport.prepareWarmMovieSession(
-            preferFrontCamera: facing == .front,
-            deviceId: deviceId,
-            includeAudio: includeAudio,
-            durationMs: durationMs,
+            options: CameraMovieSessionOptions(
+                preferFrontCamera: facing == .front,
+                deviceId: deviceId,
+                includeAudio: includeAudio,
+                durationMs: durationMs),
             pickCamera: { preferFrontCamera, deviceId in
                 Self.pickCamera(facing: preferFrontCamera ? .front : .back, deviceId: deviceId)
             },

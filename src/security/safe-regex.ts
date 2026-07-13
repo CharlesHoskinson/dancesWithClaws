@@ -1,3 +1,5 @@
+// Performs lightweight safe-regex checks for user-supplied patterns.
+import { expectDefined } from "@openclaw/normalization-core";
 type QuantifierRead = {
   consumed: number;
   minRepeat: number;
@@ -30,7 +32,23 @@ type PatternToken =
 
 const SAFE_REGEX_CACHE_MAX = 256;
 const SAFE_REGEX_TEST_WINDOW = 2048;
-const safeRegexCache = new Map<string, RegExp | null>();
+export type SafeRegexRejectReason = "empty" | "unsafe-nested-repetition" | "invalid-regex";
+
+export type SafeRegexCompileResult =
+  | {
+      regex: RegExp;
+      source: string;
+      flags: string;
+      reason: null;
+    }
+  | {
+      regex: null;
+      source: string;
+      flags: string;
+      reason: SafeRegexRejectReason;
+    };
+
+const safeRegexCache = new Map<string, SafeRegexCompileResult>();
 
 function createParseFrame(): ParseFrame {
   return {
@@ -85,7 +103,7 @@ function readQuantifier(source: string, index: number): QuantifierRead | null {
   }
 
   let i = index + 1;
-  while (i < source.length && /\d/.test(source[i])) {
+  while (i < source.length && /\d/.test(source.charAt(i))) {
     i += 1;
   }
   if (i === index + 1) {
@@ -97,7 +115,7 @@ function readQuantifier(source: string, index: number): QuantifierRead | null {
   if (source[i] === ",") {
     i += 1;
     const maxStart = i;
-    while (i < source.length && /\d/.test(source[i])) {
+    while (i < source.length && /\d/.test(source.charAt(i))) {
       i += 1;
     }
     maxRepeat = i === maxStart ? null : Number.parseInt(source.slice(maxStart, i), 10);
@@ -124,16 +142,20 @@ function tokenizePattern(source: string): PatternToken[] {
   for (let i = 0; i < source.length; i += 1) {
     const ch = source[i];
 
-    if (ch === "\\") {
-      i += 1;
-      tokens.push({ kind: "simple-token" });
-      continue;
-    }
-
     if (inCharClass) {
+      if (ch === "\\") {
+        i += 1;
+        continue;
+      }
       if (ch === "]") {
         inCharClass = false;
       }
+      continue;
+    }
+
+    if (ch === "\\") {
+      i += 1;
+      tokens.push({ kind: "simple-token" });
       continue;
     }
 
@@ -175,7 +197,7 @@ function analyzeTokensForNestedRepetition(tokens: PatternToken[]): boolean {
   const frames: ParseFrame[] = [createParseFrame()];
 
   const emitToken = (token: TokenState) => {
-    const frame = frames[frames.length - 1];
+    const frame = expectDefined(frames[frames.length - 1], "frames entry at frames.length 1");
     frame.lastToken = token;
     if (token.containsRepetition) {
       frame.containsRepetition = true;
@@ -231,7 +253,7 @@ function analyzeTokensForNestedRepetition(tokens: PatternToken[]): boolean {
     }
 
     if (token.kind === "alternation") {
-      const frame = frames[frames.length - 1];
+      const frame = expectDefined(frames[frames.length - 1], "frames entry at frames.length 1");
       frame.hasAlternation = true;
       recordAlternative(frame);
       frame.branchMinLength = 0;
@@ -240,7 +262,7 @@ function analyzeTokensForNestedRepetition(tokens: PatternToken[]): boolean {
       continue;
     }
 
-    const frame = frames[frames.length - 1];
+    const frame = expectDefined(frames[frames.length - 1], "frames entry at frames.length 1");
     const previousToken = frame.lastToken;
     if (!previousToken) {
       continue;
@@ -302,31 +324,44 @@ export function hasNestedRepetition(source: string): boolean {
   return analyzeTokensForNestedRepetition(tokenizePattern(source));
 }
 
-export function compileSafeRegex(source: string, flags = ""): RegExp | null {
+export function compileSafeRegexDetailed(source: string, flags = ""): SafeRegexCompileResult {
   const trimmed = source.trim();
   if (!trimmed) {
-    return null;
+    return { regex: null, source: trimmed, flags, reason: "empty" };
   }
   const cacheKey = `${flags}::${trimmed}`;
   if (safeRegexCache.has(cacheKey)) {
-    return safeRegexCache.get(cacheKey) ?? null;
+    return (
+      safeRegexCache.get(cacheKey) ?? {
+        regex: null,
+        source: trimmed,
+        flags,
+        reason: "invalid-regex",
+      }
+    );
   }
 
-  let compiled: RegExp | null = null;
-  if (!hasNestedRepetition(trimmed)) {
+  let result: SafeRegexCompileResult;
+  if (hasNestedRepetition(trimmed)) {
+    result = { regex: null, source: trimmed, flags, reason: "unsafe-nested-repetition" };
+  } else {
     try {
-      compiled = new RegExp(trimmed, flags);
+      result = { regex: new RegExp(trimmed, flags), source: trimmed, flags, reason: null };
     } catch {
-      compiled = null;
+      result = { regex: null, source: trimmed, flags, reason: "invalid-regex" };
     }
   }
 
-  safeRegexCache.set(cacheKey, compiled);
+  safeRegexCache.set(cacheKey, result);
   if (safeRegexCache.size > SAFE_REGEX_CACHE_MAX) {
     const oldestKey = safeRegexCache.keys().next().value;
     if (oldestKey) {
       safeRegexCache.delete(oldestKey);
     }
   }
-  return compiled;
+  return result;
+}
+
+export function compileSafeRegex(source: string, flags = ""): RegExp | null {
+  return compileSafeRegexDetailed(source, flags).regex;
 }

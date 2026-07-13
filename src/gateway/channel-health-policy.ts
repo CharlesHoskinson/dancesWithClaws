@@ -1,6 +1,8 @@
-import type { ChannelId } from "../channels/plugins/types.js";
+// Gateway channel health policy.
+// Evaluates channel lifecycle snapshots for restart/readiness decisions.
+import type { ChannelId } from "../channels/plugins/types.public.js";
 
-export type ChannelHealthSnapshot = {
+type ChannelHealthSnapshot = {
   running?: boolean;
   connected?: boolean;
   enabled?: boolean;
@@ -10,14 +12,19 @@ export type ChannelHealthSnapshot = {
   activeRuns?: number;
   lastRunActivityAt?: number | null;
   lastEventAt?: number | null;
+  lastConnectedAt?: number | null;
+  lastTransportActivityAt?: number | null;
   lastStartAt?: number | null;
   reconnectAttempts?: number;
+  mode?: string;
+  terminalDisconnect?: boolean;
 };
 
-export type ChannelHealthEvaluationReason =
+type ChannelHealthEvaluationReason =
   | "healthy"
   | "unmanaged"
   | "not-running"
+  | "terminal-disconnect"
   | "busy"
   | "stuck"
   | "startup-connect-grace"
@@ -36,7 +43,7 @@ export type ChannelHealthPolicy = {
   channelConnectGraceMs: number;
 };
 
-export type ChannelRestartReason = "gave-up" | "stopped" | "stale-socket" | "stuck";
+type ChannelRestartReason = "gave-up" | "stopped" | "stale-socket" | "stuck" | "disconnected";
 
 function isManagedAccount(snapshot: ChannelHealthSnapshot): boolean {
   return snapshot.enabled !== false && snapshot.configured !== false;
@@ -55,6 +62,9 @@ export function evaluateChannelHealth(
   if (!isManagedAccount(snapshot)) {
     return { healthy: true, reason: "unmanaged" };
   }
+  if (!snapshot.running && snapshot.terminalDisconnect) {
+    return { healthy: false, reason: "terminal-disconnect" };
+  }
   if (!snapshot.running) {
     return { healthy: false, reason: "not-running" };
   }
@@ -70,6 +80,11 @@ export function evaluateChannelHealth(
   const lastRunActivityAt =
     typeof snapshot.lastRunActivityAt === "number" && Number.isFinite(snapshot.lastRunActivityAt)
       ? snapshot.lastRunActivityAt
+      : null;
+  const lastTransportActivityAt =
+    typeof snapshot.lastTransportActivityAt === "number" &&
+    Number.isFinite(snapshot.lastTransportActivityAt)
+      ? snapshot.lastTransportActivityAt
       : null;
   const busyStateInitializedForLifecycle =
     lastStartAt == null || (lastRunActivityAt != null && lastRunActivityAt >= lastStartAt);
@@ -100,22 +115,18 @@ export function evaluateChannelHealth(
   if (snapshot.connected === false) {
     return { healthy: false, reason: "disconnected" };
   }
-  // Skip stale-socket check for Telegram (long-polling mode). Each polling request
-  // acts as a heartbeat, so the half-dead WebSocket scenario this check is designed
-  // to catch does not apply to Telegram's long-polling architecture.
-  if (
-    policy.channelId !== "telegram" &&
-    snapshot.connected === true &&
-    snapshot.lastEventAt != null
-  ) {
-    if (lastStartAt != null && snapshot.lastEventAt < lastStartAt) {
+  // App-level events are not socket liveness: quiet Slack/Discord workspaces can
+  // go idle while their upstream clients maintain heartbeats internally.
+  const shouldCheckStaleSocket = snapshot.connected === true && lastTransportActivityAt != null;
+  if (shouldCheckStaleSocket) {
+    if (lastStartAt != null && lastTransportActivityAt < lastStartAt) {
       const lifecycleEventGap = Math.max(0, policy.now - lastStartAt);
       if (lifecycleEventGap <= policy.staleEventThresholdMs) {
         return { healthy: true, reason: "healthy" };
       }
       return { healthy: false, reason: "stale-socket" };
     }
-    const eventAge = policy.now - snapshot.lastEventAt;
+    const eventAge = policy.now - lastTransportActivityAt;
     if (eventAge > policy.staleEventThresholdMs) {
       return { healthy: false, reason: "stale-socket" };
     }
@@ -127,11 +138,16 @@ export function resolveChannelRestartReason(
   snapshot: ChannelHealthSnapshot,
   evaluation: ChannelHealthEvaluation,
 ): ChannelRestartReason {
+  // Restart reasons are intentionally coarse: downstream logs/UI need stable
+  // categories, while detailed channel state stays in the health snapshot.
   if (evaluation.reason === "stale-socket") {
     return "stale-socket";
   }
   if (evaluation.reason === "not-running") {
     return snapshot.reconnectAttempts && snapshot.reconnectAttempts >= 10 ? "gave-up" : "stopped";
+  }
+  if (evaluation.reason === "disconnected") {
+    return "disconnected";
   }
   return "stuck";
 }

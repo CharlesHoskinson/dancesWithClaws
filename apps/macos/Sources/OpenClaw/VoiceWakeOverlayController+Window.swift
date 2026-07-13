@@ -13,9 +13,11 @@ extension VoiceWakeOverlayController {
         self.ensureWindow()
         self.hostingView?.rootView = VoiceWakeOverlayView(controller: self)
         let target = self.targetFrame()
+        let isFirst = !self.model.isVisible
+        if isFirst { self.model.isVisible = true }
         OverlayPanelFactory.present(
             window: self.window,
-            isVisible: &self.model.isVisible,
+            isFirstPresent: isFirst,
             target: target,
             onFirstPresent: {
                 self.logger.log(
@@ -90,7 +92,13 @@ extension VoiceWakeOverlayController {
 
         let contentHeight = ceil(used.height + (textInset.height * 2))
         let total = contentHeight + self.verticalPadding * 2
-        self.model.isOverflowing = total > self.maxHeight
+        // Defer the overflow state mutation to break the SwiftUI onChange → measuredHeight →
+        // isOverflowing → re-render → onChange synchronous render loop (fixes #43480).
+        let overflowing = total > self.maxHeight
+        DispatchQueue.main.async { [weak self] in
+            guard let self, self.model.isOverflowing != overflowing else { return }
+            self.model.isOverflowing = overflowing
+        }
         return max(self.minHeight, min(total, self.maxHeight))
     }
 

@@ -1,88 +1,133 @@
-import { parseDurationMs } from "../../cli/parse-duration.js";
-import { isRestartEnabled } from "../../config/commands.js";
+// Implements session commands for list, show, fork, reset, and routing state.
 import {
-  formatThreadBindingDurationLabel,
-  getThreadBindingManager,
-  resolveThreadBindingIdleTimeoutMs,
-  resolveThreadBindingInactivityExpiresAt,
-  resolveThreadBindingMaxAgeExpiresAt,
-  resolveThreadBindingMaxAgeMs,
-  setThreadBindingIdleTimeoutBySessionKey,
-  setThreadBindingMaxAgeBySessionKey,
-} from "../../discord/monitor/thread-bindings.js";
+  resolveNonNegativeIntegerOption,
+  resolveOptionalIntegerOption,
+  timestampMsToIsoString,
+} from "@openclaw/normalization-core/number-coercion";
+import {
+  normalizeLowercaseStringOrEmpty,
+  normalizeOptionalLowercaseString,
+  normalizeOptionalString,
+} from "@openclaw/normalization-core/string-coerce";
+import { resolveSessionAgentId } from "../../agents/agent-scope.js";
+import { formatFastModeCurrentStatus, resolveFastModeState } from "../../agents/fast-mode.js";
+import {
+  setChannelConversationBindingIdleTimeoutBySessionKey,
+  setChannelConversationBindingMaxAgeBySessionKey,
+} from "../../channels/plugins/conversation-bindings.js";
+import { getChannelPlugin, normalizeChannelId } from "../../channels/plugins/index.js";
+import { formatThreadBindingDurationLabel } from "../../channels/thread-bindings-messages.js";
+import { parseDurationMs } from "../../cli/parse-duration.js";
+import { isRestartEnabled } from "../../config/commands.flags.js";
+import { extractDeliveryInfo } from "../../config/sessions.js";
 import { logVerbose } from "../../globals.js";
 import { getSessionBindingService } from "../../infra/outbound/session-binding-service.js";
 import type { SessionBindingRecord } from "../../infra/outbound/session-binding-service.js";
+import {
+  buildRestartSuccessContinuation,
+  clearRestartSentinel,
+  formatDoctorNonInteractiveHint,
+  type RestartSentinelPayload,
+  writeRestartSentinel,
+} from "../../infra/restart-sentinel.js";
 import { scheduleGatewaySigusr1Restart, triggerOpenClawRestart } from "../../infra/restart.js";
 import { loadCostUsageSummary, loadSessionCostSummary } from "../../infra/session-cost-usage.js";
 import {
-  setTelegramThreadBindingIdleTimeoutBySessionKey,
-  setTelegramThreadBindingMaxAgeBySessionKey,
-} from "../../telegram/thread-bindings.js";
+  asDateTimestampMs,
+  resolveExpiresAtMsFromDurationMs,
+} from "../../shared/number-coercion.js";
 import { formatTokenCount, formatUsd } from "../../utils/usage-format.js";
 import { parseActivationCommand } from "../group-activation.js";
 import { parseSendPolicyCommand } from "../send-policy.js";
-import { normalizeUsageDisplay, resolveResponseUsageMode } from "../thinking.js";
-import { isDiscordSurface, isTelegramSurface, resolveChannelAccountId } from "./channel-context.js";
+import {
+  isSessionDefaultDirectiveValue,
+  normalizeFastMode,
+  normalizeUsageDisplay,
+  resolveEffectiveResponseUsage,
+} from "../thinking.js";
+import { resolveCommandSurfaceChannel } from "./channel-context.js";
+import { rejectNonOwnerCommand, rejectUnauthorizedCommand } from "./command-gates.js";
 import { handleAbortTrigger, handleStopCommand } from "./commands-session-abort.js";
-import { persistSessionEntry } from "./commands-session-store.js";
-import type { CommandHandler } from "./commands-types.js";
-import { resolveTelegramConversationId } from "./telegram-context.js";
+import {
+  persistSessionEntry,
+  sessionEntryPersistenceConflictReply,
+} from "./commands-session-store.js";
+import type { CommandHandler, HandleCommandsParams } from "./commands-types.js";
+import { resolveConversationBindingContextFromAcpCommand } from "./conversation-binding-input.js";
 
 const SESSION_COMMAND_PREFIX = "/session";
 const SESSION_DURATION_OFF_VALUES = new Set(["off", "disable", "disabled", "none", "0"]);
 const SESSION_ACTION_IDLE = "idle";
 const SESSION_ACTION_MAX_AGE = "max-age";
 
+function buildRestartCommandSentinel(params: HandleCommandsParams): RestartSentinelPayload | null {
+  const sessionKey = normalizeOptionalString(params.sessionKey);
+  if (!sessionKey) {
+    return null;
+  }
+  const { deliveryContext, threadId } = extractDeliveryInfo(sessionKey);
+  const payload: RestartSentinelPayload = {
+    kind: "restart",
+    status: "ok",
+    ts: Date.now(),
+    sessionKey,
+    deliveryContext,
+    threadId,
+    message: "/restart",
+    continuation: buildRestartSuccessContinuation({ sessionKey }),
+    doctorHint: formatDoctorNonInteractiveHint(),
+    stats: {
+      mode: "gateway.restart",
+      reason: "/restart",
+    },
+  };
+  return payload;
+}
+
 function resolveSessionCommandUsage() {
   return "Usage: /session idle <duration|off> | /session max-age <duration|off> (example: /session idle 24h)";
 }
 
 function parseSessionDurationMs(raw: string): number {
-  const normalized = raw.trim().toLowerCase();
+  const normalized = normalizeOptionalLowercaseString(raw);
   if (!normalized) {
     throw new Error("missing duration");
   }
   if (SESSION_DURATION_OFF_VALUES.has(normalized)) {
     return 0;
   }
-  if (/^\d+(?:\.\d+)?$/.test(normalized)) {
-    const hours = Number(normalized);
-    if (!Number.isFinite(hours) || hours < 0) {
-      throw new Error("invalid duration");
-    }
-    return Math.round(hours * 60 * 60 * 1000);
-  }
   return parseDurationMs(normalized, { defaultUnit: "h" });
 }
 
 function formatSessionExpiry(expiresAt: number) {
-  return new Date(expiresAt).toISOString();
+  return timestampMsToIsoString(expiresAt) ?? "n/a";
 }
 
-function resolveTelegramBindingDurationMs(
+function resolveSessionBindingDurationMs(
   binding: SessionBindingRecord,
   key: "idleTimeoutMs" | "maxAgeMs",
   fallbackMs: number,
 ): number {
-  const raw = binding.metadata?.[key];
-  if (typeof raw !== "number" || !Number.isFinite(raw)) {
-    return fallbackMs;
-  }
-  return Math.max(0, Math.floor(raw));
+  return resolveNonNegativeIntegerOption(binding.metadata?.[key], fallbackMs);
 }
 
-function resolveTelegramBindingLastActivityAt(binding: SessionBindingRecord): number {
-  const raw = binding.metadata?.lastActivityAt;
-  if (typeof raw !== "number" || !Number.isFinite(raw)) {
+function resolveSessionBindingLastActivityAt(binding: SessionBindingRecord): number {
+  const raw = asDateTimestampMs(binding.metadata?.lastActivityAt);
+  if (raw === undefined) {
     return binding.boundAt;
   }
   return Math.max(Math.floor(raw), binding.boundAt);
 }
 
-function resolveTelegramBindingBoundBy(binding: SessionBindingRecord): string {
+function resolveSessionBindingExpiryAt(baseMs: number, durationMs: number): number | undefined {
+  return durationMs > 0
+    ? resolveExpiresAtMsFromDurationMs(durationMs, { nowMs: baseMs })
+    : undefined;
+}
+
+function resolveSessionBindingBoundBy(binding: SessionBindingRecord): string {
   const raw = binding.metadata?.boundBy;
-  return typeof raw === "string" ? raw.trim() : "";
+  return normalizeOptionalString(raw) ?? "";
 }
 
 type UpdatedLifecycleBinding = {
@@ -91,6 +136,34 @@ type UpdatedLifecycleBinding = {
   idleTimeoutMs?: number;
   maxAgeMs?: number;
 };
+
+function isSessionBindingRecord(
+  binding: UpdatedLifecycleBinding | SessionBindingRecord,
+): binding is SessionBindingRecord {
+  return "bindingId" in binding;
+}
+
+function resolveUpdatedLifecycleDurationMs(
+  binding: UpdatedLifecycleBinding | SessionBindingRecord,
+  key: "idleTimeoutMs" | "maxAgeMs",
+): number | undefined {
+  const raw = isSessionBindingRecord(binding) ? binding.metadata?.[key] : binding[key];
+  return resolveOptionalIntegerOption(raw, { min: 0 });
+}
+
+function toUpdatedLifecycleBinding(
+  binding: UpdatedLifecycleBinding | SessionBindingRecord,
+): UpdatedLifecycleBinding {
+  const lastActivityAt = isSessionBindingRecord(binding)
+    ? resolveSessionBindingLastActivityAt(binding)
+    : Math.max(Math.floor(binding.lastActivityAt), binding.boundAt);
+  return {
+    boundAt: binding.boundAt,
+    lastActivityAt,
+    idleTimeoutMs: resolveUpdatedLifecycleDurationMs(binding, "idleTimeoutMs"),
+    maxAgeMs: resolveUpdatedLifecycleDurationMs(binding, "maxAgeMs"),
+  };
+}
 
 function resolveUpdatedBindingExpiry(params: {
   action: typeof SESSION_ACTION_IDLE | typeof SESSION_ACTION_MAX_AGE;
@@ -106,7 +179,10 @@ function resolveUpdatedBindingExpiry(params: {
         if (idleTimeoutMs <= 0) {
           return undefined;
         }
-        return Math.max(binding.lastActivityAt, binding.boundAt) + idleTimeoutMs;
+        return resolveSessionBindingExpiryAt(
+          Math.max(binding.lastActivityAt, binding.boundAt),
+          idleTimeoutMs,
+        );
       }
 
       const maxAgeMs =
@@ -116,7 +192,7 @@ function resolveUpdatedBindingExpiry(params: {
       if (maxAgeMs <= 0) {
         return undefined;
       }
-      return binding.boundAt + maxAgeMs;
+      return resolveSessionBindingExpiryAt(binding.boundAt, maxAgeMs);
     })
     .filter((expiresAt): expiresAt is number => typeof expiresAt === "number");
 
@@ -140,11 +216,13 @@ export const handleActivationCommand: CommandHandler = async (params, allowTextC
       reply: { text: "⚙️ Group activation only applies to group chats." },
     };
   }
-  if (!params.command.isAuthorizedSender) {
-    logVerbose(
-      `Ignoring /activation from unauthorized sender in group: ${params.command.senderId || "<unknown>"}`,
-    );
-    return { shouldContinue: false };
+  const unauthorizedResult = rejectUnauthorizedCommand(params, "/activation");
+  if (unauthorizedResult) {
+    return unauthorizedResult;
+  }
+  const nonOwnerResult = rejectNonOwnerCommand(params, "/activation");
+  if (nonOwnerResult) {
+    return nonOwnerResult;
   }
   if (!activationCommand.mode) {
     return {
@@ -155,7 +233,14 @@ export const handleActivationCommand: CommandHandler = async (params, allowTextC
   if (params.sessionEntry && params.sessionStore && params.sessionKey) {
     params.sessionEntry.groupActivation = activationCommand.mode;
     params.sessionEntry.groupActivationNeedsSystemIntro = true;
-    await persistSessionEntry(params);
+    if (
+      !(await persistSessionEntry({
+        ...params,
+        touchedFields: ["groupActivation", "groupActivationNeedsSystemIntro"],
+      }))
+    ) {
+      return sessionEntryPersistenceConflictReply();
+    }
   }
   return {
     shouldContinue: false,
@@ -173,11 +258,13 @@ export const handleSendPolicyCommand: CommandHandler = async (params, allowTextC
   if (!sendPolicyCommand.hasCommand) {
     return null;
   }
-  if (!params.command.isAuthorizedSender) {
-    logVerbose(
-      `Ignoring /send from unauthorized sender: ${params.command.senderId || "<unknown>"}`,
-    );
-    return { shouldContinue: false };
+  const unauthorizedResult = rejectUnauthorizedCommand(params, "/send");
+  if (unauthorizedResult) {
+    return unauthorizedResult;
+  }
+  const nonOwnerResult = rejectNonOwnerCommand(params, "/send");
+  if (nonOwnerResult) {
+    return nonOwnerResult;
   }
   if (!sendPolicyCommand.mode) {
     return {
@@ -191,7 +278,9 @@ export const handleSendPolicyCommand: CommandHandler = async (params, allowTextC
     } else {
       params.sessionEntry.sendPolicy = sendPolicyCommand.mode;
     }
-    await persistSessionEntry(params);
+    if (!(await persistSessionEntry({ ...params, touchedFields: ["sendPolicy"] }))) {
+      return sessionEntryPersistenceConflictReply();
+    }
   }
   const label =
     sendPolicyCommand.mode === "inherit"
@@ -222,15 +311,19 @@ export const handleUsageCommand: CommandHandler = async (params, allowTextComman
 
   const rawArgs = normalized === "/usage" ? "" : normalized.slice("/usage".length).trim();
   const requested = rawArgs ? normalizeUsageDisplay(rawArgs) : undefined;
-  if (rawArgs.toLowerCase().startsWith("cost")) {
+  if (normalizeLowercaseStringOrEmpty(rawArgs).startsWith("cost")) {
+    const targetSessionEntry = params.sessionStore?.[params.sessionKey] ?? params.sessionEntry;
+    const sessionAgentId = params.sessionKey
+      ? resolveSessionAgentId({ sessionKey: params.sessionKey, config: params.cfg })
+      : params.agentId;
     const sessionSummary = await loadSessionCostSummary({
-      sessionId: params.sessionEntry?.sessionId,
-      sessionEntry: params.sessionEntry,
-      sessionFile: params.sessionEntry?.sessionFile,
+      sessionId: targetSessionEntry?.sessionId,
+      sessionEntry: targetSessionEntry,
+      sessionFile: targetSessionEntry?.sessionFile,
       config: params.cfg,
-      agentId: params.agentId,
+      agentId: sessionAgentId,
     });
-    const summary = await loadCostUsageSummary({ days: 30, config: params.cfg });
+    const summary = await loadCostUsageSummary({ config: params.cfg });
 
     const sessionCost = formatUsd(sessionSummary?.totalCost);
     const sessionTokens = sessionSummary?.totalTokens
@@ -261,32 +354,158 @@ export const handleUsageCommand: CommandHandler = async (params, allowTextComman
     };
   }
 
-  if (rawArgs && !requested) {
+  const isReset = rawArgs ? isSessionDefaultDirectiveValue(rawArgs) : false;
+
+  if (rawArgs && !requested && !isReset) {
     return {
       shouldContinue: false,
-      reply: { text: "⚙️ Usage: /usage off|tokens|full|cost" },
+      reply: { text: "⚙️ Usage: /usage off|tokens|full|reset|cost" },
     };
   }
 
-  const currentRaw =
-    params.sessionEntry?.responseUsage ??
-    (params.sessionKey ? params.sessionStore?.[params.sessionKey]?.responseUsage : undefined);
-  const current = resolveResponseUsageMode(currentRaw);
+  const targetSessionEntry = params.sessionStore?.[params.sessionKey] ?? params.sessionEntry;
+
+  if (isReset) {
+    if (targetSessionEntry && params.sessionStore && params.sessionKey) {
+      delete targetSessionEntry.responseUsage;
+      params.sessionStore[params.sessionKey] = targetSessionEntry;
+      if (
+        !(await persistSessionEntry({
+          ...params,
+          sessionEntry: targetSessionEntry,
+          touchedFields: ["responseUsage"],
+        }))
+      ) {
+        return sessionEntryPersistenceConflictReply();
+      }
+    }
+    return {
+      shouldContinue: false,
+      reply: { text: "⚙️ Usage footer: reset to default." },
+    };
+  }
+
+  const replyChannel = params.command.channel;
+  const currentRaw = targetSessionEntry?.responseUsage;
+  const current = resolveEffectiveResponseUsage(
+    currentRaw,
+    params.cfg.messages?.responseUsage,
+    replyChannel,
+  );
   const next = requested ?? (current === "off" ? "tokens" : current === "tokens" ? "full" : "off");
 
-  if (params.sessionEntry && params.sessionStore && params.sessionKey) {
-    if (next === "off") {
-      delete params.sessionEntry.responseUsage;
-    } else {
-      params.sessionEntry.responseUsage = next;
+  if (targetSessionEntry && params.sessionStore && params.sessionKey) {
+    targetSessionEntry.responseUsage = next;
+    params.sessionStore[params.sessionKey] = targetSessionEntry;
+    if (
+      !(await persistSessionEntry({
+        ...params,
+        sessionEntry: targetSessionEntry,
+        touchedFields: ["responseUsage"],
+      }))
+    ) {
+      return sessionEntryPersistenceConflictReply();
     }
-    await persistSessionEntry(params);
   }
 
   return {
     shouldContinue: false,
     reply: {
       text: `⚙️ Usage footer: ${next}.`,
+    },
+  };
+};
+
+export const handleFastCommand: CommandHandler = async (params, allowTextCommands) => {
+  if (!allowTextCommands) {
+    return null;
+  }
+  const normalized = params.command.commandBodyNormalized;
+  if (normalized !== "/fast" && !normalized.startsWith("/fast ")) {
+    return null;
+  }
+  if (!params.command.isAuthorizedSender) {
+    logVerbose(
+      `Ignoring /fast from unauthorized sender: ${params.command.senderId || "<unknown>"}`,
+    );
+    return { shouldContinue: false };
+  }
+
+  const rawArgs = normalized === "/fast" ? "" : normalized.slice("/fast".length).trim();
+  const rawMode = normalizeLowercaseStringOrEmpty(rawArgs);
+  if (!rawMode || rawMode === "status") {
+    const targetSessionEntry = params.sessionStore?.[params.sessionKey] ?? params.sessionEntry;
+    const sessionAgentId = params.sessionKey
+      ? resolveSessionAgentId({ sessionKey: params.sessionKey, config: params.cfg })
+      : params.agentId;
+    const state = resolveFastModeState({
+      cfg: params.cfg,
+      provider: params.provider,
+      model: params.model,
+      agentId: sessionAgentId,
+      sessionEntry: targetSessionEntry,
+    });
+    return {
+      shouldContinue: false,
+      reply: {
+        text: formatFastModeCurrentStatus({
+          mode: state.mode,
+          source: state.source,
+          fastAutoOnSeconds: state.fastAutoOnSeconds,
+          label: "⚙️ Current fast mode",
+        }),
+      },
+    };
+  }
+
+  const targetSessionEntry = params.sessionStore?.[params.sessionKey] ?? params.sessionEntry;
+  const resetsToDefault = isSessionDefaultDirectiveValue(rawMode);
+  const nextMode = resetsToDefault ? undefined : normalizeFastMode(rawMode);
+  if (nextMode === undefined) {
+    if (resetsToDefault) {
+      if (targetSessionEntry && params.sessionStore && params.sessionKey) {
+        delete targetSessionEntry.fastMode;
+        if (
+          !(await persistSessionEntry({
+            ...params,
+            sessionEntry: targetSessionEntry,
+            touchedFields: ["fastMode"],
+          }))
+        ) {
+          return sessionEntryPersistenceConflictReply();
+        }
+      }
+      return {
+        shouldContinue: false,
+        reply: { text: "⚙️ Fast mode reset to default." },
+      };
+    }
+    return {
+      shouldContinue: false,
+      reply: { text: "⚙️ Usage: /fast status|auto|on|off|default" },
+    };
+  }
+
+  if (targetSessionEntry && params.sessionStore && params.sessionKey) {
+    targetSessionEntry.fastMode = nextMode;
+    if (
+      !(await persistSessionEntry({
+        ...params,
+        sessionEntry: targetSessionEntry,
+        touchedFields: ["fastMode"],
+      }))
+    ) {
+      return sessionEntryPersistenceConflictReply();
+    }
+  }
+
+  return {
+    shouldContinue: false,
+    reply: {
+      text:
+        nextMode === "auto"
+          ? "⚙️ Fast mode set to auto."
+          : `⚙️ Fast mode ${nextMode ? "enabled" : "disabled"}.`,
     },
   };
 };
@@ -308,7 +527,7 @@ export const handleSessionCommand: CommandHandler = async (params, allowTextComm
 
   const rest = normalized.slice(SESSION_COMMAND_PREFIX.length).trim();
   const tokens = rest.split(/\s+/).filter(Boolean);
-  const action = tokens[0]?.toLowerCase();
+  const action = normalizeOptionalLowercaseString(tokens[0]);
   if (action !== SESSION_ACTION_IDLE && action !== SESSION_ACTION_MAX_AGE) {
     return {
       shouldContinue: false,
@@ -316,98 +535,82 @@ export const handleSessionCommand: CommandHandler = async (params, allowTextComm
     };
   }
 
-  const onDiscord = isDiscordSurface(params);
-  const onTelegram = isTelegramSurface(params);
-  if (!onDiscord && !onTelegram) {
+  const channelId =
+    params.command.channelId ??
+    normalizeChannelId(resolveCommandSurfaceChannel(params)) ??
+    undefined;
+  const commandConversationBindings = channelId
+    ? getChannelPlugin(channelId)?.conversationBindings
+    : undefined;
+  const commandSupportsCurrentConversationBinding = Boolean(
+    commandConversationBindings?.supportsCurrentConversationBinding,
+  );
+  const commandSupportsLifecycleUpdate =
+    action === SESSION_ACTION_IDLE
+      ? typeof commandConversationBindings?.setIdleTimeoutBySessionKey === "function"
+      : typeof commandConversationBindings?.setMaxAgeBySessionKey === "function";
+  const bindingContext = resolveConversationBindingContextFromAcpCommand(params);
+  if (!bindingContext) {
+    if (
+      !channelId ||
+      !commandSupportsCurrentConversationBinding ||
+      !commandSupportsLifecycleUpdate
+    ) {
+      return {
+        shouldContinue: false,
+        reply: {
+          text: "⚠️ /session idle and /session max-age are currently available only on channels that support focused conversation bindings.",
+        },
+      };
+    }
     return {
       shouldContinue: false,
       reply: {
-        text: "⚠️ /session idle and /session max-age are currently available for Discord and Telegram bound sessions.",
+        text: "⚠️ /session idle and /session max-age must be run inside a focused conversation.",
+      },
+    };
+  }
+  const resolvedChannelId = bindingContext.channel || channelId;
+  const conversationBindings = resolvedChannelId
+    ? getChannelPlugin(resolvedChannelId)?.conversationBindings
+    : undefined;
+  const supportsCurrentConversationBinding = Boolean(
+    conversationBindings?.supportsCurrentConversationBinding,
+  );
+  const supportsLifecycleUpdate =
+    action === SESSION_ACTION_IDLE
+      ? typeof conversationBindings?.setIdleTimeoutBySessionKey === "function"
+      : typeof conversationBindings?.setMaxAgeBySessionKey === "function";
+  if (!resolvedChannelId || !supportsCurrentConversationBinding || !supportsLifecycleUpdate) {
+    return {
+      shouldContinue: false,
+      reply: {
+        text: "⚠️ /session idle and /session max-age are currently available only on channels that support focused conversation bindings.",
       },
     };
   }
 
-  const accountId = resolveChannelAccountId(params);
   const sessionBindingService = getSessionBindingService();
-  const threadId =
-    params.ctx.MessageThreadId != null ? String(params.ctx.MessageThreadId).trim() : "";
-  const telegramConversationId = onTelegram ? resolveTelegramConversationId(params) : undefined;
 
-  const discordManager = onDiscord ? getThreadBindingManager(accountId) : null;
-  if (onDiscord && !discordManager) {
-    return {
-      shouldContinue: false,
-      reply: { text: "⚠️ Discord thread bindings are unavailable for this account." },
-    };
-  }
-
-  const discordBinding =
-    onDiscord && threadId ? discordManager?.getByThreadId(threadId) : undefined;
-  const telegramBinding =
-    onTelegram && telegramConversationId
-      ? sessionBindingService.resolveByConversation({
-          channel: "telegram",
-          accountId,
-          conversationId: telegramConversationId,
-        })
-      : null;
-  if (onDiscord && !discordBinding) {
-    if (onDiscord && !threadId) {
-      return {
-        shouldContinue: false,
-        reply: {
-          text: "⚠️ /session idle and /session max-age must be run inside a focused Discord thread.",
-        },
-      };
-    }
-    return {
-      shouldContinue: false,
-      reply: { text: "ℹ️ This thread is not currently focused." },
-    };
-  }
-  if (onTelegram && !telegramBinding) {
-    if (!telegramConversationId) {
-      return {
-        shouldContinue: false,
-        reply: {
-          text: "⚠️ /session idle and /session max-age on Telegram require a topic context in groups, or a direct-message conversation.",
-        },
-      };
-    }
+  const activeBinding = sessionBindingService.resolveByConversation(bindingContext);
+  if (!activeBinding) {
     return {
       shouldContinue: false,
       reply: { text: "ℹ️ This conversation is not currently focused." },
     };
   }
 
-  const idleTimeoutMs = onDiscord
-    ? resolveThreadBindingIdleTimeoutMs({
-        record: discordBinding!,
-        defaultIdleTimeoutMs: discordManager!.getIdleTimeoutMs(),
-      })
-    : resolveTelegramBindingDurationMs(telegramBinding!, "idleTimeoutMs", 24 * 60 * 60 * 1000);
-  const idleExpiresAt = onDiscord
-    ? resolveThreadBindingInactivityExpiresAt({
-        record: discordBinding!,
-        defaultIdleTimeoutMs: discordManager!.getIdleTimeoutMs(),
-      })
-    : idleTimeoutMs > 0
-      ? resolveTelegramBindingLastActivityAt(telegramBinding!) + idleTimeoutMs
-      : undefined;
-  const maxAgeMs = onDiscord
-    ? resolveThreadBindingMaxAgeMs({
-        record: discordBinding!,
-        defaultMaxAgeMs: discordManager!.getMaxAgeMs(),
-      })
-    : resolveTelegramBindingDurationMs(telegramBinding!, "maxAgeMs", 0);
-  const maxAgeExpiresAt = onDiscord
-    ? resolveThreadBindingMaxAgeExpiresAt({
-        record: discordBinding!,
-        defaultMaxAgeMs: discordManager!.getMaxAgeMs(),
-      })
-    : maxAgeMs > 0
-      ? telegramBinding!.boundAt + maxAgeMs
-      : undefined;
+  const idleTimeoutMs = resolveSessionBindingDurationMs(
+    activeBinding,
+    "idleTimeoutMs",
+    24 * 60 * 60 * 1000,
+  );
+  const idleExpiresAt = resolveSessionBindingExpiryAt(
+    resolveSessionBindingLastActivityAt(activeBinding),
+    idleTimeoutMs,
+  );
+  const maxAgeMs = resolveSessionBindingDurationMs(activeBinding, "maxAgeMs", 0);
+  const maxAgeExpiresAt = resolveSessionBindingExpiryAt(activeBinding.boundAt, maxAgeMs);
 
   const durationArgRaw = tokens.slice(1).join("");
   if (!durationArgRaw) {
@@ -448,17 +651,13 @@ export const handleSessionCommand: CommandHandler = async (params, allowTextComm
     };
   }
 
-  const senderId = params.command.senderId?.trim() || "";
-  const boundBy = onDiscord
-    ? discordBinding!.boundBy
-    : resolveTelegramBindingBoundBy(telegramBinding!);
+  const senderId = normalizeOptionalString(params.command.senderId) ?? "";
+  const boundBy = resolveSessionBindingBoundBy(activeBinding);
   if (boundBy && boundBy !== "system" && senderId && senderId !== boundBy) {
     return {
       shouldContinue: false,
       reply: {
-        text: onDiscord
-          ? `⚠️ Only ${boundBy} can update session lifecycle settings for this thread.`
-          : `⚠️ Only ${boundBy} can update session lifecycle settings for this conversation.`,
+        text: `⚠️ Only ${boundBy} can update session lifecycle settings for this conversation.`,
       },
     };
   }
@@ -473,32 +672,20 @@ export const handleSessionCommand: CommandHandler = async (params, allowTextComm
     };
   }
 
-  const updatedBindings = (() => {
-    if (onDiscord) {
-      return action === SESSION_ACTION_IDLE
-        ? setThreadBindingIdleTimeoutBySessionKey({
-            targetSessionKey: discordBinding!.targetSessionKey,
-            accountId,
-            idleTimeoutMs: durationMs,
-          })
-        : setThreadBindingMaxAgeBySessionKey({
-            targetSessionKey: discordBinding!.targetSessionKey,
-            accountId,
-            maxAgeMs: durationMs,
-          });
-    }
-    return action === SESSION_ACTION_IDLE
-      ? setTelegramThreadBindingIdleTimeoutBySessionKey({
-          targetSessionKey: telegramBinding!.targetSessionKey,
-          accountId,
+  const updatedBindings =
+    action === SESSION_ACTION_IDLE
+      ? setChannelConversationBindingIdleTimeoutBySessionKey({
+          channelId: bindingContext.channel,
+          targetSessionKey: activeBinding.targetSessionKey,
+          accountId: bindingContext.accountId,
           idleTimeoutMs: durationMs,
         })
-      : setTelegramThreadBindingMaxAgeBySessionKey({
-          targetSessionKey: telegramBinding!.targetSessionKey,
-          accountId,
+      : setChannelConversationBindingMaxAgeBySessionKey({
+          channelId: bindingContext.channel,
+          targetSessionKey: activeBinding.targetSessionKey,
+          accountId: bindingContext.accountId,
           maxAgeMs: durationMs,
         });
-  })();
   if (updatedBindings.length === 0) {
     return {
       shouldContinue: false,
@@ -525,7 +712,7 @@ export const handleSessionCommand: CommandHandler = async (params, allowTextComm
 
   const nextExpiry = resolveUpdatedBindingExpiry({
     action,
-    bindings: updatedBindings,
+    bindings: updatedBindings.map((binding) => toUpdatedLifecycleBinding(binding)),
   });
   const expiryLabel =
     typeof nextExpiry === "number" && Number.isFinite(nextExpiry)
@@ -555,6 +742,10 @@ export const handleRestartCommand: CommandHandler = async (params, allowTextComm
     );
     return { shouldContinue: false };
   }
+  const nonOwner = rejectNonOwnerCommand(params, "/restart");
+  if (nonOwner) {
+    return nonOwner;
+  }
   if (!isRestartEnabled(params.cfg)) {
     return {
       shouldContinue: false,
@@ -564,8 +755,29 @@ export const handleRestartCommand: CommandHandler = async (params, allowTextComm
     };
   }
   const hasSigusr1Listener = process.listenerCount("SIGUSR1") > 0;
+  const sentinelPayload = buildRestartCommandSentinel(params);
   if (hasSigusr1Listener) {
-    scheduleGatewaySigusr1Restart({ reason: "/restart" });
+    let sentinelWritten = false;
+    scheduleGatewaySigusr1Restart({
+      reason: "/restart",
+      // Sibling session-routing guard: /restart writes a session-scoped sentinel
+      // with continuation, so the scheduler must own the pending slot under the
+      // same key to avoid cross-session continuation overwrite (#86742).
+      sessionKey: sentinelPayload?.sessionKey,
+      emitHooks: sentinelPayload
+        ? {
+            beforeEmit: async () => {
+              await writeRestartSentinel(sentinelPayload);
+              sentinelWritten = true;
+            },
+            afterEmitRejected: async () => {
+              if (sentinelWritten) {
+                await clearRestartSentinel();
+              }
+            },
+          }
+        : undefined,
+    });
     return {
       shouldContinue: false,
       reply: {
@@ -573,8 +785,26 @@ export const handleRestartCommand: CommandHandler = async (params, allowTextComm
       },
     };
   }
+  let sentinelWritten = false;
+  try {
+    if (sentinelPayload) {
+      await writeRestartSentinel(sentinelPayload);
+      sentinelWritten = true;
+    }
+  } catch (err) {
+    logVerbose(`failed to write /restart sentinel: ${String(err)}`);
+    return {
+      shouldContinue: false,
+      reply: {
+        text: "⚠️ Restart failed: could not persist the post-restart acknowledgement.",
+      },
+    };
+  }
   const restartMethod = triggerOpenClawRestart();
   if (!restartMethod.ok) {
+    if (sentinelWritten) {
+      await clearRestartSentinel();
+    }
     const detail = restartMethod.detail ? ` Details: ${restartMethod.detail}` : "";
     return {
       shouldContinue: false,

@@ -29,19 +29,29 @@ final class CanvasManager {
         return base.appendingPathComponent("OpenClaw/canvas", isDirectory: true)
     }()
 
-    func show(sessionKey: String, path: String? = nil, placement: CanvasPlacement? = nil) throws -> String {
-        try self.showDetailed(sessionKey: sessionKey, target: path, placement: placement).directory
+    func show(
+        sessionKey: String,
+        path: String? = nil,
+        placement: CanvasPlacement? = nil,
+        trustedA2UIActions: Bool = false) throws -> String
+    {
+        try self.showDetailed(
+            sessionKey: sessionKey,
+            target: path,
+            placement: placement,
+            trustedA2UIActions: trustedA2UIActions).directory
     }
 
     func showDetailed(
         sessionKey: String,
         target: String? = nil,
-        placement: CanvasPlacement? = nil) throws -> CanvasShowResult
+        placement: CanvasPlacement? = nil,
+        trustedA2UIActions: Bool = false) throws -> CanvasShowResult
     {
         Self.logger.debug(
             """
             showDetailed start session=\(sessionKey, privacy: .public) \
-            target=\(target ?? "", privacy: .public) \
+            hasTarget=\(target != nil) \
             placement=\(placement != nil)
             """)
         let anchorProvider = self.defaultAnchorProvider ?? Self.mouseAnchorProvider
@@ -61,7 +71,7 @@ final class CanvasManager {
 
             // Existing session: only navigate when an explicit target was provided.
             if let normalizedTarget {
-                controller.load(target: normalizedTarget)
+                controller.load(target: normalizedTarget, trustedA2UIActions: trustedA2UIActions)
                 return self.makeShowResult(
                     directory: controller.directoryPath,
                     target: target,
@@ -99,8 +109,8 @@ final class CanvasManager {
 
         // New session: default to "/" so the user sees either the welcome page or `index.html`.
         let effectiveTarget = normalizedTarget ?? "/"
-        Self.logger.debug("showDetailed showCanvas effectiveTarget=\(effectiveTarget, privacy: .public)")
-        controller.showCanvas(path: effectiveTarget)
+        Self.logger.debug("showDetailed showCanvas hasExplicitTarget=\(normalizedTarget != nil)")
+        controller.showCanvas(path: effectiveTarget, trustedA2UIActions: trustedA2UIActions)
         Self.logger.debug("showDetailed showCanvas done")
         if normalizedTarget == nil {
             self.maybeAutoNavigateToA2UIAsync(controller: controller)
@@ -152,15 +162,17 @@ final class CanvasManager {
 
     private func handleGatewayPush(_ push: GatewayPush) {
         guard case let .snapshot(snapshot) = push else { return }
-        let raw = snapshot.canvashosturl?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let raw =
+            (snapshot.pluginsurfaceurls?["canvas"]?.value as? String)?
+                .trimmingCharacters(in: CharacterSet.whitespacesAndNewlines) ?? ""
         if raw.isEmpty {
-            Self.logger.debug("canvas host url missing in gateway snapshot")
+            Self.logger.debug("canvas plugin surface URL missing in gateway snapshot")
         } else {
-            Self.logger.debug("canvas host url snapshot=\(raw, privacy: .public)")
+            Self.logger.debug("canvas plugin surface URL present in gateway snapshot")
         }
-        let a2uiUrl = Self.resolveA2UIHostUrl(from: raw)
+        let a2uiUrl = CanvasHostedURLResolver.resolveA2UIURL(surfaceURL: raw)
         if a2uiUrl == nil, !raw.isEmpty {
-            Self.logger.debug("canvas host url invalid; cannot resolve A2UI")
+            Self.logger.debug("canvas plugin surface URL invalid; cannot resolve A2UI")
         }
         guard let controller = self.panelController else {
             if a2uiUrl != nil {
@@ -184,19 +196,21 @@ final class CanvasManager {
 
     private func maybeAutoNavigateToA2UI(controller: CanvasWindowController, a2uiUrl: String?) {
         guard let a2uiUrl else { return }
-        let shouldNavigate = controller.shouldAutoNavigateToA2UI(lastAutoTarget: self.lastAutoA2UIUrl)
+        let shouldNavigate = controller.shouldAutoNavigateToA2UI(
+            lastAutoTarget: self.lastAutoA2UIUrl,
+            candidateTarget: a2uiUrl)
         guard shouldNavigate else {
             Self.logger.debug("canvas auto-nav skipped; target unchanged")
             return
         }
-        Self.logger.debug("canvas auto-nav -> \(a2uiUrl, privacy: .public)")
-        controller.load(target: a2uiUrl)
+        Self.logger.debug("canvas auto-nav to capability-scoped A2UI")
+        controller.load(target: a2uiUrl, trustedA2UIActions: true)
         self.lastAutoA2UIUrl = a2uiUrl
     }
 
     private func resolveA2UIHostUrl() async -> String? {
-        let raw = await GatewayConnection.shared.canvasHostUrl()
-        return Self.resolveA2UIHostUrl(from: raw)
+        let raw = await GatewayConnection.shared.canvasPluginSurfaceUrl()
+        return CanvasHostedURLResolver.resolveA2UIURL(surfaceURL: raw)
     }
 
     func refreshDebugStatus() {
@@ -226,12 +240,6 @@ final class CanvasManager {
             subtitle = mode.rawValue
         }
         controller.updateDebugStatus(enabled: enabled, title: title, subtitle: subtitle)
-    }
-
-    private static func resolveA2UIHostUrl(from raw: String?) -> String? {
-        let trimmed = raw?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        guard !trimmed.isEmpty, let base = URL(string: trimmed) else { return nil }
-        return base.appendingPathComponent("__openclaw__/a2ui/").absoluteString + "?platform=macos"
     }
 
     // MARK: - Anchoring

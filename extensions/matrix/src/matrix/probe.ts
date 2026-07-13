@@ -1,5 +1,17 @@
-import type { BaseProbeResult } from "openclaw/plugin-sdk/matrix";
-import { createMatrixClient, isBunRuntime } from "./client.js";
+// Matrix plugin module implements probe behavior.
+import { formatErrorMessage } from "openclaw/plugin-sdk/error-runtime";
+import { createLazyRuntimeModule } from "openclaw/plugin-sdk/lazy-runtime";
+import type { PinnedDispatcherPolicy } from "openclaw/plugin-sdk/ssrf-dispatcher";
+import { normalizeOptionalString } from "openclaw/plugin-sdk/string-coerce-runtime";
+import type { SsrFPolicy } from "../runtime-api.js";
+import type { BaseProbeResult } from "../runtime-api.js";
+import { isBunRuntime } from "./client/runtime.js";
+
+const loadMatrixProbeRuntimeDeps = createLazyRuntimeModule(() =>
+  import("./probe.runtime.js").then((runtimeModule) => ({
+    createMatrixClient: runtimeModule.createMatrixClient,
+  })),
+);
 
 export type MatrixProbe = BaseProbeResult & {
   status?: number | null;
@@ -11,7 +23,12 @@ export async function probeMatrix(params: {
   homeserver: string;
   accessToken: string;
   userId?: string;
-  timeoutMs: number;
+  deviceId?: string;
+  timeoutMs?: number;
+  accountId?: string | null;
+  allowPrivateNetwork?: boolean;
+  ssrfPolicy?: SsrFPolicy;
+  dispatcherPolicy?: PinnedDispatcherPolicy;
 }): Promise<MatrixProbe> {
   const started = Date.now();
   const result: MatrixProbe = {
@@ -42,13 +59,21 @@ export async function probeMatrix(params: {
     };
   }
   try {
+    const { createMatrixClient } = await loadMatrixProbeRuntimeDeps();
+    const inputUserId = normalizeOptionalString(params.userId);
     const client = await createMatrixClient({
       homeserver: params.homeserver,
-      userId: params.userId ?? "",
+      userId: inputUserId,
       accessToken: params.accessToken,
+      deviceId: params.deviceId,
+      persistStorage: false,
       localTimeoutMs: params.timeoutMs,
+      accountId: params.accountId,
+      allowPrivateNetwork: params.allowPrivateNetwork,
+      ssrfPolicy: params.ssrfPolicy,
+      dispatcherPolicy: params.dispatcherPolicy,
     });
-    // @vector-im/matrix-bot-sdk uses getUserId() which calls whoami internally
+    // The client wrapper resolves user ID via whoami when needed.
     const userId = await client.getUserId();
     result.ok = true;
     result.userId = userId ?? null;
@@ -62,7 +87,7 @@ export async function probeMatrix(params: {
         typeof err === "object" && err && "statusCode" in err
           ? Number((err as { statusCode?: number }).statusCode)
           : result.status,
-      error: err instanceof Error ? err.message : String(err),
+      error: formatErrorMessage(err),
       elapsedMs: Date.now() - started,
     };
   }

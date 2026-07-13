@@ -1,6 +1,8 @@
+// Hooks CLI tests cover hook command registration and output behavior.
+import { expectDefined } from "@openclaw/normalization-core";
 import { describe, expect, it } from "vitest";
 import type { HookStatusReport } from "../hooks/hooks-status.js";
-import { formatHooksCheck, formatHooksList } from "./hooks-cli.js";
+import { formatHookInfo, formatHooksCheck, formatHooksList } from "./hooks-cli.js";
 import { createEmptyInstallChecks } from "./requirements-test-fixtures.js";
 
 const report: HookStatusReport = {
@@ -19,14 +21,47 @@ const report: HookStatusReport = {
       emoji: "💾",
       homepage: "https://docs.openclaw.ai/automation/hooks#session-memory",
       events: ["command:new"],
+      unknownEvents: [],
       always: false,
-      disabled: false,
-      eligible: true,
+      enabledByConfig: true,
+      requirementsSatisfied: true,
+      loadable: true,
+      blockedReason: undefined,
       managedByPlugin: false,
       ...createEmptyInstallChecks(),
     },
   ],
 };
+
+function createPluginManagedHookReport(): HookStatusReport {
+  return {
+    workspaceDir: "/tmp/workspace",
+    managedHooksDir: "/tmp/hooks",
+    hooks: [
+      {
+        name: "plugin-hook",
+        description: "Hook from plugin",
+        source: "openclaw-plugin",
+        pluginId: "voice-call",
+        filePath: "/tmp/hooks/plugin-hook/HOOK.md",
+        baseDir: "/tmp/hooks/plugin-hook",
+        handlerPath: "/tmp/hooks/plugin-hook/handler.js",
+        hookKey: "plugin-hook",
+        emoji: "🔗",
+        homepage: undefined,
+        events: ["command:new"],
+        unknownEvents: [],
+        always: false,
+        enabledByConfig: true,
+        requirementsSatisfied: true,
+        loadable: true,
+        blockedReason: undefined,
+        managedByPlugin: true,
+        ...createEmptyInstallChecks(),
+      },
+    ],
+  };
+}
 
 describe("hooks cli formatting", () => {
   it("labels hooks list output", () => {
@@ -41,32 +76,35 @@ describe("hooks cli formatting", () => {
   });
 
   it("labels plugin-managed hooks with plugin id", () => {
-    const pluginReport: HookStatusReport = {
+    const pluginReport = createPluginManagedHookReport();
+
+    const output = formatHooksList(pluginReport, {});
+    expect(output).toContain("plugin:voice-call");
+  });
+
+  it("warns about unknown events in hook info", () => {
+    const typoReport: HookStatusReport = {
       workspaceDir: "/tmp/workspace",
       managedHooksDir: "/tmp/hooks",
       hooks: [
         {
-          name: "plugin-hook",
-          description: "Hook from plugin",
-          source: "openclaw-plugin",
-          pluginId: "voice-call",
-          filePath: "/tmp/hooks/plugin-hook/HOOK.md",
-          baseDir: "/tmp/hooks/plugin-hook",
-          handlerPath: "/tmp/hooks/plugin-hook/handler.js",
-          hookKey: "plugin-hook",
-          emoji: "🔗",
-          homepage: undefined,
-          events: ["command:new"],
-          always: false,
-          disabled: false,
-          eligible: true,
-          managedByPlugin: true,
-          ...createEmptyInstallChecks(),
+          ...expectDefined(report.hooks[0], "report.hooks[0] test invariant"),
+          name: "typo-hook",
+          events: ["command:nwe", "command:new"],
+          unknownEvents: ["command:nwe"],
         },
       ],
     };
 
-    const output = formatHooksList(pluginReport, {});
-    expect(output).toContain("plugin:voice-call");
+    const output = formatHookInfo(typoReport, "typo-hook", {});
+    expect(output).toContain("Event not emitted by core (likely typo): command:nwe");
+  });
+
+  it("shows plugin-managed details in hook info", () => {
+    const pluginReport = createPluginManagedHookReport();
+
+    const output = formatHookInfo(pluginReport, "plugin-hook", {});
+    expect(output).toContain("voice-call");
+    expect(output).toContain("Managed by plugin");
   });
 });

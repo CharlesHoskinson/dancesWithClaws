@@ -1,11 +1,14 @@
+// Tlon plugin module implements sse client behavior.
 import { randomUUID } from "node:crypto";
 import { Readable } from "node:stream";
-import type { LookupFn, SsrFPolicy } from "openclaw/plugin-sdk/tlon";
+import { resolveTimerTimeoutMs } from "openclaw/plugin-sdk/number-runtime";
+import { readResponseTextLimited } from "openclaw/plugin-sdk/provider-http";
+import type { LookupFn, SsrFPolicy } from "openclaw/plugin-sdk/ssrf-runtime";
 import { ensureUrbitChannelOpen, pokeUrbitChannel, scryUrbitPath } from "./channel-ops.js";
 import { getUrbitContext, normalizeUrbitCookie } from "./context.js";
 import { urbitFetch } from "./fetch.js";
 
-export type UrbitSseLogger = {
+type UrbitSseLogger = {
   log?: (message: string) => void;
   error?: (message: string) => void;
 };
@@ -22,6 +25,28 @@ type UrbitSseOptions = {
   maxReconnectDelay?: number;
   logger?: UrbitSseLogger;
 };
+
+const MAX_SSE_PAYLOAD_BYTES = 16 * 1024 * 1024;
+
+function parseUrbitSsePayload(data: string): { id?: number; json?: unknown; response?: string } {
+  if (Buffer.byteLength(data, "utf8") > MAX_SSE_PAYLOAD_BYTES) {
+    throw new Error("Tlon Urbit SSE payload exceeds 16 MiB limit");
+  }
+  try {
+    return JSON.parse(data) as { id?: number; json?: unknown; response?: string };
+  } catch (cause) {
+    throw new Error("Tlon Urbit SSE event was malformed JSON", { cause });
+  }
+}
+
+function parseUrbitSseEventId(value: string): number | null {
+  const trimmed = value.trim();
+  if (!/^\d+$/.test(trimmed)) {
+    return null;
+  }
+  const parsed = Number(trimmed);
+  return Number.isSafeInteger(parsed) ? parsed : null;
+}
 
 export class UrbitSSEClient {
   url: string;
@@ -70,12 +95,24 @@ export class UrbitSSEClient {
     this.onReconnect = options.onReconnect ?? null;
     this.autoReconnect = options.autoReconnect !== false;
     this.maxReconnectAttempts = options.maxReconnectAttempts ?? 10;
-    this.reconnectDelay = options.reconnectDelay ?? 1000;
-    this.maxReconnectDelay = options.maxReconnectDelay ?? 30000;
+    this.reconnectDelay = resolveTimerTimeoutMs(options.reconnectDelay, 1000);
+    this.maxReconnectDelay = resolveTimerTimeoutMs(options.maxReconnectDelay, 30000);
     this.logger = options.logger ?? {};
     this.ssrfPolicy = options.ssrfPolicy;
     this.lookupFn = options.lookupFn;
     this.fetchImpl = options.fetchImpl;
+  }
+
+  private channelRequestContext() {
+    return {
+      baseUrl: this.url,
+      cookie: this.cookie,
+      ship: this.ship,
+      channelId: this.channelId,
+      ssrfPolicy: this.ssrfPolicy,
+      lookupFn: this.lookupFn,
+      fetchImpl: this.fetchImpl,
+    };
   }
 
   async subscribe(params: {
@@ -115,27 +152,14 @@ export class UrbitSSEClient {
     app: string;
     path: string;
   }) {
-    const { response, release } = await urbitFetch({
-      baseUrl: this.url,
-      path: `/~/channel/${this.channelId}`,
-      init: {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Cookie: this.cookie,
-        },
-        body: JSON.stringify([subscription]),
-      },
-      ssrfPolicy: this.ssrfPolicy,
-      lookupFn: this.lookupFn,
-      fetchImpl: this.fetchImpl,
+    const { response, release } = await this.putChannelPayload([subscription], {
       timeoutMs: 30_000,
       auditContext: "tlon-urbit-subscribe",
     });
 
     try {
       if (!response.ok && response.status !== 204) {
-        const errorText = await response.text().catch(() => "");
+        const errorText = await readResponseTextLimited(response, 16 * 1024).catch(() => "");
         throw new Error(
           `Subscribe failed: ${response.status}${errorText ? ` - ${errorText}` : ""}`,
         );
@@ -146,21 +170,10 @@ export class UrbitSSEClient {
   }
 
   async connect() {
-    await ensureUrbitChannelOpen(
-      {
-        baseUrl: this.url,
-        cookie: this.cookie,
-        ship: this.ship,
-        channelId: this.channelId,
-        ssrfPolicy: this.ssrfPolicy,
-        lookupFn: this.lookupFn,
-        fetchImpl: this.fetchImpl,
-      },
-      {
-        createBody: this.subscriptions,
-        createAuditContext: "tlon-urbit-channel-create",
-      },
-    );
+    await ensureUrbitChannelOpen(this.channelRequestContext(), {
+      createBody: this.subscriptions,
+      createAuditContext: "tlon-urbit-channel-create",
+    });
 
     await this.openStream();
     this.isConnected = true;
@@ -203,7 +216,7 @@ export class UrbitSSEClient {
       throw new Error(`Stream connection failed: ${response.status}`);
     }
 
-    this.processStream(response.body).catch((error) => {
+    this.processStream(response.body).catch((error: unknown) => {
       if (!this.aborted) {
         this.logger.error?.(`Stream error: ${String(error)}`);
         for (const { err } of this.eventHandlers.values()) {
@@ -215,27 +228,82 @@ export class UrbitSSEClient {
     });
   }
 
-  async processStream(body: ReadableStream<Uint8Array> | Readable | null) {
+  async processStream(body: unknown) {
     if (!body) {
       return;
     }
-    // oxlint-disable-next-line typescript/no-explicit-any
-    const stream = body instanceof ReadableStream ? Readable.fromWeb(body as any) : body;
+    // Bridge DOM fetch stream types to Node's stream/web declaration on newer TS/node combos.
+    const stream =
+      body instanceof ReadableStream
+        ? Readable.fromWeb(body as never)
+        : (body as NodeJS.ReadableStream);
+    const decoder = new TextDecoder();
     let buffer = "";
+    let bufferBytes = 0;
+    let pendingDelimiterNewline = false;
+
+    const appendPending = (text: string) => {
+      const previousCodeUnit = buffer.charCodeAt(buffer.length - 1);
+      const firstCodeUnit = text.charCodeAt(0);
+      const joinsSurrogatePair =
+        previousCodeUnit >= 0xd800 &&
+        previousCodeUnit <= 0xdbff &&
+        firstCodeUnit >= 0xdc00 &&
+        firstCodeUnit <= 0xdfff;
+      // Buffer.byteLength counts either lone surrogate as three bytes. When
+      // chunks join a pair, correct the retained total to the combined four bytes.
+      const nextBytes =
+        bufferBytes + Buffer.byteLength(text, "utf8") - (joinsSurrogatePair ? 2 : 0);
+      if (nextBytes > MAX_SSE_PAYLOAD_BYTES) {
+        throw new Error("Tlon Urbit SSE stream buffer exceeded 16 MiB limit");
+      }
+      buffer += text;
+      bufferBytes = nextBytes;
+    };
+    const consumeText = (text: string) => {
+      let offset = 0;
+      if (pendingDelimiterNewline && text.length > 0) {
+        pendingDelimiterNewline = false;
+        if (text.startsWith("\n")) {
+          this.processEvent(buffer);
+          buffer = "";
+          bufferBytes = 0;
+          offset = 1;
+        } else {
+          // A trailing newline stays outside the budget until the next byte
+          // distinguishes an event delimiter from retained event data.
+          appendPending("\n");
+        }
+      }
+      while (offset < text.length) {
+        const eventEnd = text.indexOf("\n\n", offset);
+        if (eventEnd === -1) {
+          const endsWithNewline = text.endsWith("\n");
+          appendPending(text.slice(offset, endsWithNewline ? -1 : undefined));
+          pendingDelimiterNewline = endsWithNewline;
+          return;
+        }
+        appendPending(text.slice(offset, eventEnd));
+        this.processEvent(buffer);
+        buffer = "";
+        bufferBytes = 0;
+        offset = eventEnd + 2;
+      }
+    };
 
     try {
       for await (const chunk of stream) {
         if (this.aborted) {
           break;
         }
-        buffer += chunk.toString();
-        let eventEnd;
-        while ((eventEnd = buffer.indexOf("\n\n")) !== -1) {
-          const eventData = buffer.substring(0, eventEnd);
-          buffer = buffer.substring(eventEnd + 2);
-          this.processEvent(eventData);
+        if (typeof chunk === "string") {
+          consumeText(decoder.decode());
+          consumeText(chunk);
+        } else {
+          consumeText(decoder.decode(chunk as Uint8Array, { stream: true }));
         }
       }
+      consumeText(decoder.decode());
     } finally {
       if (this.streamRelease) {
         const release = this.streamRelease;
@@ -258,10 +326,10 @@ export class UrbitSSEClient {
 
     for (const line of lines) {
       if (line.startsWith("id: ")) {
-        eventId = parseInt(line.substring(4), 10);
+        eventId = parseUrbitSseEventId(line.slice(4));
       }
       if (line.startsWith("data: ")) {
-        data = line.substring(6);
+        data = line.slice(6);
       }
     }
 
@@ -270,14 +338,14 @@ export class UrbitSSEClient {
     }
 
     // Track event ID and send ack if needed
-    if (eventId !== null && !isNaN(eventId)) {
+    if (eventId !== null && !Number.isNaN(eventId)) {
       if (eventId > this.lastHeardEventId) {
         this.lastHeardEventId = eventId;
         if (eventId - this.lastAcknowledgedEventId > this.ackThreshold) {
           this.logger.log?.(
             `[SSE] Acking event ${eventId} (last acked: ${this.lastAcknowledgedEventId})`,
           );
-          this.ack(eventId).catch((err) => {
+          this.ack(eventId).catch((err: unknown) => {
             this.logger.error?.(`Failed to ack event ${eventId}: ${String(err)}`);
           });
         }
@@ -285,7 +353,7 @@ export class UrbitSSEClient {
     }
 
     try {
-      const parsed = JSON.parse(data) as { id?: number; json?: unknown; response?: string };
+      const parsed = parseUrbitSsePayload(data);
 
       if (parsed.response === "quit") {
         if (parsed.id) {
@@ -315,18 +383,10 @@ export class UrbitSSEClient {
   }
 
   async poke(params: { app: string; mark: string; json: unknown }) {
-    return await pokeUrbitChannel(
-      {
-        baseUrl: this.url,
-        cookie: this.cookie,
-        ship: this.ship,
-        channelId: this.channelId,
-        ssrfPolicy: this.ssrfPolicy,
-        lookupFn: this.lookupFn,
-        fetchImpl: this.fetchImpl,
-      },
-      { ...params, auditContext: "tlon-urbit-poke" },
-    );
+    return await pokeUrbitChannel(this.channelRequestContext(), {
+      ...params,
+      auditContext: "tlon-urbit-poke",
+    });
   }
 
   async scry(path: string) {
@@ -359,20 +419,7 @@ export class UrbitSSEClient {
       "event-id": eventId,
     };
 
-    const { response, release } = await urbitFetch({
-      baseUrl: this.url,
-      path: `/~/channel/${this.channelId}`,
-      init: {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Cookie: this.cookie,
-        },
-        body: JSON.stringify([ackData]),
-      },
-      ssrfPolicy: this.ssrfPolicy,
-      lookupFn: this.lookupFn,
-      fetchImpl: this.fetchImpl,
+    const { response, release } = await this.putChannelPayload([ackData], {
       timeoutMs: 10_000,
       auditContext: "tlon-urbit-ack",
     });
@@ -399,14 +446,16 @@ export class UrbitSSEClient {
       );
       // Wait 10 seconds before resetting and trying again
       const extendedBackoff = 10000; // 10 seconds
-      await new Promise((resolve) => setTimeout(resolve, extendedBackoff));
+      await new Promise((resolve) => {
+        setTimeout(resolve, extendedBackoff);
+      });
       this.reconnectAttempts = 0; // Reset counter to continue trying
       this.logger.log?.("[SSE] Reconnection attempts reset, resuming reconnection...");
     }
 
     this.reconnectAttempts += 1;
     const delay = Math.min(
-      this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1),
+      this.reconnectDelay * 2 ** (this.reconnectAttempts - 1),
       this.maxReconnectDelay,
     );
 
@@ -414,7 +463,9 @@ export class UrbitSSEClient {
       `[SSE] Reconnection attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts} in ${delay}ms...`,
     );
 
-    await new Promise((resolve) => setTimeout(resolve, delay));
+    await new Promise((resolve) => {
+      setTimeout(resolve, delay);
+    });
 
     try {
       this.channelId = `${Math.floor(Date.now() / 1000)}-${randomUUID()}`;
@@ -445,20 +496,7 @@ export class UrbitSSEClient {
       }));
 
       {
-        const { response, release } = await urbitFetch({
-          baseUrl: this.url,
-          path: `/~/channel/${this.channelId}`,
-          init: {
-            method: "PUT",
-            headers: {
-              "Content-Type": "application/json",
-              Cookie: this.cookie,
-            },
-            body: JSON.stringify(unsubscribes),
-          },
-          ssrfPolicy: this.ssrfPolicy,
-          lookupFn: this.lookupFn,
-          fetchImpl: this.fetchImpl,
+        const { response, release } = await this.putChannelPayload(unsubscribes, {
           timeoutMs: 30_000,
           auditContext: "tlon-urbit-unsubscribe",
         });
@@ -500,5 +538,28 @@ export class UrbitSSEClient {
       this.streamRelease = null;
       await release();
     }
+  }
+
+  private async putChannelPayload(
+    payload: unknown,
+    params: { timeoutMs: number; auditContext: string },
+  ) {
+    return await urbitFetch({
+      baseUrl: this.url,
+      path: `/~/channel/${this.channelId}`,
+      init: {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Cookie: this.cookie,
+        },
+        body: JSON.stringify(payload),
+      },
+      ssrfPolicy: this.ssrfPolicy,
+      lookupFn: this.lookupFn,
+      fetchImpl: this.fetchImpl,
+      timeoutMs: params.timeoutMs,
+      auditContext: params.auditContext,
+    });
   }
 }

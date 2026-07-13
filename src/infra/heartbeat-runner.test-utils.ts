@@ -1,41 +1,60 @@
+// Shared heartbeat runner fixtures for infra tests.
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { vi } from "vitest";
-import { telegramPlugin } from "../../extensions/telegram/src/channel.js";
-import { setTelegramRuntime } from "../../extensions/telegram/src/runtime.js";
-import * as replyModule from "../auto-reply/reply.js";
-import type { OpenClawConfig } from "../config/config.js";
+import { heartbeatRunnerTelegramPlugin } from "../../test/helpers/infra/heartbeat-runner-channel-plugins.js";
 import { resolveMainSessionKey } from "../config/sessions.js";
+import { listSessionEntries, replaceSessionEntry } from "../config/sessions/session-accessor.js";
+import type { SessionEntry } from "../config/sessions/types.js";
+import type { OpenClawConfig } from "../config/types.openclaw.js";
 import { setActivePluginRegistry } from "../plugins/runtime.js";
-import { createPluginRuntime } from "../plugins/runtime/index.js";
 import { createTestRegistry } from "../test-utils/channel-plugins.js";
+import type { HeartbeatDeps } from "./heartbeat-runner.js";
 
-export type HeartbeatSessionSeed = {
-  sessionId?: string;
-  updatedAt?: number;
+// Heartbeat test utilities seed session stores and temporary heartbeat prompts
+// while keeping plugin registry and environment state isolated per test.
+type HeartbeatSessionSeed = Partial<SessionEntry> & {
   lastChannel: string;
   lastProvider: string;
   lastTo: string;
 };
 
+type HeartbeatReplyFn = NonNullable<HeartbeatDeps["getReplyFromConfig"]>;
+export type HeartbeatReplySpy = ReturnType<typeof vi.fn<HeartbeatReplyFn>>;
+
+function createHeartbeatReplySpy(): HeartbeatReplySpy {
+  const replySpy: HeartbeatReplySpy = vi.fn<HeartbeatReplyFn>();
+  replySpy.mockResolvedValue({ text: "ok" });
+  return replySpy;
+}
+
+/** Write a single heartbeat session entry through the SQLite session accessor. */
 export async function seedSessionStore(
   storePath: string,
   sessionKey: string,
   session: HeartbeatSessionSeed,
 ): Promise<void> {
-  await fs.writeFile(
-    storePath,
-    JSON.stringify({
-      [sessionKey]: {
-        sessionId: session.sessionId ?? "sid",
-        updatedAt: session.updatedAt ?? Date.now(),
-        ...session,
-      },
-    }),
+  await replaceSessionEntry(
+    { storePath, sessionKey },
+    {
+      sessionId: session.sessionId ?? "sid",
+      updatedAt: session.updatedAt ?? Date.now(),
+      ...session,
+    },
   );
 }
 
+/** Read session entries through the SQLite session accessor as a keyed object. */
+export function readSessionStoreForTest<T extends object = HeartbeatSessionSeed>(
+  storePath: string,
+): Record<string, T> {
+  return Object.fromEntries(
+    listSessionEntries({ storePath }).map(({ sessionKey, entry }) => [sessionKey, entry as T]),
+  );
+}
+
+/** Seed the configured main session and return its session key. */
 export async function seedMainSessionStore(
   storePath: string,
   cfg: OpenClawConfig,
@@ -46,12 +65,9 @@ export async function seedMainSessionStore(
   return sessionKey;
 }
 
+/** Run a heartbeat test inside a temporary prompt/session-store sandbox. */
 export async function withTempHeartbeatSandbox<T>(
-  fn: (ctx: {
-    tmpDir: string;
-    storePath: string;
-    replySpy: ReturnType<typeof vi.spyOn>;
-  }) => Promise<T>,
+  fn: (ctx: { tmpDir: string; storePath: string; replySpy: HeartbeatReplySpy }) => Promise<T>,
   options?: {
     prefix?: string;
     unsetEnvVars?: string[];
@@ -60,7 +76,7 @@ export async function withTempHeartbeatSandbox<T>(
   const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), options?.prefix ?? "openclaw-hb-"));
   await fs.writeFile(path.join(tmpDir, "HEARTBEAT.md"), "- Check status\n", "utf-8");
   const storePath = path.join(tmpDir, "sessions.json");
-  const replySpy = vi.spyOn(replyModule, "getReplyFromConfig");
+  const replySpy = createHeartbeatReplySpy();
   const previousEnv = new Map<string, string | undefined>();
   for (const envName of options?.unsetEnvVars ?? []) {
     previousEnv.set(envName, process.env[envName]);
@@ -69,7 +85,7 @@ export async function withTempHeartbeatSandbox<T>(
   try {
     return await fn({ tmpDir, storePath, replySpy });
   } finally {
-    replySpy.mockRestore();
+    replySpy.mockReset();
     for (const [envName, previousValue] of previousEnv.entries()) {
       if (previousValue === undefined) {
         delete process.env[envName];
@@ -81,12 +97,9 @@ export async function withTempHeartbeatSandbox<T>(
   }
 }
 
+/** Run a Telegram heartbeat test with Telegram credentials removed. */
 export async function withTempTelegramHeartbeatSandbox<T>(
-  fn: (ctx: {
-    tmpDir: string;
-    storePath: string;
-    replySpy: ReturnType<typeof vi.spyOn>;
-  }) => Promise<T>,
+  fn: (ctx: { tmpDir: string; storePath: string; replySpy: HeartbeatReplySpy }) => Promise<T>,
   options?: {
     prefix?: string;
   },
@@ -97,10 +110,11 @@ export async function withTempTelegramHeartbeatSandbox<T>(
   });
 }
 
+/** Install only the Telegram heartbeat plugin in the active test registry. */
 export function setupTelegramHeartbeatPluginRuntimeForTests() {
-  const runtime = createPluginRuntime();
-  setTelegramRuntime(runtime);
   setActivePluginRegistry(
-    createTestRegistry([{ pluginId: "telegram", plugin: telegramPlugin, source: "test" }]),
+    createTestRegistry([
+      { pluginId: "telegram", plugin: heartbeatRunnerTelegramPlugin, source: "test" },
+    ]),
   );
 }

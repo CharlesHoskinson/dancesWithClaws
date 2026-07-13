@@ -3,9 +3,36 @@ import Foundation
 enum CronSessionTarget: String, CaseIterable, Identifiable, Codable {
     case main
     case isolated
+    case current
 
     var id: String {
         self.rawValue
+    }
+}
+
+enum CronCustomSessionTarget: Codable, Equatable {
+    case predefined(CronSessionTarget)
+    case session(id: String)
+
+    var rawValue: String {
+        switch self {
+        case let .predefined(target):
+            target.rawValue
+        case let .session(id):
+            "session:\(id)"
+        }
+    }
+
+    static func from(_ value: String) -> CronCustomSessionTarget {
+        if let predefined = CronSessionTarget(rawValue: value) {
+            return .predefined(predefined)
+        }
+        if value.hasPrefix("session:") {
+            let sessionId = String(value.dropFirst(8))
+            return .session(id: sessionId)
+        }
+        // Fallback to isolated for unknown values
+        return .predefined(.isolated)
     }
 }
 
@@ -39,14 +66,16 @@ enum CronSchedule: Codable, Equatable {
     case at(at: String)
     case every(everyMs: Int, anchorMs: Int?)
     case cron(expr: String, tz: String?)
+    case onExit(command: String, cwd: String?)
 
-    enum CodingKeys: String, CodingKey { case kind, at, atMs, everyMs, anchorMs, expr, tz }
+    enum CodingKeys: String, CodingKey { case kind, at, atMs, everyMs, anchorMs, expr, tz, command, cwd }
 
     var kind: String {
         switch self {
         case .at: "at"
         case .every: "every"
         case .cron: "cron"
+        case .onExit: "on-exit"
         }
     }
 
@@ -78,6 +107,10 @@ enum CronSchedule: Codable, Equatable {
             self = try .cron(
                 expr: container.decode(String.self, forKey: .expr),
                 tz: container.decodeIfPresent(String.self, forKey: .tz))
+        case "on-exit":
+            self = try .onExit(
+                command: container.decode(String.self, forKey: .command),
+                cwd: container.decodeIfPresent(String.self, forKey: .cwd))
         default:
             throw DecodingError.dataCorruptedError(
                 forKey: .kind,
@@ -98,6 +131,9 @@ enum CronSchedule: Codable, Equatable {
         case let .cron(expr, tz):
             try container.encode(expr, forKey: .expr)
             try container.encodeIfPresent(tz, forKey: .tz)
+        case let .onExit(command, cwd):
+            try container.encode(command, forKey: .command)
+            try container.encodeIfPresent(cwd, forKey: .cwd)
         }
     }
 
@@ -204,11 +240,133 @@ struct CronJob: Identifiable, Codable, Equatable {
     let createdAtMs: Int
     let updatedAtMs: Int
     let schedule: CronSchedule
-    let sessionTarget: CronSessionTarget
+    private let sessionTargetRaw: String
     let wakeMode: CronWakeMode
     let payload: CronPayload
     let delivery: CronDelivery?
     let state: CronJobState
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case agentId
+        case name
+        case description
+        case enabled
+        case deleteAfterRun
+        case createdAtMs
+        case updatedAtMs
+        case schedule
+        case sessionTargetRaw = "sessionTarget"
+        case wakeMode
+        case payload
+        case delivery
+        case state
+    }
+
+    init(
+        id: String,
+        agentId: String?,
+        name: String,
+        description: String?,
+        enabled: Bool,
+        deleteAfterRun: Bool?,
+        createdAtMs: Int,
+        updatedAtMs: Int,
+        schedule: CronSchedule,
+        sessionTarget: CronSessionTarget,
+        wakeMode: CronWakeMode,
+        payload: CronPayload,
+        delivery: CronDelivery?,
+        state: CronJobState)
+    {
+        self.init(
+            id: id,
+            agentId: agentId,
+            name: name,
+            description: description,
+            enabled: enabled,
+            deleteAfterRun: deleteAfterRun,
+            createdAtMs: createdAtMs,
+            updatedAtMs: updatedAtMs,
+            schedule: schedule,
+            sessionTarget: .predefined(sessionTarget),
+            wakeMode: wakeMode,
+            payload: payload,
+            delivery: delivery,
+            state: state)
+    }
+
+    init(
+        id: String,
+        agentId: String?,
+        name: String,
+        description: String?,
+        enabled: Bool,
+        deleteAfterRun: Bool?,
+        createdAtMs: Int,
+        updatedAtMs: Int,
+        schedule: CronSchedule,
+        sessionTarget: CronCustomSessionTarget,
+        wakeMode: CronWakeMode,
+        payload: CronPayload,
+        delivery: CronDelivery?,
+        state: CronJobState)
+    {
+        self.id = id
+        self.agentId = agentId
+        self.name = name
+        self.description = description
+        self.enabled = enabled
+        self.deleteAfterRun = deleteAfterRun
+        self.createdAtMs = createdAtMs
+        self.updatedAtMs = updatedAtMs
+        self.schedule = schedule
+        self.sessionTargetRaw = sessionTarget.rawValue
+        self.wakeMode = wakeMode
+        self.payload = payload
+        self.delivery = delivery
+        self.state = state
+    }
+
+    /// Parsed session target (predefined or custom session ID)
+    var parsedSessionTarget: CronCustomSessionTarget {
+        CronCustomSessionTarget.from(self.sessionTargetRaw)
+    }
+
+    /// Compatibility shim for existing editor/UI code paths that still use the
+    /// predefined enum.
+    var sessionTarget: CronSessionTarget {
+        switch self.parsedSessionTarget {
+        case let .predefined(target):
+            target
+        case .session:
+            .isolated
+        }
+    }
+
+    var sessionTargetDisplayValue: String {
+        self.parsedSessionTarget.rawValue
+    }
+
+    var transcriptSessionKey: String? {
+        switch self.parsedSessionTarget {
+        case .predefined(.main):
+            nil
+        case .predefined(.isolated), .predefined(.current):
+            "cron:\(self.id)"
+        case let .session(id):
+            id
+        }
+    }
+
+    var supportsAnnounceDelivery: Bool {
+        switch self.parsedSessionTarget {
+        case .predefined(.main):
+            false
+        case .predefined(.isolated), .predefined(.current), .session:
+            true
+        }
+    }
 
     var displayName: String {
         let trimmed = self.name.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -226,7 +384,7 @@ struct CronJob: Identifiable, Codable, Equatable {
     }
 }
 
-struct CronEvent: Codable, Sendable {
+struct CronEvent: Codable {
     let jobId: String
     let action: String
     let runAtMs: Int?
@@ -237,7 +395,7 @@ struct CronEvent: Codable, Sendable {
     let nextRunAtMs: Int?
 }
 
-struct CronRunLogEntry: Codable, Identifiable, Sendable {
+struct CronRunLogEntry: Codable, Identifiable {
     var id: String {
         "\(self.jobId)-\(self.ts)"
     }
@@ -260,12 +418,4 @@ struct CronRunLogEntry: Codable, Identifiable, Sendable {
         guard let runAtMs else { return nil }
         return Date(timeIntervalSince1970: TimeInterval(runAtMs) / 1000)
     }
-}
-
-struct CronListResponse: Codable {
-    let jobs: [CronJob]
-}
-
-struct CronRunsResponse: Codable {
-    let entries: [CronRunLogEntry]
 }
