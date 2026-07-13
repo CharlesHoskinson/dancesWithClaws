@@ -24,6 +24,8 @@ Structured record of design, research, reviews, and plans produced while running
 ### Plans
 
 - [2026-04-21 — Implementation plan](plans/2026-04-21-logan-local-hsm-gemma-plan.md) — Phase A–G executable steps.
+- [2026-07-13 — WASM sandbox host (P1)](plans/2026-07-13-logan-wasm-sandbox-host.md) — Docker-free host CLI (done).
+- [2026-07-13 — OpenClaw wasm backend (P2)](plans/2026-07-13-logan-wasm-sandbox-openclaw-backend.md) — `backend: "wasm"` + tsgo gate.
 
 ### Diagrams
 
