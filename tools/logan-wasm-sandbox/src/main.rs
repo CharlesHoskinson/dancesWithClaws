@@ -1,7 +1,7 @@
 use clap::{Parser, Subcommand};
 use logan_wasm_sandbox::http_host::{http_get, HttpHostError};
 use logan_wasm_sandbox::policy::SandboxPolicy;
-use logan_wasm_sandbox::runtime::run_wasi_guest;
+use logan_wasm_sandbox::runtime::run_wasi_guest_timed;
 use std::path::PathBuf;
 use std::process::ExitCode;
 use std::time::Duration;
@@ -94,31 +94,29 @@ async fn run_guest_http(
 ) -> ExitCode {
     // Guest argv: program name + URL (guest reads nth(1)).
     let guest_args = vec!["logan-wasi-http".to_string(), url.clone()];
+    // Same wall-clock budget as host HTTP (`SandboxPolicy.timeout` / CLI timeout_secs).
+    let guest_timeout = Duration::from_secs(timeout_secs);
     // Wasmtime WASI sync APIs use an internal block_on; must not run on the
-    // Tokio worker thread (nested runtime panic).
-    let guest = match tokio::task::spawn_blocking(move || run_wasi_guest(&wasm, &guest_args)).await
-    {
-        Ok(Ok(r)) => r,
-        Ok(Err(e)) => {
-            println!(
-                "{}",
-                serde_json::json!({
-                    "ok": false,
-                    "error": "guest",
-                    "message": format!("{e:#}"),
-                })
-            );
-            return ExitCode::from(1);
-        }
+    // Tokio worker thread (nested runtime panic). Wall-clock timeout so a
+    // hostile/buggy guest cannot hang the CLI await forever.
+    let guest = match run_wasi_guest_timed(wasm, guest_args, guest_timeout).await {
+        Ok(r) => r,
         Err(e) => {
+            let message = format!("{e:#}");
+            let error = if message.contains("guest timeout") {
+                "guest timeout"
+            } else {
+                "guest"
+            };
             println!(
                 "{}",
                 serde_json::json!({
                     "ok": false,
-                    "error": "guest",
-                    "message": format!("guest task join: {e}"),
+                    "error": error,
+                    "message": message,
                 })
             );
+            // Fail closed: do not call http_get after guest timeout/error.
             return ExitCode::from(1);
         }
     };
