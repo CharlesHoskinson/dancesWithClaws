@@ -51,6 +51,15 @@ bash scripts/logan-docker-smoke.sh
 
 Builds sandbox + proxy, checks allowlisted HTTPS CONNECT vs blocked domains.
 
+## WASM sandbox smoke (no Docker)
+
+```powershell
+cargo build --manifest-path tools/logan-wasm-sandbox/Cargo.toml --release
+.\scripts\logan-wasm-smoke.ps1
+```
+
+Host-mediated HTTPS with `security/proxy/allowed-domains.txt`. OpenClaw backend wiring is a later phase (see design spec).
+
 ## Configuration
 
 Primary config: `openclaw.json` at repo root.
