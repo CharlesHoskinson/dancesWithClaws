@@ -15,6 +15,7 @@ const targets = [
   "packages",
   "ui",
   "apps",
+  "deploy",
   "docs",
   "qa",
   "security",
