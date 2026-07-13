@@ -124,3 +124,14 @@ export type SandboxSshSettings = {
   /** Inline or SecretRef-backed known_hosts contents. */
   knownHostsData?: SecretInput;
 };
+
+export type SandboxWasmSettings = {
+  /** Path to logan-wasm-sandbox binary; default: resolve next to repo tools build or PATH. */
+  bin?: string;
+  /** Allowlist file; default: security/proxy/allowed-domains.txt relative to state/repo. */
+  allowlist?: string;
+  /** Guest/host request wall-clock timeout in seconds (default: 30). */
+  timeoutSecs?: number;
+  /** Max response body bytes for wasm host HTTP (default: 1048576). */
+  maxBytes?: number;
+};

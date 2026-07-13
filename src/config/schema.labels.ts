@@ -783,6 +783,11 @@ export const FIELD_LABELS: Record<string, string> = {
   "agents.defaults.sandbox.docker.dangerouslyAllowContainerNamespaceJoin":
     "Sandbox Docker Allow Container Namespace Join",
   "agents.defaults.sandbox.docker.gpus": "Sandbox Docker GPUs",
+  "agents.defaults.sandbox.wasm": "Sandbox Wasm",
+  "agents.defaults.sandbox.wasm.bin": "Sandbox Wasm Binary",
+  "agents.defaults.sandbox.wasm.allowlist": "Sandbox Wasm Allowlist",
+  "agents.defaults.sandbox.wasm.timeoutSecs": "Sandbox Wasm Timeout (Seconds)",
+  "agents.defaults.sandbox.wasm.maxBytes": "Sandbox Wasm Max Bytes",
   commands: "Commands",
   "commands.native": "Native Commands",
   "commands.nativeSkills": "Native Skill Commands",
@@ -1106,6 +1111,11 @@ export const FIELD_LABELS: Record<string, string> = {
   "agents.list[].sandbox.docker.dangerouslyAllowContainerNamespaceJoin":
     "Agent Sandbox Docker Allow Container Namespace Join",
   "agents.list[].sandbox.docker.gpus": "Agent Sandbox Docker GPUs",
+  "agents.list[].sandbox.wasm": "Agent Sandbox Wasm",
+  "agents.list[].sandbox.wasm.bin": "Agent Sandbox Wasm Binary",
+  "agents.list[].sandbox.wasm.allowlist": "Agent Sandbox Wasm Allowlist",
+  "agents.list[].sandbox.wasm.timeoutSecs": "Agent Sandbox Wasm Timeout (Seconds)",
+  "agents.list[].sandbox.wasm.maxBytes": "Agent Sandbox Wasm Max Bytes",
   "discovery.mdns.mode": "mDNS Discovery Mode",
   plugins: "Plugins",
   "plugins.enabled": "Enable Plugins",

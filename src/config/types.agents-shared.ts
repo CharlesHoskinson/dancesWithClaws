@@ -4,6 +4,7 @@ import type {
   SandboxDockerSettings,
   SandboxPruneSettings,
   SandboxSshSettings,
+  SandboxWasmSettings,
 } from "./types.sandbox.js";
 
 /** Agent model selector: a single provider/model ref or primary+fallback chain. */
@@ -56,6 +57,8 @@ export type AgentSandboxConfig = {
   docker?: SandboxDockerSettings;
   /** SSH-specific sandbox settings. */
   ssh?: SandboxSshSettings;
+  /** Wasm-specific sandbox settings (logan-wasm-sandbox host). */
+  wasm?: SandboxWasmSettings;
   /** Optional sandboxed browser settings. */
   browser?: SandboxBrowserSettings;
   /** Auto-prune sandbox settings. */

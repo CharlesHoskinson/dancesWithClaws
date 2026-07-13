@@ -603,6 +603,26 @@ export const FIELD_HELP: Record<string, string> = {
     "Optional CIDR allowlist for container-edge CDP ingress (for example 172.21.0.1/32).",
   "agents.list[].sandbox.browser.cdpSourceRange":
     "Per-agent override for CDP source CIDR allowlist.",
+  "agents.defaults.sandbox.wasm":
+    "Wasm sandbox backend settings for the logan-wasm-sandbox host (backend: \"wasm\"). Used for allowlisted HTTP egress without Docker/WSL.",
+  "agents.list[].sandbox.wasm":
+    "Per-agent wasm sandbox backend settings override for the logan-wasm-sandbox host.",
+  "agents.defaults.sandbox.wasm.bin":
+    "Path to the logan-wasm-sandbox binary. When omitted, OpenClaw resolves a repo tools build or PATH entry.",
+  "agents.list[].sandbox.wasm.bin":
+    "Per-agent path override for the logan-wasm-sandbox binary.",
+  "agents.defaults.sandbox.wasm.allowlist":
+    "Path to the HTTPS domain allowlist file (default: security/proxy/allowed-domains.txt relative to state/repo).",
+  "agents.list[].sandbox.wasm.allowlist":
+    "Per-agent HTTPS domain allowlist file path override for the wasm sandbox host.",
+  "agents.defaults.sandbox.wasm.timeoutSecs":
+    "Wall-clock timeout in seconds for wasm host requests (default: 30).",
+  "agents.list[].sandbox.wasm.timeoutSecs":
+    "Per-agent wall-clock timeout override in seconds for wasm host requests.",
+  "agents.defaults.sandbox.wasm.maxBytes":
+    "Maximum response body size in bytes for wasm host HTTP (default: 1048576).",
+  "agents.list[].sandbox.wasm.maxBytes":
+    "Per-agent maximum response body size override in bytes for wasm host HTTP.",
   "gateway.controlUi.basePath":
     "Optional URL prefix where the Control UI is served (e.g. /openclaw).",
   "gateway.controlUi.root":

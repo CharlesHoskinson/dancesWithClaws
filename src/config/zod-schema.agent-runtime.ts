@@ -724,6 +724,16 @@ const SandboxSshSchema = z
   .strict()
   .optional();
 
+const SandboxWasmSchema = z
+  .object({
+    bin: z.string().min(1).optional(),
+    allowlist: z.string().min(1).optional(),
+    timeoutSecs: z.number().int().positive().optional(),
+    maxBytes: z.number().int().positive().optional(),
+  })
+  .strict()
+  .optional();
+
 export const AgentSandboxSchema = z
   .object({
     mode: z.union([z.literal("off"), z.literal("non-main"), z.literal("all")]).optional(),
@@ -734,6 +744,7 @@ export const AgentSandboxSchema = z
     workspaceRoot: z.string().optional(),
     docker: SandboxDockerSchema,
     ssh: SandboxSshSchema,
+    wasm: SandboxWasmSchema,
     browser: SandboxBrowserSchema,
     prune: SandboxPruneSchema,
   })
