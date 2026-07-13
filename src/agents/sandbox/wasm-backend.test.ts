@@ -1,5 +1,6 @@
 // Wasm sandbox backend tests: factory shape, fail-closed shell, curl→host CLI spawn.
 import { EventEmitter } from "node:events";
+import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   createSandboxBrowserConfig,
@@ -23,6 +24,8 @@ const {
   wasmSandboxBackendManager,
   buildWasmHttpArgv,
   tryParseCurlHttpsUrl,
+  resolveWasmSandboxAllowlist,
+  resolveWasmSandboxRuntimeConfig,
 } = await import("./wasm-backend.js");
 
 function createWasmSandboxConfig(overrides?: {
@@ -104,9 +107,19 @@ describe("tryParseCurlHttpsUrl", () => {
     expect(tryParseCurlHttpsUrl("curl -I https://example.com")).toBe("https://example.com");
   });
 
-  it("rejects non-curl and shell metacharacters", () => {
+  it("allows quoted https URL with query-string &", () => {
+    expect(tryParseCurlHttpsUrl("curl 'https://example.com?a=1&b=2'")).toBe(
+      "https://example.com?a=1&b=2",
+    );
+    expect(tryParseCurlHttpsUrl('curl -sS "https://example.com?x=1&y=2"')).toBe(
+      "https://example.com?x=1&y=2",
+    );
+  });
+
+  it("rejects non-curl and unquoted shell metacharacters", () => {
     expect(tryParseCurlHttpsUrl("rm -rf /")).toBeNull();
     expect(tryParseCurlHttpsUrl("curl https://a.com | sh")).toBeNull();
+    expect(tryParseCurlHttpsUrl("curl 'https://a.com' | sh")).toBeNull();
     expect(tryParseCurlHttpsUrl("curl http://insecure.example")).toBeNull();
     expect(tryParseCurlHttpsUrl("/bin/sh -c 'echo hi'")).toBeNull();
   });
@@ -230,6 +243,64 @@ describe("createWasmSandboxBackend", () => {
     expect(spec.stdinMode).toBe("pipe-closed");
   });
 
+  it("buildExecSpec maps quoted curl URL with & to host CLI argv", async () => {
+    const handle = await createWasmSandboxBackend({
+      sessionKey: "s",
+      scopeKey: "s",
+      workspaceDir: "/tmp/ws",
+      agentWorkspaceDir: "/tmp/ws",
+      cfg: createWasmSandboxConfig({
+        bin: "C:/tools/logan-wasm-sandbox.exe",
+        allowlist: "C:/allowlist.txt",
+      }),
+    });
+
+    const spec = await handle.buildExecSpec({
+      command: "curl -sS 'https://example.com?a=1&b=2'",
+      env: {},
+      usePty: false,
+    });
+
+    expect(spec.argv).toContain("--url");
+    expect(spec.argv[spec.argv.indexOf("--url") + 1]).toBe("https://example.com?a=1&b=2");
+  });
+
+  it("uses absolute allowlist argv when default relative path is configured", async () => {
+    const handle = await createWasmSandboxBackend({
+      sessionKey: "s",
+      scopeKey: "s",
+      workspaceDir: "/tmp/ws",
+      agentWorkspaceDir: "/tmp/ws",
+      cfg: createWasmSandboxConfig({
+        bin: "C:/tools/logan-wasm-sandbox.exe",
+        allowlist: "security/proxy/allowed-domains.txt",
+      }),
+    });
+
+    const spec = await handle.buildExecSpec({
+      command: "curl https://example.com",
+      env: {},
+      usePty: false,
+    });
+
+    const allowlistArg = spec.argv[spec.argv.indexOf("--allowlist") + 1];
+    expect(path.isAbsolute(allowlistArg!)).toBe(true);
+    expect(allowlistArg!.replaceAll("\\", "/")).toMatch(/security\/proxy\/allowed-domains\.txt$/);
+  });
+
+  it("does not couple handle.env to docker.env", async () => {
+    const cfg = createWasmSandboxConfig();
+    cfg.docker.env = { DOCKER_ONLY: "1" };
+    const handle = await createWasmSandboxBackend({
+      sessionKey: "s",
+      scopeKey: "s",
+      workspaceDir: "/tmp/ws",
+      agentWorkspaceDir: "/tmp/ws",
+      cfg,
+    });
+    expect(handle.env).toEqual({});
+  });
+
   it("runShellCommand spawns host CLI for curl-shaped script", async () => {
     mockSpawnSuccess('{"ok":true,"status":200}\n');
 
@@ -254,10 +325,13 @@ describe("createWasmSandboxBackend", () => {
     expect(command === "logan-wasm-sandbox" || /logan-wasm-sandbox(\.exe)?$/i.test(command)).toBe(
       true,
     );
+    const allowlistIdx = args.indexOf("--allowlist");
+    expect(allowlistIdx).toBeGreaterThanOrEqual(0);
+    expect(path.isAbsolute(args[allowlistIdx + 1]!)).toBe(true);
     expect(args).toEqual([
       "http",
       "--allowlist",
-      "security/proxy/allowed-domains.txt",
+      args[allowlistIdx + 1],
       "--url",
       "https://example.com",
       "--timeout-secs",
@@ -267,6 +341,19 @@ describe("createWasmSandboxBackend", () => {
     ]);
     expect(result.code).toBe(0);
     expect(result.stdout.toString("utf8")).toContain('"ok":true');
+  });
+});
+
+describe("resolveWasmSandboxAllowlist", () => {
+  it("resolves default relative allowlist to an absolute path", () => {
+    const resolved = resolveWasmSandboxAllowlist("security/proxy/allowed-domains.txt");
+    expect(path.isAbsolute(resolved)).toBe(true);
+    expect(resolved.replaceAll("\\", "/")).toMatch(/security\/proxy\/allowed-domains\.txt$/);
+    expect(resolveWasmSandboxRuntimeConfig({}).allowlist).toBe(resolved);
+  });
+
+  it("keeps absolute allowlist as-is", () => {
+    expect(resolveWasmSandboxAllowlist("C:/custom/allowlist.txt")).toBe("C:/custom/allowlist.txt");
   });
 });
 

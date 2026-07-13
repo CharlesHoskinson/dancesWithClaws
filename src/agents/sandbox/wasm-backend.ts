@@ -81,9 +81,29 @@ const CURL_SAFE_FLAGS_WITH_ARG = new Set([
   "--request",
 ]);
 
-function shellMetacharactersPresent(command: string): boolean {
-  // Fail closed on composition / redirection / substitution. Quotes alone are ok if we tokenize.
-  return /[|;&`$()<>\n\r]/.test(command);
+/** True when shell composition/redirection operators appear *outside* quotes. */
+function shellMetacharactersPresentOutsideQuotes(command: string): boolean {
+  // Fail closed on unquoted composition / redirection / substitution.
+  // Characters inside '…' or "…" (e.g. query-string `&`) are not composition risks
+  // for our curl-shaped policy — tokenizeSimple strips the quotes next.
+  let quote: '"' | "'" | null = null;
+  for (let i = 0; i < command.length; i += 1) {
+    const ch = command[i]!;
+    if (quote) {
+      if (ch === quote) {
+        quote = null;
+      }
+      continue;
+    }
+    if (ch === '"' || ch === "'") {
+      quote = ch;
+      continue;
+    }
+    if (/[|;&`$()<>\n\r]/.test(ch)) {
+      return true;
+    }
+  }
+  return false;
 }
 
 function tokenizeSimple(command: string): string[] | null {
@@ -133,7 +153,7 @@ function basenameCommand(token: string): string {
  */
 export function tryParseCurlHttpsUrl(command: string): string | null {
   const trimmed = command.trim();
-  if (!trimmed || shellMetacharactersPresent(trimmed)) {
+  if (!trimmed || shellMetacharactersPresentOutsideQuotes(trimmed)) {
     return null;
   }
   const tokens = tokenizeSimple(trimmed);
@@ -228,12 +248,11 @@ function denyGeneralShell(detail: string): never {
   );
 }
 
-function resolveRepoRelativeWasmBin(): string | null {
-  // Walk up from this module toward repo roots looking for tools/logan-wasm-sandbox release build.
+/** Walk up from this module toward repo roots; return absolute path when candidate exists. */
+function resolveRepoRelativePath(...segments: string[]): string | null {
   let dir = path.dirname(fileURLToPath(import.meta.url));
   for (let i = 0; i < 8; i += 1) {
-    const exeName = process.platform === "win32" ? "logan-wasm-sandbox.exe" : "logan-wasm-sandbox";
-    const candidate = path.join(dir, "tools", "logan-wasm-sandbox", "target", "release", exeName);
+    const candidate = path.join(dir, ...segments);
     if (fs.existsSync(candidate)) {
       return candidate;
     }
@@ -244,6 +263,15 @@ function resolveRepoRelativeWasmBin(): string | null {
     dir = parent;
   }
   return null;
+}
+
+function resolveRepoRelativeWasmBin(): string | null {
+  const exeName = process.platform === "win32" ? "logan-wasm-sandbox.exe" : "logan-wasm-sandbox";
+  return resolveRepoRelativePath("tools", "logan-wasm-sandbox", "target", "release", exeName);
+}
+
+function resolveRepoRelativeAllowlist(): string | null {
+  return resolveRepoRelativePath("security", "proxy", "allowed-domains.txt");
 }
 
 /**
@@ -259,13 +287,35 @@ export function resolveWasmSandboxBin(configured?: string): string {
   return resolveRepoRelativeWasmBin() ?? DEFAULT_WASM_SANDBOX_BIN;
 }
 
+/**
+ * Resolve allowlist path for CLI argv.
+ * - Absolute configured path is used as-is.
+ * - Default relative path (`security/proxy/allowed-domains.txt`) is resolved to an absolute
+ *   path via the same repo-root walk used for the release binary (when the file exists).
+ * - Other relative configured paths are used as-is.
+ */
+export function resolveWasmSandboxAllowlist(configured?: string): string {
+  const trimmed = configured?.trim();
+  if (trimmed && path.isAbsolute(trimmed)) {
+    return trimmed;
+  }
+  const isDefault =
+    !trimmed ||
+    trimmed === DEFAULT_WASM_SANDBOX_ALLOWLIST ||
+    trimmed.replaceAll("\\", "/") === DEFAULT_WASM_SANDBOX_ALLOWLIST;
+  if (isDefault) {
+    return resolveRepoRelativeAllowlist() ?? DEFAULT_WASM_SANDBOX_ALLOWLIST;
+  }
+  return trimmed;
+}
+
 /** Apply defaults for wasm sandbox settings (Task 1 config + Task 2 runtime). */
 export function resolveWasmSandboxRuntimeConfig(
   wasm?: Partial<SandboxWasmConfig> | null,
 ): SandboxWasmConfig {
   return {
     bin: resolveWasmSandboxBin(wasm?.bin),
-    allowlist: wasm?.allowlist?.trim() || DEFAULT_WASM_SANDBOX_ALLOWLIST,
+    allowlist: resolveWasmSandboxAllowlist(wasm?.allowlist),
     timeoutSecs: wasm?.timeoutSecs ?? DEFAULT_WASM_SANDBOX_TIMEOUT_SECS,
     maxBytes: wasm?.maxBytes ?? DEFAULT_WASM_SANDBOX_MAX_BYTES,
   };
@@ -439,7 +489,8 @@ export async function createWasmSandboxBackend(
     runtimeId,
     runtimeLabel: runtimeId,
     workdir,
-    env: params.cfg.docker.env,
+    // Wasm handle is host-process mediated; do not inherit docker env policy.
+    env: {},
     configLabel: wasm.bin,
     configLabelKind: "Wasm",
     workdirValidation: "host",
