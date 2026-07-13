@@ -80,9 +80,13 @@ Set in repo-root `openclaw.json` under `agents.list` entry `id: "logan"`. Docker
 ```powershell
 cargo build --manifest-path tools/logan-wasm-sandbox/Cargo.toml --release
 .\scripts\logan-wasm-smoke.ps1
+# Integration smoke: CLI allow/deny + Logan backend=wasm + registry check (no Docker)
+.\scripts\logan-wasm-agent-smoke.ps1
+# Optional live agent turn (Ollama + built dist):
+.\scripts\logan-wasm-agent-smoke.ps1 -TryAgent
 ```
 
-Host-mediated HTTPS with `security/proxy/allowed-domains.txt`. OpenClaw registers the `wasm` backend via `logan-wasm-sandbox` (see `src/agents/sandbox/wasm-backend.ts`).
+Host-mediated HTTPS with `security/proxy/allowed-domains.txt`. OpenClaw registers the `wasm` backend via `logan-wasm-sandbox` (see `src/agents/sandbox/wasm-backend.ts`). Docker is not required for this path.
 
 ## Configuration
 
