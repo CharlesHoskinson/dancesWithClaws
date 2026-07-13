@@ -1,0 +1,9 @@
+[package]
+name = "logan-wasi-http"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[[bin]]
+name = "logan-wasi-http"
+path = "src/main.rs"
