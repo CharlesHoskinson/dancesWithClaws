@@ -2,9 +2,9 @@
  * tee_crypto tool: generic encrypt/decrypt/sign/verify using vault keys.
  */
 
-import { Type } from "@sinclair/typebox";
+import { Type } from "typebox";
 import { createSign, createVerify } from "node:crypto";
-import type { OpenClawPluginApi } from "../../../../src/plugins/types.js";
+import type { OpenClawPluginApi } from "openclaw/plugin-sdk/plugin-entry";
 import type { CryptoOperation } from "../types.js";
 import { appendAuditLog } from "../audit/tee-audit.js";
 import {

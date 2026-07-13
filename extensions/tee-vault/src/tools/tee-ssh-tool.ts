@@ -2,8 +2,8 @@
  * ssh_keygen, ssh_sign, and ssh_public_key agent tools.
  */
 
-import { Type } from "@sinclair/typebox";
-import type { OpenClawPluginApi } from "../../../../src/plugins/types.js";
+import { Type } from "typebox";
+import type { OpenClawPluginApi } from "openclaw/plugin-sdk/plugin-entry";
 import type { SshKeyAlgorithm } from "../types.js";
 import { appendAuditLog } from "../audit/tee-audit.js";
 import * as opensslBridge from "../crypto/openssl-bridge.js";

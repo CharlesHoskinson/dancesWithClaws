@@ -146,6 +146,8 @@ allowBuilds:
   "@openclaw/crabline": true
   rastermill: true
   node-pty: true
+  # Optional native dep for tee-vault YubiHSM (graphene-pk11). Off by default.
+  pkcs11js: false
 
 packageExtensions:
   baileys:

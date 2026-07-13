@@ -1,10 +1,8 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
-
-const fetchMock = vi.fn();
-vi.stubGlobal("fetch", fetchMock);
-
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { OpenClawConfig } from "../../config/config.js";
 import { createSokosumiTools } from "./sokosumi-tools.js";
+
+const fetchMock = vi.hoisted(() => vi.fn());
 
 function makeConfig(overrides?: { apiKey?: string; apiEndpoint?: string }): OpenClawConfig {
   return {
@@ -46,7 +44,12 @@ function mockFetchError(status: number, text: string) {
 describe("sokosumi tools", () => {
   beforeEach(() => {
     fetchMock.mockReset();
+    vi.stubGlobal("fetch", fetchMock);
     delete process.env.SOKOSUMI_API_KEY;
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
   it("creates 5 tools", () => {

@@ -2,7 +2,7 @@
  * TypeBox schemas for the vault envelope and entry records.
  */
 
-import { Type, type Static } from "@sinclair/typebox";
+import { Type, type Static } from "typebox";
 
 export const EntryTypeSchema = Type.Union([
   Type.Literal("secret"),

@@ -5,7 +5,8 @@
  */
 
 import path from "node:path";
-import type { OpenClawPluginApi } from "../../src/plugins/types.js";
+import { definePluginEntry, type OpenClawPluginApi } from "openclaw/plugin-sdk/plugin-entry";
+import { resolveStateDir as resolveOpenClawStateDir } from "openclaw/plugin-sdk/state-paths";
 import { appendAuditLog } from "./src/audit/tee-audit.js";
 import { registerTeeCli } from "./src/cli/tee-cli.js";
 import { DEFAULT_AUTO_LOCK_TIMEOUT_MS } from "./src/constants.js";
@@ -14,13 +15,13 @@ import { createSshKeygenTool, createSshSignTool } from "./src/tools/tee-ssh-tool
 import { createVaultStoreTool, createVaultRetrieveTool } from "./src/tools/tee-vault-tool.js";
 import * as vaultLock from "./src/vault/vault-lock.js";
 
-const teeVaultPlugin = {
+export default definePluginEntry({
   id: "tee-vault",
   name: "TEE Vault",
   description: "Hardware-backed encrypted vault for secrets, SSH keys, and private keys",
 
-  register(api: OpenClawPluginApi) {
-    const stateDir = resolveStateDir(api);
+  register(api) {
+    const stateDir = resolveTeeStateDir(api);
 
     // Apply config
     const autoLock =
@@ -152,20 +153,16 @@ const teeVaultPlugin = {
       }
     });
   },
-};
+});
 
-function resolveStateDir(api: OpenClawPluginApi): string {
-  // Use the runtime state directory or fall back to config
+function resolveTeeStateDir(api: OpenClawPluginApi): string {
   if (typeof api.pluginConfig?.stateDir === "string" && api.pluginConfig.stateDir) {
     return api.pluginConfig.stateDir;
   }
-  // Default: use the workspace or agent state dir
-  const configDir = api.config?.stateDir;
-  if (typeof configDir === "string" && configDir) {
-    return configDir;
+  // Host OpenClaw state dir (OPENCLAW_STATE_DIR / platform defaults)
+  try {
+    return resolveOpenClawStateDir();
+  } catch {
+    return path.join(process.env.APPDATA ?? process.env.HOME ?? ".", "openclaw");
   }
-  // Fallback
-  return path.join(process.env.APPDATA ?? process.env.HOME ?? ".", "openclaw");
 }
-
-export default teeVaultPlugin;

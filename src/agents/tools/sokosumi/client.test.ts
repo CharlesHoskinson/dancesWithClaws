@@ -1,9 +1,7 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
-
-const fetchMock = vi.fn();
-vi.stubGlobal("fetch", fetchMock);
-
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createSokosumiClient } from "./client.js";
+
+const fetchMock = vi.hoisted(() => vi.fn());
 
 function mockResponse(ok: boolean, data: unknown, status = 200) {
   fetchMock.mockResolvedValueOnce({
@@ -18,6 +16,11 @@ function mockResponse(ok: boolean, data: unknown, status = 200) {
 describe("createSokosumiClient", () => {
   beforeEach(() => {
     fetchMock.mockReset();
+    vi.stubGlobal("fetch", fetchMock);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
   it("uses default base URL", async () => {
