@@ -29,6 +29,58 @@ Do not edit it by hand; run `pnpm docs:map:gen`.
   - H2: Migration notes
   - H2: See also
 
+## architecture/README.md
+
+- Route: /architecture/README
+- Headings:
+  - H1: DancesWithClaws Architecture
+  - H2: Diagrams
+  - H2: Core Components
+  - H2: What It Does
+  - H2: Integrations
+
+## architecture/c4-containers.md
+
+- Route: /architecture/c4-containers
+- Headings:
+  - H1: C4 Container Diagram - DancesWithClaws (OpenClaw)
+  - H2: Container Diagram
+  - H2: Services
+  - H2: Security Layer
+  - H2: Data Flow
+
+## architecture/c4-context.md
+
+- Route: /architecture/c4-context
+- Headings:
+  - H1: C4 System Context - DancesWithClaws (OpenClaw)
+  - H2: System Context Diagram
+  - H2: Overview
+  - H2: Systems
+  - H2: Key Flows
+
+## architecture/c4-deployment.md
+
+- Route: /architecture/c4-deployment
+- Headings:
+  - H1: C4 Deployment Diagram - DancesWithClaws (Logan)
+  - H2: Deployment Diagram
+  - H2: Production Setup
+  - H2: Docker Composition
+  - H2: Network Flow
+  - H2: Volumes
+  - H2: Security Controls
+
+## architecture/c4-dynamic-heartbeat.md
+
+- Route: /architecture/c4-dynamic-heartbeat
+- Headings:
+  - H1: C4 Dynamic Diagram - Heartbeat Cycle
+  - H2: Heartbeat Cycle Flow
+  - H2: Steps Explained
+  - H2: Failure Modes
+  - H2: Limits
+
 ## auth-credential-semantics.md
 
 - Route: /auth-credential-semantics
@@ -9270,6 +9322,161 @@ Do not edit it by hand; run `pnpm docs:map:gen`.
   - H2: Add another agent
   - H2: Full reference
   - H2: Related docs
+
+## superpowers/README.md
+
+- Route: /superpowers/README
+- Headings:
+  - H1: Superpowers Wiki — Logan
+  - H2: Index
+  - H3: Specs
+  - H3: Research
+  - H3: Reviews
+  - H3: Plans
+  - H3: Diagrams
+  - H2: Ground rules
+
+## superpowers/plans/2026-04-21-logan-local-hsm-gemma-plan.md
+
+- Route: /superpowers/plans/2026-04-21-logan-local-hsm-gemma-plan
+- Headings:
+  - H1: Logan Local Stack — Implementation Plan
+  - H2: File Structure
+  - H2: Phase 0 — Pre-flight (abort gate)
+  - H3: Task 0.1: Capture baseline versions
+  - H3: Task 0.2: GPU smoke-test harness
+  - H3: Task 0.3: Run the smoke test (abort gate)
+  - H2: Phase 1 — Ollama in WSL2 + socket filter
+  - H3: Task 1.1: Uninstall host Ollama
+  - H3: Task 1.2: Install Ollama in WSL2 with Unix socket listener
+  - H3: Task 1.3: Write ollama-socket-filter shim (TDD)
+  - H3: Task 1.4: Install filter as systemd unit
+  - H2: Phase 2 — Embeddings swap
+  - H3: Task 2.1: Edit openclaw.json for embeddings
+  - H2: Phase 3 — Fallback tightening + cascadePolicy
+  - H3: Task 3.1: Add cascadePolicy to config schema (TDD)
+  - H3: Task 3.2: Update openclaw.json for final fallback shape
+  - H2: Phase 4 — Secrets schema + agentenvprepare hook
+  - H3: Task 4.1: Zod schema for secrets block (TDD)
+  - H3: Task 4.2: Wire secrets into agent config type
+  - H3: Task 4.3: agentenvprepare hook (TDD)
+  - H3: Task 4.4: Call hook from acp-spawn.ts
+  - H3: Task 4.5: extraVolumes support in docker spawn (TDD)
+  - H2: Phase 5 — HSM bootstrap + non-interactive unlock
+  - H3: Task 5.1: --pin-from credmgr flag (TDD)
+  - H3: Task 5.2: Bootstrap vault on host (manual run, documented)
+  - H3: Task 5.3: Recurring vault backup cron
+  - H2: Phase 6 — Sandbox wiring + openclaw.json updates
+  - H3: Task 6.1: Add sandbox extraVolumes + secrets block
+  - H2: Phase 7 — Launch wrapper + Task Scheduler
+  - H3: Task 7.1: Windows wrapper
+  - H3: Task 7.2: WSL wrapper
+  - H3: Task 7.3: Register Windows Task Scheduler task
+  - H3: Task 7.4: Clean up .bashrc
+  - H2: Phase 8 — Verification + canary
+  - H3: Task 8.1: Smoke-test the full path
+  - H3: Task 8.2: Ollama-down failure path
+  - H3: Task 8.3: Three real Logan tasks (quality canary)
+  - H3: Task 8.4: Observability drill
+  - H2: Self-Review Checklist
+  - H2: Out of Scope (explicit)
+  - H2: Execution
+
+## superpowers/plans/2026-07-13-logan-wasm-sandbox-host.md
+
+- Route: /superpowers/plans/2026-07-13-logan-wasm-sandbox-host
+- Headings:
+  - H1: Logan WASM Sandbox Host (P1) Implementation Plan
+  - H2: Global Constraints
+  - H2: File structure
+  - H3: Task 1: Scaffold host crate + allowlist module (TDD)
+  - H3: Task 2: Policy + host-mediated HTTPS (TDD)
+  - H3: Task 3: CLI http subcommand
+  - H3: Task 4: WASI guest + host import (minimal)
+  - H3: Task 5: Windows smoke script + docs pointer
+
+## superpowers/plans/2026-07-13-logan-wasm-sandbox-openclaw-backend.md
+
+- Route: /superpowers/plans/2026-07-13-logan-wasm-sandbox-openclaw-backend
+- Headings:
+  - H1: Logan WASM Sandbox OpenClaw Backend (P2) Implementation Plan
+  - H2: Global Constraints
+  - H2: File structure (expected)
+  - H3: Task 1: Config surface for wasm backend settings (TDD)
+  - H3: Task 2: Wasm backend handle (spawn host CLI; no Docker)
+  - H3: Task 3: Doctor + explain UX
+  - H3: Task 4: Logan config default for local agent
+  - H3: Task 5: Tool policy mapping (curl / safeBins)
+  - H3: Task 6: Integration smoke (Windows)
+  - H3: Task 8: TypeScript 7 typecheck gate for wasm backend (tsgo)
+  - H3: Task 7: P2 acceptance checklist (no new features)
+  - H2: Deferred to later phases (explicit non-goals for P2)
+  - H2: Security follow-ups already done in P1 (do not regress)
+  - H2: Risks
+  - H2: Execution handoff
+
+## superpowers/reviews/2026-04-21-council-review.md
+
+- Route: /superpowers/reviews/2026-04-21-council-review
+- Headings:
+  - H1: Council Review — Logan Local Stack
+  - H2: High-severity findings (all four lenses consolidated)
+  - H2: Medium findings (selected, merged)
+  - H2: Low findings (rolled into plan as checklist items)
+  - H2: Accepted residual risks
+  - H2: Changes applied to the spec
+
+## superpowers/specs/2026-04-21-logan-local-hsm-gemma-design.md
+
+- Route: /superpowers/specs/2026-04-21-logan-local-hsm-gemma-design
+- Headings:
+  - H1: Logan Local Stack — Unified Design
+  - H2: Threat Model (post-council additions)
+  - H2: Decisions at a Glance
+  - H2: System Overview
+  - H2: Component Responsibilities
+  - H3: Ollama (WSL2, host-local)
+  - H3: TEE-Vault
+  - H3: Launch wrapper (launch-logan-with-vault.ps1 + WSL2 .sh)
+  - H3: Logan agent (Docker sandbox on oc-sandbox-net)
+  - H3: Squid proxy sidecar
+  - H2: Data Flow
+  - H3: Startup
+  - H3: Chat turn
+  - H3: Failure
+  - H2: Config Schema Decision (post-council)
+  - H2: Migration Plan (Summary, plan file is authoritative)
+  - H2: Observability Runbook
+  - H2: Verification / Acceptance Tests
+  - H2: Security &amp; Threat Model Deltas
+  - H2: Open Items Deferred
+  - H2: Non-Goals (explicit)
+
+## superpowers/specs/2026-07-13-logan-wasm-sandbox-ts7-design.md
+
+- Route: /superpowers/specs/2026-07-13-logan-wasm-sandbox-ts7-design
+- Headings:
+  - H1: Design: Logan WASM sandbox + TypeScript 7 toolchain
+  - H2: Summary
+  - H2: Motivation
+  - H2: Goals
+  - H2: Non-goals
+  - H2: Current state (baseline)
+  - H2: Target architecture
+  - H3: Host (Rust)
+  - H3: Guests (WASM)
+  - H3: OpenClaw integration
+  - H2: Mapping: Docker pieces → WASM
+  - H2: TypeScript 7
+  - H2: Phased delivery
+  - H2: Research note (2026-07-13)
+  - H2: Security requirements
+  - H2: Testing strategy
+  - H2: Risks and mitigations
+  - H2: Success criteria (milestone complete)
+  - H2: Out-of-scope follow-ons (later milestones)
+  - H2: References
+  - H2: Decision record
 
 ## tools/acp-agents-setup.md
 
