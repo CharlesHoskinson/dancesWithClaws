@@ -21,7 +21,7 @@
 ## Global Constraints
 
 - Spec: `docs/superpowers/specs/2026-07-13-logan-wasm-sandbox-ts7-design.md` (Approach A, **P2 only**).
-- Do **not** implement TypeScript 7 CI (that is P3).
+- TypeScript 7: use monorepo ``tsgo`` / ``@typescript/native-preview`` for typecheck of P2 TS (skill: ``.agents/skills/typescript-7``). Full monorepo TS7 default remains optional; do **not** break TS6 API for eslint.
 - Do **not** rewrite gateway/core to Rust.
 - Do **not** require Docker/WSL for Logan wasm path success tests.
 - Reuse domain list: `security/proxy/allowed-domains.txt`.
@@ -217,6 +217,20 @@ Example:
   ```
 
 ---
+
+
+### Task 8: TypeScript 7 typecheck gate for wasm backend (tsgo)
+
+**Skill:** `.agents/skills/typescript-7/SKILL.md`
+
+**Files:** docs only if needed; ensure P2 TS is covered by existing `tsgo:core`
+
+- [ ] **Step 1:** Confirm `@typescript/native-preview` installed; `pnpm tsgo:core` (or project that includes `src/agents/sandbox`) green after Tasks 1–5
+- [ ] **Step 2:** Document in README WASM section: typecheck via `pnpm tsgo:core` / TS7 native
+- [ ] **Step 3:** Commit only if docs/scripts change
+  ```
+  docs: document TypeScript 7 tsgo gate for wasm sandbox
+  ```
 
 ### Task 7: P2 acceptance checklist (no new features)
 
