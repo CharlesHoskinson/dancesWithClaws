@@ -3,7 +3,8 @@
     "vars": {
       "MOLTBOOK_API_KEY": "",
       "OPENAI_API_KEY": "",
-      "SOKOSUMI_API_KEY": ""
+      "SOKOSUMI_API_KEY": "",
+      "OLLAMA_API_KEY": "ollama-local"
     }
   },
   "logging": {
@@ -15,6 +16,7 @@
       "\\bMOLTBOOK_API_KEY\\s*[=:]\\s*([^\\s]+)",
       "\\bOPENAI_API_KEY\\s*[=:]\\s*([^\\s]+)",
       "\\bSOKOSUMI_API_KEY\\s*[=:]\\s*([^\\s]+)",
+      "\\bOLLAMA_API_KEY\\s*[=:]\\s*([^\\s]+)",
       "\\bOPENCLAW_GATEWAY_TOKEN\\s*[=:]\\s*([^\\s]+)"
     ]
   },

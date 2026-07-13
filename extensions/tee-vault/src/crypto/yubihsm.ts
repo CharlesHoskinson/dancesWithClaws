@@ -6,13 +6,13 @@
  * dynamic import() so graphene-pk11 is only loaded when needed.
  */
 
-import type { YubiHsmConfig } from "../types.js";
 import {
   YUBIHSM_DEFAULT_PKCS11_PATH,
   YUBIHSM_DEFAULT_CONNECTOR_URL,
   YUBIHSM_DEFAULT_SLOT,
   VMK_KEY_LENGTH,
 } from "../constants.js";
+import type { YubiHsmConfig } from "../types.js";
 
 // Types from graphene-pk11 (declared here to avoid hard dependency)
 interface GrapheneModule {
@@ -72,7 +72,12 @@ async function loadGraphene(): Promise<GrapheneModule | null> {
     return grapheneModule;
   }
   try {
-    const graphene = await import("graphene-pk11");
+    const grapheneSpecifier = ["graphene", "-", "pk11"].join("");
+    // Opaque dynamic import so bundlers do not resolve optional native binding.
+    const dynamicImport = new Function("s", "return import(s)") as (s: string) => Promise<{
+      Module: unknown;
+    }>;
+    const graphene = await dynamicImport(grapheneSpecifier);
     grapheneModule = graphene.Module as unknown as GrapheneModule;
     return grapheneModule;
   } catch {
