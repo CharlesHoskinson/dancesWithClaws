@@ -25,10 +25,22 @@ iptables -A OUTPUT -j DROP
 echo "[proxy] iptables rules applied:"
 iptables -L OUTPUT -n -v
 
-# Ensure log directory is writable by squid user
-chown -R squid:squid /var/log/squid /var/spool/squid /run
+# tmpfs mounts under capability-dropped / no-new-privileges often reject chown.
+# Prefer best-effort ownership, then make dirs writable for the squid process.
+mkdir -p /var/log/squid /var/spool/squid /run
+if ! chown -R squid:squid /var/log/squid /var/spool/squid /run 2>/dev/null; then
+  echo "[proxy] chown skipped (caps/tmpfs); chmod fallback"
+  chmod -R a+rwx /var/log/squid /var/spool/squid /run
+fi
 touch /var/log/squid/access.log /var/log/squid/cache.log
-chown squid:squid /var/log/squid/access.log /var/log/squid/cache.log
+chown squid:squid /var/log/squid/access.log /var/log/squid/cache.log 2>/dev/null || true
+chmod a+rw /var/log/squid/access.log /var/log/squid/cache.log 2>/dev/null || true
+
+# Initialize squid swap directories on empty tmpfs (ignore if already present).
+# squid -z can leave a PID file that makes the main process think it is already running.
+echo "[proxy] Initializing squid cache (if needed)..."
+squid -z -f /etc/squid/squid.conf 2>/dev/null || true
+rm -f /run/squid.pid /var/run/squid.pid /var/spool/squid/squid.pid 2>/dev/null || true
 
 echo "[proxy] Starting Squid..."
 # Tail access log to stdout for docker logs, run squid in foreground
