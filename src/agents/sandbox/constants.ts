@@ -53,6 +53,19 @@ export const DEFAULT_TOOL_DENY = [
   ...CHANNEL_IDS,
 ] as const;
 
+/**
+ * Tools that stay denied on the capability-narrow wasm sandbox backend even when
+ * operators re-allow them via sandbox tool allow/alsoAllow. Browser needs a
+ * container capability wasm lacks; create_job is off-wasm by design; unrestricted
+ * shell is blocked at the backend handle (curl-shaped HTTPS only).
+ */
+export const WASM_SANDBOX_FORCED_TOOL_DENY = [
+  "browser",
+  "canvas",
+  "computer",
+  "sokosumi_create_job",
+] as const;
+
 export const DEFAULT_SANDBOX_BROWSER_IMAGE = "openclaw-sandbox-browser:bookworm-slim";
 export const DEFAULT_SANDBOX_COMMON_IMAGE = "openclaw-sandbox-common:bookworm-slim";
 export const SANDBOX_BROWSER_SECURITY_HASH_EPOCH = "2026-05-12-cdp-relay-auth";

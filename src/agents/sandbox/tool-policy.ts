@@ -9,12 +9,18 @@ import type { OpenClawConfig } from "../../config/types.openclaw.js";
 import { resolveAgentConfig } from "../agent-scope.js";
 import { compileGlobPatterns, matchesAnyGlobPattern } from "../glob-pattern.js";
 import { expandToolGroups, normalizeToolName } from "../tool-policy.js";
-import { DEFAULT_TOOL_ALLOW, DEFAULT_TOOL_DENY } from "./constants.js";
+import {
+  DEFAULT_TOOL_ALLOW,
+  DEFAULT_TOOL_DENY,
+  WASM_SANDBOX_FORCED_TOOL_DENY,
+} from "./constants.js";
 import type {
   SandboxToolPolicy,
   SandboxToolPolicyResolved,
   SandboxToolPolicySource,
 } from "./types.js";
+
+export { WASM_SANDBOX_FORCED_TOOL_DENY };
 
 type SandboxToolPolicyConfig = {
   allow?: string[];
@@ -214,6 +220,45 @@ export function isToolAllowed(policy: SandboxToolPolicy, name: string) {
   return !blockedByDeny && !blockedByAllow;
 }
 
+/** Resolve effective sandbox backend id for an agent (agent override → defaults → docker). */
+export function resolveSandboxBackendIdForAgent(
+  cfg?: OpenClawConfig,
+  agentId?: string,
+): string {
+  const agentConfig = cfg && agentId ? resolveAgentConfig(cfg, agentId) : undefined;
+  const agentBackend = agentConfig?.sandbox?.backend?.trim();
+  if (agentBackend) {
+    return agentBackend;
+  }
+  const defaultBackend = cfg?.agents?.defaults?.sandbox?.backend?.trim();
+  if (defaultBackend) {
+    return defaultBackend;
+  }
+  return "docker";
+}
+
+/**
+ * Apply capability-narrow wasm constraints: force-deny browser/create_job-class tools
+ * even when sandbox allow/alsoAllow would re-open them. Curl-shaped exec stays allowed
+ * and is mediated by the wasm backend handle (not real container curl).
+ */
+export function applyWasmSandboxToolPolicyConstraints(policy: {
+  allow: string[];
+  deny: string[];
+}): { allow: string[]; deny: string[] } {
+  const forcedDeny = expandToolGroups([...WASM_SANDBOX_FORCED_TOOL_DENY]);
+  const forcedDenyNormalized = new Set(forcedDeny.map((name) => normalizeToolName(name)));
+  const deny = uniqueStrings([...policy.deny, ...forcedDeny]);
+  // Empty allow means allow-all (except deny); keep that semantic and rely on deny.
+  if (policy.allow.length === 0) {
+    return { allow: policy.allow, deny };
+  }
+  const allow = policy.allow.filter(
+    (toolName) => !forcedDenyNormalized.has(normalizeToolName(toolName)),
+  );
+  return { allow, deny };
+}
+
 export function resolveSandboxToolPolicyForAgent(
   cfg?: OpenClawConfig,
   agentId?: string,
@@ -253,9 +298,20 @@ export function resolveSandboxToolPolicyForAgent(
     deny: resolvedDeny,
   });
 
+  let allow = expanded.allow ?? [];
+  let deny = expanded.deny ?? [];
+
+  // Wasm backend: keep browser / create_job denied; curl-shaped exec is mediated by
+  // sandbox.backend.buildExecSpec (host HTTPS), not docker/raw host curl.
+  if (resolveSandboxBackendIdForAgent(cfg, agentId) === "wasm") {
+    const constrained = applyWasmSandboxToolPolicyConstraints({ allow, deny });
+    allow = constrained.allow;
+    deny = constrained.deny;
+  }
+
   return {
-    allow: expanded.allow ?? [],
-    deny: expanded.deny ?? [],
+    allow,
+    deny,
     sources: {
       allow: pickAllowSource({
         allow: allowConfig.source,
