@@ -661,5 +661,30 @@ export const TOOL_DISPLAY_CONFIG: ToolDisplayConfig = {
       title: "TTS",
       detailKeys: ["text", "channel"],
     },
+    sokosumi_list_agents: {
+      emoji: "🛒",
+      title: "Sokosumi List Agents",
+      detailKeys: ["query", "limit", "cursor"],
+    },
+    sokosumi_get_agent: {
+      emoji: "🛒",
+      title: "Sokosumi Get Agent",
+      detailKeys: ["agentId", "id", "name"],
+    },
+    sokosumi_get_input_schema: {
+      emoji: "🛒",
+      title: "Sokosumi Input Schema",
+      detailKeys: ["agentId", "id", "name"],
+    },
+    sokosumi_list_jobs: {
+      emoji: "🛒",
+      title: "Sokosumi List Jobs",
+      detailKeys: ["agentId", "status", "limit", "cursor"],
+    },
+    sokosumi_create_job: {
+      emoji: "🛒",
+      title: "Sokosumi Create Job",
+      detailKeys: ["agentId", "input", "name"],
+    },
   },
 };

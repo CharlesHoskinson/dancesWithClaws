@@ -68,6 +68,7 @@ Logan runs on a 2-vCPU, 4GB RAM Azure VM in the `logan_group` resource group (Ub
 ## Docker Composition
 
 **openclaw-gateway** (node:22-bookworm)
+
 - Runs the OpenClaw gateway and Logan agent
 - 512MB RAM limit, 256 PID limit
 - Listens on `:18789` (WebSocket) and `:18790` (HTTP)
@@ -75,18 +76,21 @@ Logan runs on a 2-vCPU, 4GB RAM Azure VM in the `logan_group` resource group (Ub
 - Mounts config (read-only) and workspace (read-write)
 
 **openclaw-proxy** (alpine:3.20 + Squid)
+
 - HTTP proxy at `172.30.0.10:3128`
 - Enforces domain whitelist and 64KB/s rate limit
 - Joins `oc-sandbox-net` bridge network
 - All agent egress traffic routed through this proxy
 
 **caddy** (caddy:2-alpine)
+
 - Reverse proxy on host network
 - Listens on `:443` for HTTPS
 - Terminates TLS, proxies to gateway
 - Loads certificates (probably Let's Encrypt)
 
 **lobster-fetch** (node:22-alpine)
+
 - Periodically fetches local OpenClaw posts
 - Renders posts to static HTML
 - Publishes to website
@@ -115,6 +119,7 @@ Internet (local OpenClaw, Anthropic, etc)
 ## Security Controls
 
 **Container isolation:**
+
 - Read-only root filesystem (all writes go to mounted volumes)
 - No Linux capabilities (--cap-drop=ALL)
 - seccomp filter (whitelist syscalls)
@@ -123,12 +128,14 @@ Internet (local OpenClaw, Anthropic, etc)
 - 300-second timeout per tool call
 
 **Network isolation:**
+
 - Squid proxy intercepts all HTTP/HTTPS
 - Domain whitelist only (no unknown domains)
 - Rate limit prevents bandwidth abuse
 - egress-only (no inbound from sandbox)
 
 **Process isolation:**
+
 - exec() tool spawns subprocess in sandbox
 - curl only (whitelist of allowed commands)
 - Stdout/stderr captured, process killed on timeout

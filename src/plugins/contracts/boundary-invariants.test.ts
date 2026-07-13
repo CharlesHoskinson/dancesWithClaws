@@ -23,6 +23,7 @@ const BUNDLED_TYPED_HOOK_REGISTRATION_FILES = [
   "extensions/memory-core/src/dreaming.ts",
   "extensions/memory-lancedb/index.ts",
   "extensions/onepassword/index.ts",
+  "extensions/tee-vault/index.ts",
   "extensions/thread-ownership/index.ts",
   "extensions/workboard/index.ts",
 ] as const;
@@ -37,6 +38,7 @@ const BUNDLED_TYPED_HOOK_REGISTRATION_GUARDS = {
   "extensions/memory-core/src/dreaming.ts": ["before_agent_reply", "gateway_start", "gateway_stop"],
   "extensions/memory-lancedb/index.ts": ["agent_end", "before_prompt_build", "session_end"],
   "extensions/onepassword/index.ts": ["before_tool_call", "tool_result_persist"],
+  "extensions/tee-vault/index.ts": ["after_tool_call", "gateway_start", "session_end"],
   "extensions/thread-ownership/index.ts": ["message_received", "message_sending"],
   "extensions/workboard/index.ts": ["subagent_ended"],
 } as const satisfies Record<

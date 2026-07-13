@@ -1,4 +1,5 @@
 > **Ingested into dancesWithClaws** on 2026-07-13 from local research export. Informs Approach A P2+ (hybrid WASM host + native fallback). Does not replace the design spec.
+
 # Migrating a Docker Sandbox in WSL2 to a WebAssembly Sandbox
 
 ## Executive verdict
@@ -24,15 +25,15 @@ This recommendation assumes the sandbox must: execute untrusted or semi-trusted 
 
 The matrix below weights criteria this way: **compatibility 30%**, **security and policy control 30%**, **performance and parallelism 20%**, **standards alignment 10%**, **operational simplicity 10%**. The scores are this report’s assessment; the factual basis for the assessment is discussed in the following sections.
 
-| Option | Fit for this sandbox | Why |
-|---|---:|---|
-| **Embedded Wasmtime host + native fallback** | **4.6 / 5** | Best control surface; reference Component Model implementation; strongest embedder APIs for pooling, limits, interruption, profiling, and cache control. citeturn16search20turn25view1turn26view1turn26view2turn26view7 |
-| **wasmCloud around a custom host** | **3.9 / 5** | Strong if you also want distributed multi-host orchestration and reusable in-process host plugins; more platform than you need for the first migration step. citeturn23search18turn27view7turn25view2 |
-| **OCI Wasm with containerd/runwasi** | **3.3 / 5** | Useful for Kubernetes/OCI interoperability, but it preserves containerd/OCI complexity and recently had a critical advisory around untrusted precompiled OCI artifacts. citeturn25view4turn27view0 |
-| **Spin** | **3.2 / 5** | Excellent framework for event-driven Wasm services, but that is not the same thing as a general-purpose untrusted build/test sandbox. citeturn27view6turn6search0turn6search6 |
-| **Wasmer + WASIX** | **3.1 / 5** | Helpful for legacy POSIX-leaning workloads, including spawn and sockets, but it does so through Wasmer-specific extensions rather than the WASI standards track. citeturn27view3turn8search22turn15search0 |
-| **WasmEdge** | **2.9 / 5** | Attractive for sockets, AI-related extensions, and AOT options, but its Component Model support is still documented as loader/validator only in the CLI docs. citeturn5search22turn27view4turn22search3 |
-| **Extism** | **2.7 / 5** | Strong plugin-system technology with fine-grained host functions, but not a full sandbox/orchestration replacement for arbitrary repo tasks. citeturn27view5turn7search3turn7search11 |
+| Option                                       | Fit for this sandbox | Why                                                                                                                                                                                                                            |
+| -------------------------------------------- | -------------------: | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Embedded Wasmtime host + native fallback** |          **4.6 / 5** | Best control surface; reference Component Model implementation; strongest embedder APIs for pooling, limits, interruption, profiling, and cache control. citeturn16search20turn25view1turn26view1turn26view2turn26view7 |
+| **wasmCloud around a custom host**           |          **3.9 / 5** | Strong if you also want distributed multi-host orchestration and reusable in-process host plugins; more platform than you need for the first migration step. citeturn23search18turn27view7turn25view2                     |
+| **OCI Wasm with containerd/runwasi**         |          **3.3 / 5** | Useful for Kubernetes/OCI interoperability, but it preserves containerd/OCI complexity and recently had a critical advisory around untrusted precompiled OCI artifacts. citeturn25view4turn27view0                         |
+| **Spin**                                     |          **3.2 / 5** | Excellent framework for event-driven Wasm services, but that is not the same thing as a general-purpose untrusted build/test sandbox. citeturn27view6turn6search0turn6search6                                             |
+| **Wasmer + WASIX**                           |          **3.1 / 5** | Helpful for legacy POSIX-leaning workloads, including spawn and sockets, but it does so through Wasmer-specific extensions rather than the WASI standards track. citeturn27view3turn8search22turn15search0                |
+| **WasmEdge**                                 |          **2.9 / 5** | Attractive for sockets, AI-related extensions, and AOT options, but its Component Model support is still documented as loader/validator only in the CLI docs. citeturn5search22turn27view4turn22search3                   |
+| **Extism**                                   |          **2.7 / 5** | Strong plugin-system technology with fine-grained host functions, but not a full sandbox/orchestration replacement for arbitrary repo tasks. citeturn27view5turn7search3turn7search11                                     |
 
 ## What the standards and runtimes actually support
 
@@ -62,19 +63,19 @@ Before writing any runtime code, you need a **repo and sandbox inventory pass** 
 
 ### Compatibility matrix
 
-| Workload feature | Status in a standards-first WASM stack | Migration rule |
-|---|---|---|
-| Pure command-like compute with bounded file I/O | **Good fit** | Recompile to a component or core Wasm module and expose only file, clock, random, and evidence capabilities. citeturn16search20turn26view0 |
-| HTTP client/server logic | **Good fit** | Use `wasi:http` where possible and a host network broker with explicit egress policy; for lower-level networking, use `wasi:sockets`. citeturn14search0turn14search4turn27view1 |
-| Child processes and shell pipelines | **Poor fit today** | Keep native fallback; standard WASI process spawning is still design-discussion territory, while WASIX offers nonstandard spawn. citeturn15search3turn15search13turn15search0 |
-| Thread-heavy component internals | **Use cautiously** | Core Wasm threads exist, but Component Model shared-memory support is not the portable default yet; prefer process/task parallelism first. citeturn14search1turn14search9turn14search13 |
-| Raw sockets, DNS | **Fit with policy** | Standard proposal exists and is capability-oriented with deny-by-default firewalling expectations. citeturn27view1 |
-| TLS stacks | **Use host/broker** | `wasi:sockets` explicitly lists SSL/TLS and HTTP(S) as non-goals of that proposal; push those concerns into host-side libraries or higher-level interfaces. citeturn27view1 |
-| Git operations | **Broker, do not shell out in guest** | Prefer a host Git broker or a native helper behind WIT rather than handing the guest unfettered shell/process access. This is an architectural recommendation grounded in the lack of standardized child-process APIs. citeturn15search3turn24search1 |
-| Package managers and arbitrary installers | **Native fallback or remote build service** | `apt`, `npm`, `pip`, and similar flows often imply subprocesses, native toolchains, scripts, and unrestricted network. Treat them as nonportable until proven otherwise. |
-| GPU / WebGPU | **Not baseline-ready** | `wasi:webgpu` is still a proposal; keep GPU work native or in a specialized service until your exact runtime stack proves stable. citeturn27view2turn20search2 |
-| Persistent databases and external services | **Service/plugin fit** | Move them out of the guest and present them as brokered WIT capabilities or external services. wasmCloud host plugins are a good reference pattern here. citeturn27view7turn23search4 |
-| Browser automation / headful UI tests | **Native fallback** | Keep these outside the Wasm guest boundary, ideally in a separately hardened worker or microVM. |
+| Workload feature                                | Status in a standards-first WASM stack      | Migration rule                                                                                                                                                                                                                                            |
+| ----------------------------------------------- | ------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Pure command-like compute with bounded file I/O | **Good fit**                                | Recompile to a component or core Wasm module and expose only file, clock, random, and evidence capabilities. citeturn16search20turn26view0                                                                                                            |
+| HTTP client/server logic                        | **Good fit**                                | Use `wasi:http` where possible and a host network broker with explicit egress policy; for lower-level networking, use `wasi:sockets`. citeturn14search0turn14search4turn27view1                                                                      |
+| Child processes and shell pipelines             | **Poor fit today**                          | Keep native fallback; standard WASI process spawning is still design-discussion territory, while WASIX offers nonstandard spawn. citeturn15search3turn15search13turn15search0                                                                        |
+| Thread-heavy component internals                | **Use cautiously**                          | Core Wasm threads exist, but Component Model shared-memory support is not the portable default yet; prefer process/task parallelism first. citeturn14search1turn14search9turn14search13                                                              |
+| Raw sockets, DNS                                | **Fit with policy**                         | Standard proposal exists and is capability-oriented with deny-by-default firewalling expectations. citeturn27view1                                                                                                                                     |
+| TLS stacks                                      | **Use host/broker**                         | `wasi:sockets` explicitly lists SSL/TLS and HTTP(S) as non-goals of that proposal; push those concerns into host-side libraries or higher-level interfaces. citeturn27view1                                                                            |
+| Git operations                                  | **Broker, do not shell out in guest**       | Prefer a host Git broker or a native helper behind WIT rather than handing the guest unfettered shell/process access. This is an architectural recommendation grounded in the lack of standardized child-process APIs. citeturn15search3turn24search1 |
+| Package managers and arbitrary installers       | **Native fallback or remote build service** | `apt`, `npm`, `pip`, and similar flows often imply subprocesses, native toolchains, scripts, and unrestricted network. Treat them as nonportable until proven otherwise.                                                                                  |
+| GPU / WebGPU                                    | **Not baseline-ready**                      | `wasi:webgpu` is still a proposal; keep GPU work native or in a specialized service until your exact runtime stack proves stable. citeturn27view2turn20search2                                                                                        |
+| Persistent databases and external services      | **Service/plugin fit**                      | Move them out of the guest and present them as brokered WIT capabilities or external services. wasmCloud host plugins are a good reference pattern here. citeturn27view7turn23search4                                                                 |
+| Browser automation / headful UI tests           | **Native fallback**                         | Keep these outside the Wasm guest boundary, ideally in a separately hardened worker or microVM.                                                                                                                                                           |
 
 The sharpest blockers are **process trees, shells, native extensions, and GPU/browser workloads**. The official WASI materials are moving toward richer component composition, but the current standards picture is still capability-first, not “Linux-userland-in-a-box.” That is why a full-purity target is usually uneconomic for a developer sandbox before the inventory is complete. citeturn24search1turn25view0turn15search3
 
@@ -259,15 +260,15 @@ The benchmark program should compare **today’s Docker-in-WSL2 sandbox** agains
 
 Use acceptance gates like these:
 
-| Metric | Gate for promotability |
-|---|---|
-| Cold start p50 | At least **2x better** than current Docker path for compatible tasks |
-| Warm start p95 | At least **3x better** than current Docker path for compatible tasks |
-| Throughput at capped concurrency | At least **1.5x better** with equal or lower error rate |
-| Peak RSS per parallel task | At least **25% lower** for compatible tasks |
-| Cleanup time and evidence persistence | No regression |
-| Policy overhead | Less than **10%** of task wall clock for common paths |
-| Fallback frequency after pilot | Less than **20%** of task volume for “default Wasm lane” repos |
+| Metric                                | Gate for promotability                                               |
+| ------------------------------------- | -------------------------------------------------------------------- |
+| Cold start p50                        | At least **2x better** than current Docker path for compatible tasks |
+| Warm start p95                        | At least **3x better** than current Docker path for compatible tasks |
+| Throughput at capped concurrency      | At least **1.5x better** with equal or lower error rate              |
+| Peak RSS per parallel task            | At least **25% lower** for compatible tasks                          |
+| Cleanup time and evidence persistence | No regression                                                        |
+| Policy overhead                       | Less than **10%** of task wall clock for common paths                |
+| Fallback frequency after pilot        | Less than **20%** of task volume for “default Wasm lane” repos       |
 
 Those are target thresholds, not facts about the current ecosystem. They intentionally leave room for the reality that Wasm will not automatically beat Docker everywhere.
 
@@ -411,30 +412,30 @@ That command should tell you whether the task is routed to **WASM lane**, **brok
 
 The migration should be staged this way:
 
-| Stage | Exit condition |
-|---|---|
-| **Inventory** | Every task type classified into WASM-ready, portable, brokered, remote, or native-only |
-| **Prototype** | One real repo task runs in Wasmtime with worktree isolation and evidence capture |
-| **Parity** | Same task passes in both Docker and Wasm lanes with equivalent outputs |
+| Stage                   | Exit condition                                                                                                         |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| **Inventory**           | Every task type classified into WASM-ready, portable, brokered, remote, or native-only                                 |
+| **Prototype**           | One real repo task runs in Wasmtime with worktree isolation and evidence capture                                       |
+| **Parity**              | Same task passes in both Docker and Wasm lanes with equivalent outputs                                                 |
 | **Adversarial testing** | Infinite loops, path traversal attempts, egress violations, oversized outputs, and log injection cases all fail safely |
-| **Pilot** | Default Wasm lane for selected repos; fallback still automatic |
-| **Production** | Wasm is default for compatible repos; Docker/native lane reduced to exception path |
-| **Rollback** | Single config switch returns a repo or task class to native fallback |
+| **Pilot**               | Default Wasm lane for selected repos; fallback still automatic                                                         |
+| **Production**          | Wasm is default for compatible repos; Docker/native lane reduced to exception path                                     |
+| **Rollback**            | Single config switch returns a repo or task class to native fallback                                                   |
 
 ### Parallel implementation backlog
 
 The cleanest workstreams are:
 
-| Workstream | Depends on | Notes |
-|---|---|---|
-| Host runtime and scheduler | none | Shared `Engine`, store lifecycle, queueing, cancellation |
-| WIT capability design | none | Must stabilize before broad guest migration |
-| Filesystem and evidence brokers | host runtime | Highest security leverage |
-| Network and secret brokers | WIT design | Needed for deny-by-default egress and secret discipline |
-| Guest task migration | WIT design | Start with deterministic utilities |
-| Native fallback queue | host runtime | Keep same policy/evidence envelope |
-| Benchmark harness | prototype runtime | Must run on all candidate lanes |
-| Adversarial test suite | prototype runtime | Include path, output, quota, and egress abuse cases |
+| Workstream                      | Depends on        | Notes                                                    |
+| ------------------------------- | ----------------- | -------------------------------------------------------- |
+| Host runtime and scheduler      | none              | Shared `Engine`, store lifecycle, queueing, cancellation |
+| WIT capability design           | none              | Must stabilize before broad guest migration              |
+| Filesystem and evidence brokers | host runtime      | Highest security leverage                                |
+| Network and secret brokers      | WIT design        | Needed for deny-by-default egress and secret discipline  |
+| Guest task migration            | WIT design        | Start with deterministic utilities                       |
+| Native fallback queue           | host runtime      | Keep same policy/evidence envelope                       |
+| Benchmark harness               | prototype runtime | Must run on all candidate lanes                          |
+| Adversarial test suite          | prototype runtime | Include path, output, quota, and egress abuse cases      |
 
 The **critical path** is: **WIT contracts → host runtime → filesystem/evidence brokers → benchmark harness → pilot repos**. Anything that delays the WIT surface will fragment the migration.
 

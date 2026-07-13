@@ -12,11 +12,11 @@ Replace Logan’s **Docker-in-WSL2 agent sandbox and Squid egress path** with a 
 
 Today Logan depends on:
 
-| Component | Role |
-|-----------|------|
-| `Dockerfile.sandbox` | Isolate agent `exec` / tools |
-| Squid proxy + `security/proxy/allowed-domains.txt` | Egress allowlist |
-| WSL2 Docker | Where that stack actually runs on Windows |
+| Component                                          | Role                                      |
+| -------------------------------------------------- | ----------------------------------------- |
+| `Dockerfile.sandbox`                               | Isolate agent `exec` / tools              |
+| Squid proxy + `security/proxy/allowed-domains.txt` | Egress allowlist                          |
+| WSL2 Docker                                        | Where that stack actually runs on Windows |
 
 That path is heavy (cold start, WSL coupling, dual OS). Industry guidance (2026) treats WASM as best for **capability-scoped plugins and short sandboxed tasks**, and Docker as still appropriate for full POSIX / long-running infra. Logan’s agent tool isolation matches WASM’s strengths. TypeScript 7’s native (Go) compiler delivers large typecheck speedups on monorepos without changing the runtime language.
 
@@ -27,7 +27,7 @@ That path is heavy (cold start, WSL coupling, dual OS). Industry guidance (2026)
 3. Scope filesystem access to **workspace (and explicit roots only)**.
 4. Integrate with OpenClaw as a first-class sandbox backend (`wasm`), with Docker optional fallback.
 5. Adopt **TypeScript 7** for Logan-facing and (where green) monorepo typecheck/CI.
-6. Preserve security *intent* of the current hardened stack (non-ambient authority, timeouts, size limits).
+6. Preserve security _intent_ of the current hardened stack (non-ambient authority, timeouts, size limits).
 
 ## Non-goals
 
@@ -94,34 +94,34 @@ Responsibilities:
 
 ## Mapping: Docker pieces → WASM
 
-| Docker / WSL today | Milestone replacement |
-|--------------------|------------------------|
-| `Dockerfile.sandbox` + `sandboxuser` | Wasmtime guest; no Linux user |
-| Squid + allowlist file | Rust host allowlist (same domain list source) |
-| `oc-sandbox-net` / proxy DNS | Host-only networking; guest never open world sockets |
-| seccomp / cap_drop | WASI capabilities + host resource limits |
-| `exec` curl only | Registered WASM / host-mediated HTTP tool |
-| Gateway + Ollama | Unchanged on host |
+| Docker / WSL today                   | Milestone replacement                                |
+| ------------------------------------ | ---------------------------------------------------- |
+| `Dockerfile.sandbox` + `sandboxuser` | Wasmtime guest; no Linux user                        |
+| Squid + allowlist file               | Rust host allowlist (same domain list source)        |
+| `oc-sandbox-net` / proxy DNS         | Host-only networking; guest never open world sockets |
+| seccomp / cap_drop                   | WASI capabilities + host resource limits             |
+| `exec` curl only                     | Registered WASM / host-mediated HTTP tool            |
+| Gateway + Ollama                     | Unchanged on host                                    |
 
 ## TypeScript 7
 
-| Item | Decision |
-|------|----------|
-| What TS 7 is | Native Go port of the compiler/language service (~8–12× typecheck on large codebases); app still TypeScript → JS |
-| Logan use | Install `typescript@7` for `tsc` / CI / editor; enable parallel checkers where CI CPU allows |
-| Compatibility | Side-by-side TS 6 API package if eslint/plugins need programmatic API until 7.1 |
-| Scope order | (1) Logan scripts/config packages and CI job, (2) widen monorepo typecheck if clean |
-| Not claimed | “Runtime is TS 7” — Node still runs emitted JS |
+| Item          | Decision                                                                                                         |
+| ------------- | ---------------------------------------------------------------------------------------------------------------- |
+| What TS 7 is  | Native Go port of the compiler/language service (~8–12× typecheck on large codebases); app still TypeScript → JS |
+| Logan use     | Install `typescript@7` for `tsc` / CI / editor; enable parallel checkers where CI CPU allows                     |
+| Compatibility | Side-by-side TS 6 API package if eslint/plugins need programmatic API until 7.1                                  |
+| Scope order   | (1) Logan scripts/config packages and CI job, (2) widen monorepo typecheck if clean                              |
+| Not claimed   | “Runtime is TS 7” — Node still runs emitted JS                                                                   |
 
 ## Phased delivery
 
-| Phase | Deliverable | Exit criteria |
-|-------|-------------|---------------|
-| **P0** | This design + implementation plan | Spec + plan in `docs/superpowers/` |
-| **P1** | Rust host + policy + allowlist HTTP smoke CLI | Allowlisted host succeeds CONNECT/HTTP; denied host fails; no Docker — **DONE** (`tools/logan-wasm-sandbox`, smoke script; hardening: per-hop redirects + streaming body cap) |
-| **P2** | OpenClaw backend wired; Logan agent turn uses wasm sandbox | Agent turn OK on Windows host without Docker/WSL — plan: `docs/superpowers/plans/2026-07-13-logan-wasm-sandbox-openclaw-backend.md` |
-| **P3** | TS 7 in CI for agreed package set | Green typecheck; documented install |
-| **P4** | Defaults + docs; Docker path optional | `openclaw.json` + README default to wasm |
+| Phase  | Deliverable                                                | Exit criteria                                                                                                                                                                 |
+| ------ | ---------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **P0** | This design + implementation plan                          | Spec + plan in `docs/superpowers/`                                                                                                                                            |
+| **P1** | Rust host + policy + allowlist HTTP smoke CLI              | Allowlisted host succeeds CONNECT/HTTP; denied host fails; no Docker — **DONE** (`tools/logan-wasm-sandbox`, smoke script; hardening: per-hop redirects + streaming body cap) |
+| **P2** | OpenClaw backend wired; Logan agent turn uses wasm sandbox | Agent turn OK on Windows host without Docker/WSL — plan: `docs/superpowers/plans/2026-07-13-logan-wasm-sandbox-openclaw-backend.md`                                           |
+| **P3** | TS 7 in CI for agreed package set                          | Green typecheck; documented install                                                                                                                                           |
+| **P4** | Defaults + docs; Docker path optional                      | `openclaw.json` + README default to wasm                                                                                                                                      |
 
 ## Research note (2026-07-13)
 
@@ -142,23 +142,23 @@ P1 is the hot-path proof (embedded Wasmtime host + host-mediated HTTPS). P2 wire
 
 ## Testing strategy
 
-| Layer | Tests |
-|-------|--------|
-| Rust unit | Allowlist matching, path canonicalization, timeout, size limits |
-| CLI integration | Host binary runs guest against mock HTTP / real public endpoints (deny evil.com-class) |
-| OpenClaw | Config loads `backend=wasm`; agent turn with `sandbox` on; tool policy still denies browser/spawn/create_job |
-| Regression | Existing deploy tests remain green; docker smoke remains available behind flag |
-| TS 7 | CI job runs native `tsc`; failure blocks merge once adopted |
+| Layer           | Tests                                                                                                        |
+| --------------- | ------------------------------------------------------------------------------------------------------------ |
+| Rust unit       | Allowlist matching, path canonicalization, timeout, size limits                                              |
+| CLI integration | Host binary runs guest against mock HTTP / real public endpoints (deny evil.com-class)                       |
+| OpenClaw        | Config loads `backend=wasm`; agent turn with `sandbox` on; tool policy still denies browser/spawn/create_job |
+| Regression      | Existing deploy tests remain green; docker smoke remains available behind flag                               |
+| TS 7            | CI job runs native `tsc`; failure blocks merge once adopted                                                  |
 
 ## Risks and mitigations
 
-| Risk | Mitigation |
-|------|------------|
-| Expectation of full bash in sandbox | Document tool catalog only; no shell |
-| Upstream OpenClaw Docker assumptions | Thin adapter; minimize fork surface; prefer config-driven backend |
-| Windows TLS / proxy edge cases | Host uses OS TLS; single HTTP stack in Rust |
-| Scope creep to full rewrite | Non-goals enforced in PR review |
-| WASI API churn | Pin Wasmtime + wasi version; prefer host-mediated HTTP over full sockets in P1 |
+| Risk                                 | Mitigation                                                                     |
+| ------------------------------------ | ------------------------------------------------------------------------------ |
+| Expectation of full bash in sandbox  | Document tool catalog only; no shell                                           |
+| Upstream OpenClaw Docker assumptions | Thin adapter; minimize fork surface; prefer config-driven backend              |
+| Windows TLS / proxy edge cases       | Host uses OS TLS; single HTTP stack in Rust                                    |
+| Scope creep to full rewrite          | Non-goals enforced in PR review                                                |
+| WASI API churn                       | Pin Wasmtime + wasi version; prefer host-mediated HTTP over full sockets in P1 |
 
 ## Success criteria (milestone complete)
 
@@ -184,15 +184,15 @@ P1 is the hot-path proof (embedded Wasmtime host + host-mediated HTTPS). P2 wire
 
 ## Decision record
 
-| Decision | Choice |
-|----------|--------|
-| Strategy | **A — Logan sandbox-first** |
-| Runtime | Wasmtime embedded in Rust host |
-| Guest language (P1) | Rust → `wasm32-wasip2` |
-| Egress | Host-mediated HTTPS + domain allowlist |
-| Gateway / LLM | Host Node + Ollama |
-| TS 7 | Toolchain/CI first |
-| Docker | Optional fallback; not required for Logan default path |
+| Decision            | Choice                                                 |
+| ------------------- | ------------------------------------------------------ |
+| Strategy            | **A — Logan sandbox-first**                            |
+| Runtime             | Wasmtime embedded in Rust host                         |
+| Guest language (P1) | Rust → `wasm32-wasip2`                                 |
+| Egress              | Host-mediated HTTPS + domain allowlist                 |
+| Gateway / LLM       | Host Node + Ollama                                     |
+| TS 7                | Toolchain/CI first                                     |
+| Docker              | Optional fallback; not required for Logan default path |
 
 ---
 

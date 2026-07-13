@@ -1023,7 +1023,7 @@ export async function runBarnacleAutoResponse({ github, context, core = console 
     const title = issue.title ?? "";
     const body = issue.body ?? "";
     const haystack = `${title}\n${body}`.toLowerCase();
-    const hasexternal platformLabel = labelSet.has("r: external-platform");
+    const hasExternalPlatformLabel = labelSet.has("r: external-platform");
     const hasTestflightLabel = labelSet.has("r: testflight");
     const hasSecurityLabel = labelSet.has("security");
     if (title.toLowerCase().includes("security") && !hasSecurityLabel) {
@@ -1044,7 +1044,7 @@ export async function runBarnacleAutoResponse({ github, context, core = console 
       });
       labelSet.add("r: testflight");
     }
-    if (haystack.includes("external-platform") && !hasexternal platformLabel) {
+    if (haystack.includes("external-platform") && !hasExternalPlatformLabel) {
       await github.rest.issues.addLabels({
         owner: context.repo.owner,
         repo: context.repo.repo,

@@ -16,17 +16,17 @@ This repo is a fork of the [OpenClaw monorepo](https://github.com/openclaw/openc
 Single agent · Local Gemma 4 (Ollama) · Hourly heartbeats · WASM sandbox (Docker optional) + allowlist egress
 ```
 
-| Piece | Choice |
-|-------|--------|
-| Agent | `logan` (default) |
-| Primary model | `ollama/gemma4:e2b` (~7.2GB, edge-oriented) |
-| Fallbacks | `ollama/gemma4:e4b`, `ollama/llama3.2:1b` |
-| Heartbeat | 1h — local status, knowledge refresh, memory hygiene |
-| RAG | `workspace/knowledge/` via `memorySearch` |
-| Sandbox backend | **`wasm`** (Logan per-agent; monorepo default remains Docker) |
-| Sandbox image | `openclaw-sandbox:bookworm-slim` (user `sandboxuser`) — Docker fallback/debug |
-| Egress | Host-mediated allowlist (`security/proxy/allowed-domains.txt`); Squid when Docker |
-| Tools | `minimal` + alsoAllow exec/read/write/edit/memory_*/Sokosumi read tools |
+| Piece           | Choice                                                                            |
+| --------------- | --------------------------------------------------------------------------------- |
+| Agent           | `logan` (default)                                                                 |
+| Primary model   | `ollama/gemma4:e2b` (~7.2GB, edge-oriented)                                       |
+| Fallbacks       | `ollama/gemma4:e4b`, `ollama/llama3.2:1b`                                         |
+| Heartbeat       | 1h — local status, knowledge refresh, memory hygiene                              |
+| RAG             | `workspace/knowledge/` via `memorySearch`                                         |
+| Sandbox backend | **`wasm`** (Logan per-agent; monorepo default remains Docker)                     |
+| Sandbox image   | `openclaw-sandbox:bookworm-slim` (user `sandboxuser`) — Docker fallback/debug     |
+| Egress          | Host-mediated allowlist (`security/proxy/allowed-domains.txt`); Squid when Docker |
+| Tools           | `minimal` + alsoAllow exec/read/write/edit/memory_*/Sokosumi read tools           |
 
 ## Quick start (host)
 
@@ -94,14 +94,14 @@ Typecheck (TypeScript 7 native): use `pnpm tsgo:core` / `node scripts/run-tsgo.m
 
 Primary config: `openclaw.json` at repo root.
 
-| Setting | Value |
-|---------|--------|
-| `agents.list[0].model.primary` | `ollama/gemma4:e2b` |
-| `agents.list[0].sandbox.backend` | `wasm` (Logan only) |
-| `agents.list[0].sandbox.wasm.allowlist` | `security/proxy/allowed-domains.txt` |
-| `env.vars.OLLAMA_API_KEY` | `ollama-local` (placeholder; required) |
-| `tools.sokosumi` | optional marketplace endpoint |
-| `sandbox.docker.image` | `openclaw-sandbox:bookworm-slim` (Docker fallback) |
+| Setting                                 | Value                                              |
+| --------------------------------------- | -------------------------------------------------- |
+| `agents.list[0].model.primary`          | `ollama/gemma4:e2b`                                |
+| `agents.list[0].sandbox.backend`        | `wasm` (Logan only)                                |
+| `agents.list[0].sandbox.wasm.allowlist` | `security/proxy/allowed-domains.txt`               |
+| `env.vars.OLLAMA_API_KEY`               | `ollama-local` (placeholder; required)             |
+| `tools.sokosumi`                        | optional marketplace endpoint                      |
+| `sandbox.docker.image`                  | `openclaw-sandbox:bookworm-slim` (Docker fallback) |
 
 Workspace identity and ops: `workspace/AGENT.md`, `HEARTBEAT.md`, `MEMORY.md`, `knowledge/`.
 

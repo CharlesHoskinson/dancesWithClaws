@@ -203,14 +203,14 @@ Phase G — Verification tasks 26. Send Logan three verification tasks (see belo
 
 ## Observability Runbook
 
-| Failure                    | Signal (grep pattern)                                       | Location                                                        |
-| -------------------------- | ----------------------------------------------------------- | --------------------------------------------------------------- |
-| Ollama down                | `connection refused\|ECONNREFUSED.*11434\|/tmp/ollama.sock` | `~/.openclaw/logs/agent-logan.log`, WSL2 `journalctl -u ollama` |
-| Vault HMAC mismatch        | `HMAC.*mismatch\|integrity check failed`                    | `~/.openclaw/logs/tee-vault.log`                                |
-| HSM connector down         | `Cannot reach yubihsm-connector\|localhost:12345`           | Wrapper stderr, Windows Event Log (wrapper task)                |
-| Sandbox can't reach Ollama | `exec.*curl.*unix-socket.*failed`                           | `~/.openclaw/logs/agent-logan.log`                              |
+| Failure                          | Signal (grep pattern)                                       | Location                                                        |
+| -------------------------------- | ----------------------------------------------------------- | --------------------------------------------------------------- |
+| Ollama down                      | `connection refused\|ECONNREFUSED.*11434\|/tmp/ollama.sock` | `~/.openclaw/logs/agent-logan.log`, WSL2 `journalctl -u ollama` |
+| Vault HMAC mismatch              | `HMAC.*mismatch\|integrity check failed`                    | `~/.openclaw/logs/tee-vault.log`                                |
+| HSM connector down               | `Cannot reach yubihsm-connector\|localhost:12345`           | Wrapper stderr, Windows Event Log (wrapper task)                |
+| Sandbox can't reach Ollama       | `exec.*curl.*unix-socket.*failed`                           | `~/.openclaw/logs/agent-logan.log`                              |
 | Proxy deny (local OpenClaw etc.) | `403\|ERR_ACCESS_DENIED`                                    | `docker logs openclaw-proxy`                                    |
-| Missed heartbeat           | no `heartbeat fired at <ts>` line in last 90 min            | `~/.openclaw/logs/agent-logan.log`                              |
+| Missed heartbeat                 | no `heartbeat fired at <ts>` line in last 90 min            | `~/.openclaw/logs/agent-logan.log`                              |
 
 Add a `openclaw agent status logan` check that prints: last heartbeat timestamp, Ollama reachability, vault lock state, primary/fallback model in use. Run as health-check hook at wrapper start.
 

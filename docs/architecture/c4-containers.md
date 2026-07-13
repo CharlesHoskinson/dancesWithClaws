@@ -50,23 +50,27 @@ C4Container
 ## Services
 
 **Gateway Service** (Node.js, WebSocket)
+
 - Receives messages from channel plugins on `:18789` (WebSocket) and `:18790` (HTTP)
 - Parses session keys to route to the correct agent
 - Manages concurrent chat sessions
 
 **Agent Runtime** (TypeScript, Pi-Agent-Core)
+
 - Runs Claude Opus 4.5 for all LLM calls
 - Executes tools: memory_search, exec (curl), browser automation (denied in production)
 - Manages conversation state and context
 - Handles the 30-minute local OpenClaw heartbeat
 
 **Memory System** (SQLite + sqlite-vec)
+
 - Hybrid search: BM25 (lexical) + vector embeddings (semantic)
 - Caches up to 50K entries for fast retrieval
 - Uses OpenAI's text-embedding-3-small for vector generation
 - Queries the Knowledge Base during heartbeat and user messages
 
 **Channel Plugins** (TypeScript)
+
 - Discord.js integration
 - Baileys for WhatsApp (reverse-engineered protocol)
 - Grammy (Telegram Bot API)
@@ -74,12 +78,14 @@ C4Container
 - Others: Signal, iMessage via BlueBubbles, LINE, Zalo, Mattermost, Matrix
 
 **Knowledge Base** (Markdown files, 41 documents)
+
 - Fundamentals: Ouroboros, eUTXO, Plutus, Marlowe, Hydra, Mithril
 - Governance: Voltaire era, CIP process, Project Catalyst, DReps
 - DeFi: Minswap, SundaeSwap, oracles, staking, liquidity pools
 - History: roadmap, milestones, organizations, comparisons (vs Ethereum/Solana/Bitcoin)
 
 **Workspace** (File system)
+
 - `logs/daily/YYYY-MM-DD.md` - Daily activity log from heartbeat cycles
 - `skills/` - Agent-specific skill definitions
 - `sessions/` - Persistent chat state across restarts
@@ -88,6 +94,7 @@ C4Container
 ## Security Layer
 
 **Docker Sandbox**
+
 - Container runs with read-only root filesystem (`/` is mounted read-only)
 - All Linux capabilities dropped (`--cap-drop=ALL`)
 - seccomp filter loaded (`security/seccomp-sandbox.json`)
@@ -96,6 +103,7 @@ C4Container
 - Timeout: 300 seconds per tool call
 
 **Squid Proxy** (Alpine Linux)
+
 - Runs inside `oc-sandbox-net` Docker bridge network at `172.30.0.10:3128`
 - Domain whitelist only (allowlist in `security/proxy/squid.conf`)
 - Rate limiting: 64 KB/s sustained bandwidth
@@ -105,6 +113,7 @@ C4Container
 ## Data Flow
 
 Inbound message:
+
 ```
 User (Discord/Slack/etc)
   → Channel Plugin (adapts to OpenClaw message format)
@@ -118,6 +127,7 @@ User (Discord/Slack/etc)
 ```
 
 Heartbeat cycle:
+
 ```
 Croner scheduler (30 min intervals)
   → Agent Runtime
@@ -130,6 +140,7 @@ Croner scheduler (30 min intervals)
 ```
 
 Tool execution:
+
 ```
 Agent calls memory_search
   → Memory System queries SQLite

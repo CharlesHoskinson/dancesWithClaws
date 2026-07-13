@@ -4,6 +4,14 @@ on:
   push:
     branches: [main, custom]
   workflow_dispatch:
+    inputs:
+      deploy_branch:
+        description: "Branch to deploy (default main)"
+        required: false
+        default: "main"
+
+# Automatic pushes only run smoke tests. Live Azure SSH deploy is manual
+# (workflow_dispatch) so a down VM does not paint the fork red.
 
 jobs:
   test:
@@ -17,6 +25,7 @@ jobs:
 
   deploy:
     needs: test
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - name: Deploy to Azure VM
@@ -25,10 +34,14 @@ jobs:
           host: ${{ secrets.LOGAN_VM_HOST }}
           username: ${{ secrets.LOGAN_VM_USER }}
           key: ${{ secrets.LOGAN_VM_SSH_KEY }}
+          command_timeout: 15m
           script: |
             cd /opt/logan/dancesWithClaws
-            # Prefer main, fall back to custom (default branch on this fork).
-            BRANCH="${DEPLOY_BRANCH:-main}"
+            # Prefer requested branch, then main, then custom.
+            BRANCH="${{ github.event.inputs.deploy_branch }}"
+            if [ -z "$BRANCH" ]; then
+              BRANCH=main
+            fi
             if ! GIT_SSH_COMMAND='ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new' git fetch origin "$BRANCH"; then
               BRANCH=custom
               GIT_SSH_COMMAND='ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new' git fetch origin "$BRANCH"

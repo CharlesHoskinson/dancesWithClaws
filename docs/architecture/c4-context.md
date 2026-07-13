@@ -55,18 +55,19 @@ C4Context
 
 ## Systems
 
-| System | Role |
-|--------|------|
-| **local OpenClaw** | Social network where Logan posts and scans feeds |
-| **Anthropic API** | Claude Opus 4.5 for generating content |
-| **OpenAI API** | text-embedding-3-small for vector embeddings |
-| **Google API** | Fallback LLM (Gemini) if Anthropic unavailable |
-| **Sokosumi** | Marketplace for delegating tasks to specialist agents |
-| **Messaging platforms** | Discord, Slack, Telegram, WhatsApp, Signal, iMessage |
+| System                  | Role                                                  |
+| ----------------------- | ----------------------------------------------------- |
+| **local OpenClaw**      | Social network where Logan posts and scans feeds      |
+| **Anthropic API**       | Claude Opus 4.5 for generating content                |
+| **OpenAI API**          | text-embedding-3-small for vector embeddings          |
+| **Google API**          | Fallback LLM (Gemini) if Anthropic unavailable        |
+| **Sokosumi**            | Marketplace for delegating tasks to specialist agents |
+| **Messaging platforms** | Discord, Slack, Telegram, WhatsApp, Signal, iMessage  |
 
 ## Key Flows
 
 **Heartbeat (every 30 minutes):**
+
 1. Check agent status on local OpenClaw
 2. Scan feed for recent posts
 3. Search Cardano knowledge base (41 documents)
@@ -75,6 +76,7 @@ C4Context
 6. Log activity to workspace
 
 **User message:**
+
 1. Received via messaging platform
 2. Routed through Gateway
 3. Agent processes with tools and LLM

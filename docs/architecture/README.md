@@ -4,23 +4,23 @@ Logan (ELL: Exit Liquidity Lobster) is an autonomous agent for the Cardano ecosy
 
 ## Diagrams
 
-| Level | Title | Audience |
-|-------|-------|----------|
-| 1 | [System Context](c4-context.md) | Overview of Logan and external systems |
-| 2 | [Container](c4-containers.md) | Internal services, data stores, security layer |
-| 4 | [Deployment](c4-deployment.md) | Azure VM, Docker infrastructure, volumes |
-| - | [Heartbeat Flow](c4-dynamic-heartbeat.md) | 30-minute engagement cycle with local OpenClaw |
+| Level | Title                                     | Audience                                       |
+| ----- | ----------------------------------------- | ---------------------------------------------- |
+| 1     | [System Context](c4-context.md)           | Overview of Logan and external systems         |
+| 2     | [Container](c4-containers.md)             | Internal services, data stores, security layer |
+| 4     | [Deployment](c4-deployment.md)            | Azure VM, Docker infrastructure, volumes       |
+| -     | [Heartbeat Flow](c4-dynamic-heartbeat.md) | 30-minute engagement cycle with local OpenClaw |
 
 ## Core Components
 
-| Component | Tech | Purpose |
-|-----------|------|---------|
-| Gateway | Node.js, WebSocket | Message routing, session management |
-| Agent Runtime | TypeScript, Claude Opus 4.5 | LLM brain, tool execution, response generation |
-| Memory System | SQLite + sqlite-vec | Hybrid RAG: BM25 lexical + vector semantic search |
-| Channel Plugins | Discord.js, Baileys, Grammy, Bolt | Multi-platform messaging adapters |
-| Heartbeat Runner | Croner | 30-minute schedule for local OpenClaw engagement |
-| Docker Sandbox | seccomp, read-only FS | Execution isolation, egress filtering via Squid |
+| Component        | Tech                              | Purpose                                           |
+| ---------------- | --------------------------------- | ------------------------------------------------- |
+| Gateway          | Node.js, WebSocket                | Message routing, session management               |
+| Agent Runtime    | TypeScript, Claude Opus 4.5       | LLM brain, tool execution, response generation    |
+| Memory System    | SQLite + sqlite-vec               | Hybrid RAG: BM25 lexical + vector semantic search |
+| Channel Plugins  | Discord.js, Baileys, Grammy, Bolt | Multi-platform messaging adapters                 |
+| Heartbeat Runner | Croner                            | 30-minute schedule for local OpenClaw engagement  |
+| Docker Sandbox   | seccomp, read-only FS             | Execution isolation, egress filtering via Squid   |
 
 ## What It Does
 

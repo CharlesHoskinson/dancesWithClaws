@@ -23,34 +23,36 @@
 
 ## File structure
 
-| Path | Responsibility |
-|------|----------------|
-| `tools/logan-wasm-sandbox/Cargo.toml` | Host crate manifest |
-| `tools/logan-wasm-sandbox/src/lib.rs` | Library root: re-exports modules |
-| `tools/logan-wasm-sandbox/src/allowlist.rs` | Parse + match domain allowlist |
-| `tools/logan-wasm-sandbox/src/policy.rs` | Timeouts, byte limits, paths to allowlist |
-| `tools/logan-wasm-sandbox/src/http_host.rs` | Host-mediated HTTPS with allowlist + caps |
-| `tools/logan-wasm-sandbox/src/runtime.rs` | Wasmtime engine, host import, run guest |
-| `tools/logan-wasm-sandbox/src/main.rs` | CLI: `http` and `guest-http` subcommands |
-| `tools/logan-wasm-sandbox/tests/allowlist_tests.rs` | Integration-style unit tests for allowlist |
-| `tools/logan-wasm-sandbox/tests/http_policy_tests.rs` | Allow/deny without hitting network (mock) |
-| `tools/logan-wasi-http/Cargo.toml` | Guest crate |
-| `tools/logan-wasi-http/src/lib.rs` | Guest: call host `http_get` |
-| `tools/logan-wasm-sandbox/build.rs` | Optional: build guest wasm into `OUT_DIR` |
-| `scripts/logan-wasm-smoke.ps1` | Windows smoke: allow + deny URLs |
-| `docs/superpowers/specs/2026-07-13-logan-wasm-sandbox-ts7-design.md` | Spec (read-only reference) |
+| Path                                                                 | Responsibility                             |
+| -------------------------------------------------------------------- | ------------------------------------------ |
+| `tools/logan-wasm-sandbox/Cargo.toml`                                | Host crate manifest                        |
+| `tools/logan-wasm-sandbox/src/lib.rs`                                | Library root: re-exports modules           |
+| `tools/logan-wasm-sandbox/src/allowlist.rs`                          | Parse + match domain allowlist             |
+| `tools/logan-wasm-sandbox/src/policy.rs`                             | Timeouts, byte limits, paths to allowlist  |
+| `tools/logan-wasm-sandbox/src/http_host.rs`                          | Host-mediated HTTPS with allowlist + caps  |
+| `tools/logan-wasm-sandbox/src/runtime.rs`                            | Wasmtime engine, host import, run guest    |
+| `tools/logan-wasm-sandbox/src/main.rs`                               | CLI: `http` and `guest-http` subcommands   |
+| `tools/logan-wasm-sandbox/tests/allowlist_tests.rs`                  | Integration-style unit tests for allowlist |
+| `tools/logan-wasm-sandbox/tests/http_policy_tests.rs`                | Allow/deny without hitting network (mock)  |
+| `tools/logan-wasi-http/Cargo.toml`                                   | Guest crate                                |
+| `tools/logan-wasi-http/src/lib.rs`                                   | Guest: call host `http_get`                |
+| `tools/logan-wasm-sandbox/build.rs`                                  | Optional: build guest wasm into `OUT_DIR`  |
+| `scripts/logan-wasm-smoke.ps1`                                       | Windows smoke: allow + deny URLs           |
+| `docs/superpowers/specs/2026-07-13-logan-wasm-sandbox-ts7-design.md` | Spec (read-only reference)                 |
 
 ---
 
 ### Task 1: Scaffold host crate + allowlist module (TDD)
 
 **Files:**
+
 - Create: `tools/logan-wasm-sandbox/Cargo.toml`
 - Create: `tools/logan-wasm-sandbox/src/lib.rs`
 - Create: `tools/logan-wasm-sandbox/src/allowlist.rs`
 - Create: `tools/logan-wasm-sandbox/tests/allowlist_tests.rs`
 
 **Interfaces:**
+
 - Consumes: nothing
 - Produces:
   - `Allowlist::from_str(text: &str) -> Allowlist`
@@ -203,6 +205,7 @@ git commit -m "feat(wasm-sandbox): add domain allowlist module with tests"
 ### Task 2: Policy + host-mediated HTTPS (TDD)
 
 **Files:**
+
 - Create: `tools/logan-wasm-sandbox/src/policy.rs`
 - Create: `tools/logan-wasm-sandbox/src/http_host.rs`
 - Create: `tools/logan-wasm-sandbox/tests/http_policy_tests.rs`
@@ -210,6 +213,7 @@ git commit -m "feat(wasm-sandbox): add domain allowlist module with tests"
 - Modify: `tools/logan-wasm-sandbox/src/lib.rs`
 
 **Interfaces:**
+
 - Consumes: `Allowlist`
 - Produces:
   - `struct SandboxPolicy { allowlist: Allowlist, timeout: Duration, max_response_bytes: usize }`
@@ -434,10 +438,12 @@ git commit -m "feat(wasm-sandbox): host-mediated HTTPS with allowlist and limits
 ### Task 3: CLI `http` subcommand
 
 **Files:**
+
 - Create: `tools/logan-wasm-sandbox/src/main.rs`
 - Modify: `tools/logan-wasm-sandbox/Cargo.toml` (add `clap`)
 
 **Interfaces:**
+
 - Consumes: `SandboxPolicy::from_allowlist_path`, `http_get`
 - Produces: CLI binary `logan-wasm-sandbox`
   - `logan-wasm-sandbox http --allowlist <path> --url <https-url> [--timeout-secs N] [--max-bytes N]`
@@ -569,6 +575,7 @@ git commit -m "feat(wasm-sandbox): CLI http subcommand with JSON results"
 ### Task 4: WASI guest + host import (minimal)
 
 **Files:**
+
 - Create: `tools/logan-wasi-http/Cargo.toml`
 - Create: `tools/logan-wasi-http/src/main.rs` (cdylib or bin for wasip2)
 - Create: `tools/logan-wasm-sandbox/src/runtime.rs`
@@ -577,6 +584,7 @@ git commit -m "feat(wasm-sandbox): CLI http subcommand with JSON results"
 - Create: `tools/logan-wasm-sandbox/build.rs` (build guest if rustup target present)
 
 **Interfaces:**
+
 - Consumes: `http_get`, `SandboxPolicy`
 - Produces:
   - Guest binary/module `logan_wasi_http.wasm` that reads URL from env `LOGAN_HTTP_URL` and calls host function
@@ -764,6 +772,7 @@ git commit -m "feat(wasm-sandbox): run WASI guest then host-mediated HTTP"
 ### Task 5: Windows smoke script + docs pointer
 
 **Files:**
+
 - Create: `scripts/logan-wasm-smoke.ps1`
 - Modify: `README.md` (add short WASM smoke section under Docker smoke)
 - Modify: `docs/superpowers/specs/2026-07-13-logan-wasm-sandbox-ts7-design.md` — only if needed to note P1 CLI paths (prefer not; keep plan as source of truth)
@@ -806,23 +815,25 @@ Expected: prints `WASM_SMOKE_OK`.
 
 Under Docker smoke section, add:
 
-```markdown
+````markdown
 ## WASM sandbox smoke (no Docker)
 
 ```powershell
 cargo build --manifest-path tools/logan-wasm-sandbox/Cargo.toml --release
 .\scripts\logan-wasm-smoke.ps1
 ```
+````
 
 Host-mediated HTTPS with `security/proxy/allowed-domains.txt`. OpenClaw backend wiring is a later phase (see design spec).
-```
+
+````
 
 - [ ] **Step 4: Commit**
 
 ```powershell
 git add scripts/logan-wasm-smoke.ps1 README.md
 git commit -m "docs: add logan-wasm-sandbox smoke script and README"
-```
+````
 
 ---
 
@@ -863,18 +874,18 @@ git push origin custom main
 
 ## Spec coverage (self-review)
 
-| Spec P1 requirement | Task |
-|---------------------|------|
-| Rust host + policy | Tasks 1–2 |
-| Allowlist reuse of domain file | Tasks 1, 3, 5 |
-| Host-mediated HTTPS | Task 2–3 |
-| Deny before connect | Task 2 tests |
-| Timeouts / byte caps | Task 2 `SandboxPolicy` |
-| Wasmtime guest path | Task 4 |
-| CLI smoke allow/deny | Tasks 3, 5 |
-| No OpenClaw backend yet | Explicit non-goal; deferred P2 |
-| TS 7 | **Not in P1** (spec phase P3) — correctly omitted |
-| Windows without WSL/Docker | Task 5 smoke |
+| Spec P1 requirement            | Task                                              |
+| ------------------------------ | ------------------------------------------------- |
+| Rust host + policy             | Tasks 1–2                                         |
+| Allowlist reuse of domain file | Tasks 1, 3, 5                                     |
+| Host-mediated HTTPS            | Task 2–3                                          |
+| Deny before connect            | Task 2 tests                                      |
+| Timeouts / byte caps           | Task 2 `SandboxPolicy`                            |
+| Wasmtime guest path            | Task 4                                            |
+| CLI smoke allow/deny           | Tasks 3, 5                                        |
+| No OpenClaw backend yet        | Explicit non-goal; deferred P2                    |
+| TS 7                           | **Not in P1** (spec phase P3) — correctly omitted |
+| Windows without WSL/Docker     | Task 5 smoke                                      |
 
 ## Placeholder scan
 
@@ -895,7 +906,7 @@ Plan complete and saved to `docs/superpowers/plans/2026-07-13-logan-wasm-sandbox
 
 **Two execution options:**
 
-1. **Subagent-Driven (recommended)** — fresh subagent per task, review between tasks  
-2. **Inline Execution** — this session with executing-plans checkpoints  
+1. **Subagent-Driven (recommended)** — fresh subagent per task, review between tasks
+2. **Inline Execution** — this session with executing-plans checkpoints
 
 **Which approach?**
