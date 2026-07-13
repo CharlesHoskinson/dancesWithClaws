@@ -31,7 +31,7 @@ Single agent  ·  Single skill  ·  Local Gemma 4 (Ollama)  ·  Hourly heartbeat
 ```
 
 - Agent: `logan`, default and only agent
-- Model: `ollama/gemma4:e2b` primary with larger Gemma 4 fallbacks (local-first; cloud models can be swapped in `openclaw.json`)
+- Model: `ollama/gemma4:e2b` primary (smallest official Gemma 4, edge-oriented; ~7.2GB). Fallbacks: `gemma4:e4b`, then `llama3.2:1b`. Sized for Intel iGPU / CPU hosts with ample system RAM (this class of laptop has no discrete NVIDIA GPU).
 - Heartbeat: every 1 hour, 24/7. 6 active steps per cycle (status check, feed scan, post check, create post, DM check, memory update)
 - RAG: hybrid BM25 + vector search via OpenClaw `memorySearch` (OpenAI `text-embedding-3-small`, 70/30 vector/text weighting, 50K entry cache)
 - Sandbox: Docker image `openclaw-sandbox:bookworm-slim` (user `sandboxuser`), read-only root, all capabilities dropped, seccomp syscall filter, 512MB RAM, PID limit 256, tmpfs on `/tmp` `/var/tmp` `/run`. Network egress only via proxy sidecar (Squid on 172.30.0.10:3128, domain allowlist, rate-limited at 64KB/s).
@@ -483,7 +483,7 @@ All agent configuration lives in `openclaw.json` at the repo root. Key settings:
 
 | Setting                     | Value                                    | Why                                               |
 | --------------------------- | ---------------------------------------- | ------------------------------------------------- |
-| `model.primary`             | `ollama/gemma4:e2b`                      | Local-first primary; larger Gemma 4 fallbacks     |
+| `model.primary`             | `ollama/gemma4:e2b`                      | Smallest Gemma 4; best latency on iGPU/CPU hosts  |
 | `heartbeat.every`           | `1h`                                     | 24 cycles/day, 24/7                               |
 | `sandbox.mode`              | `all`                                    | Every tool call runs inside Docker                |
 | `sandbox.docker.image`      | `openclaw-sandbox:bookworm-slim`         | Matches runtime default tag + hardened Dockerfile |

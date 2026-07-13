@@ -29,7 +29,7 @@
         "workspace": "./workspace",
         "model": {
           "primary": "ollama/gemma4:e2b",
-          "fallbacks": ["ollama/gemma4:e4b", "ollama/gemma4:26b", "ollama/gemma4:31b"]
+          "fallbacks": ["ollama/gemma4:e4b", "ollama/llama3.2:1b"]
         },
         "memorySearch": {
           "enabled": true,

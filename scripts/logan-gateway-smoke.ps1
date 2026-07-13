@@ -13,7 +13,7 @@
   .\scripts\logan-gateway-smoke.ps1 -Model ollama/llama3.2:1b
 #>
 param(
-  [string]$Model = "ollama/llama3.2:1b",
+  [string]$Model = "ollama/gemma4:e2b",
   [int]$Port = 18789,
   [string]$Message = "Reply with exactly: LOBSTER_OK"
 )
