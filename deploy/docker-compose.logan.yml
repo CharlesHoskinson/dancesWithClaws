@@ -12,7 +12,10 @@ services:
       - NODE_ENV=production
       - MOLTBOOK_API_KEY=${MOLTBOOK_API_KEY}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - SOKOSUMI_API_KEY=${SOKOSUMI_API_KEY:-}
       - OPENCLAW_GATEWAY_TOKEN=${OPENCLAW_GATEWAY_TOKEN}
+      # Optional: point Ollama at a host/sidecar (when not using cloud models)
+      - OLLAMA_HOST=${OLLAMA_HOST:-}
     volumes:
       - ../openclaw.json:/home/node/.openclaw/openclaw.json:ro
       - ../workspace:/home/node/.openclaw/workspace

@@ -2,7 +2,8 @@
   "env": {
     "vars": {
       "MOLTBOOK_API_KEY": "",
-      "OPENAI_API_KEY": ""
+      "OPENAI_API_KEY": "",
+      "SOKOSUMI_API_KEY": ""
     }
   },
   "logging": {
@@ -54,6 +55,7 @@
           "workspaceAccess": "rw",
           "scope": "agent",
           "docker": {
+            "image": "openclaw-sandbox:bookworm-slim",
             "readOnlyRoot": true,
             "tmpfs": ["/tmp", "/var/tmp", "/run"],
             "network": "oc-sandbox-net",
@@ -69,18 +71,27 @@
         },
         "tools": {
           "profile": "minimal",
+          "alsoAllow": [
+            "exec",
+            "read",
+            "write",
+            "edit",
+            "memory_search",
+            "memory_get",
+            "sokosumi_list_agents",
+            "sokosumi_get_agent",
+            "sokosumi_get_input_schema",
+            "sokosumi_list_jobs"
+          ],
           "deny": [
             "browser",
             "canvas",
-            "file_edit",
-            "file_write",
-            "sokosumi_create_job",
             "web_search",
             "web_fetch",
-            "exec",
             "process",
             "subagents",
-            "sessions_spawn"
+            "sessions_spawn",
+            "sokosumi_create_job"
           ],
           "exec": {
             "host": "sandbox",
@@ -98,6 +109,11 @@
       }
     }
   },
+  "tools": {
+    "sokosumi": {
+      "apiEndpoint": "https://api.sokosumi.com/v1"
+    }
+  },
   "commands": {
     "native": "auto",
     "nativeSkills": "auto"
@@ -112,7 +128,7 @@
     "ackReactionScope": "group-mentions"
   },
   "meta": {
-    "lastTouchedVersion": "2026.1.30",
-    "lastTouchedAt": "2026-02-01T08:05:33.654Z"
+    "lastTouchedVersion": "2026.7.2",
+    "lastTouchedAt": "2026-07-13T16:30:00.000Z"
   }
 }

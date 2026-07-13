@@ -1153,6 +1153,14 @@ export const ToolsSchema = z
       })
       .strict()
       .optional(),
+    /** Sokosumi marketplace integration for hiring sub-agents (Logan fork). */
+    sokosumi: z
+      .object({
+        apiEndpoint: z.string().optional(),
+        apiKey: SecretInputSchema.optional().register(sensitive),
+      })
+      .strict()
+      .optional(),
   })
   .strict()
   .superRefine((value, ctx) => {

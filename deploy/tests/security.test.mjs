@@ -383,11 +383,21 @@ describe("Secret Leakage — openclaw.json", () => {
   const config = JSON.parse(readFileSync(join(repoRoot, "openclaw.json"), "utf-8"));
 
   it("redactPatterns cover MOLTBOOK_API_KEY", () => {
-    assert.ok(config.logging.redactPatterns.includes("MOLTBOOK_API_KEY"));
+    assert.ok(
+      config.logging.redactPatterns.some((p) => p.includes("MOLTBOOK_API_KEY")),
+    );
   });
 
   it("redactPatterns cover OPENAI_API_KEY", () => {
-    assert.ok(config.logging.redactPatterns.includes("OPENAI_API_KEY"));
+    assert.ok(
+      config.logging.redactPatterns.some((p) => p.includes("OPENAI_API_KEY")),
+    );
+  });
+
+  it("redactPatterns cover SOKOSUMI_API_KEY", () => {
+    assert.ok(
+      config.logging.redactPatterns.some((p) => p.includes("SOKOSUMI_API_KEY")),
+    );
   });
 
   it("env vars have no real values", () => {
@@ -510,8 +520,26 @@ describe("Docker Security — openclaw.json Sandbox", () => {
     assert.ok(agent.sandbox.docker.capDrop.includes("ALL"));
   });
 
-  it("network is none", () => {
-    assert.equal(agent.sandbox.docker.network, "none");
+  it("network is proxy-isolated oc-sandbox-net", () => {
+    assert.equal(agent.sandbox.docker.network, "oc-sandbox-net");
+  });
+
+  it("sandbox image is tagged bookworm-slim", () => {
+    assert.equal(agent.sandbox.docker.image, "openclaw-sandbox:bookworm-slim");
+  });
+
+  it("sandbox user is sandboxuser", () => {
+    assert.equal(agent.sandbox.docker.user, "sandboxuser");
+  });
+
+  it("alsoAllow grants exec for curl-based Moltbook access", () => {
+    assert.ok(agent.tools.alsoAllow.includes("exec"));
+  });
+
+  it("denies high-risk tools and paid Sokosumi job creation", () => {
+    for (const name of ["browser", "canvas", "sessions_spawn", "sokosumi_create_job"]) {
+      assert.ok(agent.tools.deny.includes(name), `expected deny: ${name}`);
+    }
   });
 
   it("pidsLimit is <= 256", () => {

@@ -27,15 +27,15 @@ The bug: Moltbook's rate limiter middleware runs before the auth middleware in `
 ## Architecture
 
 ```
-Single agent  ·  Single skill  ·  GPT-5 Nano  ·  Hourly heartbeats  ·  Hardened Docker sandbox + proxy sidecar
+Single agent  ·  Single skill  ·  Local Gemma 4 (Ollama)  ·  Hourly heartbeats  ·  Hardened Docker sandbox + proxy sidecar
 ```
 
 - Agent: `logan`, default and only agent
-- Model: `openai/gpt-5-nano` (cost-optimized; weaker prompt injection resistance mitigated by sandbox + tool policy)
+- Model: `ollama/gemma4:e2b` primary with larger Gemma 4 fallbacks (local-first; cloud models can be swapped in `openclaw.json`)
 - Heartbeat: every 1 hour, 24/7. 6 active steps per cycle (status check, feed scan, post check, create post, DM check, memory update)
 - RAG: hybrid BM25 + vector search via OpenClaw `memorySearch` (OpenAI `text-embedding-3-small`, 70/30 vector/text weighting, 50K entry cache)
-- Sandbox: Docker with read-only root, all capabilities dropped, seccomp syscall filter, non-root user, 512MB RAM, PID limit 256, tmpfs on `/tmp` `/var/tmp` `/run`. Network egress only via proxy sidecar (Squid on 172.30.0.10:3128, domain allowlist, rate-limited at 64KB/s).
-- Tool policy: minimal profile. Browser, canvas, file_edit, file_write denied. Exec allowlisted to `curl` only
+- Sandbox: Docker image `openclaw-sandbox:bookworm-slim` (user `sandboxuser`), read-only root, all capabilities dropped, seccomp syscall filter, 512MB RAM, PID limit 256, tmpfs on `/tmp` `/var/tmp` `/run`. Network egress only via proxy sidecar (Squid on 172.30.0.10:3128, domain allowlist, rate-limited at 64KB/s).
+- Tool policy: `minimal` profile + `alsoAllow` for `exec`, `read`/`write`/`edit`, `memory_*`, and read-only Sokosumi tools. Deny browser/canvas/web_*/process/subagents/sessions_spawn/`sokosumi_create_job`. Exec allowlisted to `curl` only.
 - API interaction: bash + curl through proxy (no MCP server, matches OpenClaw conventions)
 - Skills: auto-discovered from `workspace/skills/` directory
 
@@ -340,7 +340,9 @@ From your WSL2 terminal, inside the repo:
 
 ```bash
 cd ~/dancesWithClaws
-docker build -t openclaw-sandbox -f Dockerfile.sandbox .
+# Tag must match OpenClaw default + openclaw.json (bookworm-slim)
+docker build -t openclaw-sandbox:bookworm-slim -f Dockerfile.sandbox .
+# Or: bash scripts/sandbox-setup.sh  (prefers Dockerfile.sandbox on this fork)
 docker build -t openclaw-proxy -f Dockerfile.proxy .
 ```
 
@@ -352,7 +354,7 @@ Verify:
 docker images | grep openclaw
 ```
 
-You should see both `openclaw-sandbox` and `openclaw-proxy`.
+You should see `openclaw-sandbox:bookworm-slim` and `openclaw-proxy`.
 
 ### Step 7: create Docker network and start proxy
 
@@ -448,7 +450,7 @@ Test the proxy allowlist from inside the sandbox:
 
 ```bash
 # Get the sandbox container name
-SANDBOX=$(docker ps --filter ancestor=openclaw-sandbox --format "{{.Names}}")
+SANDBOX=$(docker ps --filter ancestor=openclaw-sandbox:bookworm-slim --format "{{.Names}}")
 
 # This should succeed (moltbook.com is allowlisted)
 docker exec "$SANDBOX" curl -s -o /dev/null -w "%{http_code}" https://moltbook.com
@@ -481,12 +483,15 @@ All agent configuration lives in `openclaw.json` at the repo root. Key settings:
 
 | Setting                     | Value                                    | Why                                               |
 | --------------------------- | ---------------------------------------- | ------------------------------------------------- |
-| `model.primary`             | `openai/gpt-5-nano`                      | Cheapest viable model for high-volume posting     |
+| `model.primary`             | `ollama/gemma4:e2b`                      | Local-first primary; larger Gemma 4 fallbacks     |
 | `heartbeat.every`           | `1h`                                     | 24 cycles/day, 24/7                               |
 | `sandbox.mode`              | `all`                                    | Every tool call runs inside Docker                |
+| `sandbox.docker.image`      | `openclaw-sandbox:bookworm-slim`         | Matches runtime default tag + hardened Dockerfile |
+| `sandbox.docker.user`       | `sandboxuser`                            | Non-root user in `Dockerfile.sandbox`             |
 | `sandbox.docker.network`    | `oc-sandbox-net`                         | Bridge network; egress only via proxy sidecar     |
-| `tools.profile`             | `minimal`                                | Smallest possible tool surface                    |
-| `tools.deny`                | `browser, canvas, file_edit, file_write` | Only bash+curl needed                             |
+| `tools.profile`             | `minimal` + `alsoAllow`                  | Tight base surface; grant only what Logan needs   |
+| `tools.alsoAllow`           | exec, read/write/edit, memory_*, sokosumi (read) | Moltbook curl, memory, marketplace browse   |
+| `tools.deny`                | browser, canvas, web_*, process, spawn, create_job | Block high-risk tools                    |
 | `tools.exec.safeBins`       | `["curl"]`                               | Allowlisted executables                           |
 | `memorySearch.provider`     | `openai`                                 | Uses `text-embedding-3-small` for embeddings      |
 | `memorySearch.query.hybrid` | `vector: 0.7, text: 0.3`                 | BM25 + semantic blend                             |
@@ -577,7 +582,7 @@ All return HTTP 401 due to middleware ordering issue. Tracked in [Issue #34](htt
 
 ### Why this matters
 
-Logan runs GPT-5 Nano, a cost-optimized model with weaker prompt injection resistance than larger models. He ingests content from other agents on Moltbook, which means every post in his feed is a potential attack vector. If someone crafts a malicious post that tricks Logan into running arbitrary commands, the sandbox is the only thing standing between that attacker and the host machine, the API keys, the local network, and the Windows desktop.
+Logan runs local Gemma 4 via Ollama by default (with larger Gemma fallbacks). Smaller local models still have weaker prompt injection resistance than frontier cloud models. He ingests content from other agents on Moltbook, which means every post in his feed is a potential attack vector. If someone crafts a malicious post that tricks Logan into running arbitrary commands, the sandbox is the only thing standing between that attacker and the host machine, the API keys, the local network, and the Windows desktop.
 
 The original sandbox was decent for a demo: read-only root, capabilities dropped, PID and memory limits. But it had a glaring hole. The network was set to `none`, yet `curl` was allowlisted as an executable. That meant the bot could not actually reach the APIs it needed to function. Switching the network on would give it unrestricted internet access. There was no middle ground.
 

@@ -1,4 +1,10 @@
-FROM debian:bookworm-slim@sha256:98f4b71de414932439ac6ac690d7060df1f27161073c5036a7553723881bffbe
+# Logan hardened sandbox image.
+# Tag as openclaw-sandbox:bookworm-slim to match OpenClaw runtime defaults.
+# Build: docker build -t openclaw-sandbox:bookworm-slim -f Dockerfile.sandbox .
+#
+# Proxy env vars are set AFTER package install so apt works at build time
+# (the proxy container is not available during image build).
+FROM debian:bookworm-slim@sha256:f9c6a2fd2ddbc23e336b6257a5245e31f996953ef06cd13a59fa0a1df2d5c252
 
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -15,15 +21,15 @@ RUN apt-get update \
   && rm -f /usr/bin/apt* /usr/bin/dpkg* \
   && rm -rf /usr/share/doc /usr/share/man
 
-RUN useradd -r -s /bin/bash -d /workspace sandboxuser
+# Single non-root user matching openclaw.json sandbox.docker.user
+RUN useradd --create-home --shell /bin/bash -d /home/sandboxuser sandboxuser
 
+# Runtime egress via Squid sidecar (compose service "proxy" / 172.30.0.10)
 ENV http_proxy=http://proxy:3128
 ENV https_proxy=http://proxy:3128
 ENV no_proxy=localhost,127.0.0.1
-USER sandboxuser
 
-RUN useradd --create-home --shell /bin/bash sandbox
-USER sandbox
-WORKDIR /home/sandbox
+USER sandboxuser
+WORKDIR /home/sandboxuser
 
 CMD ["sleep", "infinity"]

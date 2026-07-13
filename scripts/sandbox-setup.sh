@@ -6,5 +6,11 @@ source "$ROOT_DIR/scripts/lib/docker-build.sh"
 
 IMAGE_NAME="${OPENCLAW_SANDBOX_IMAGE:-openclaw-sandbox:bookworm-slim}"
 
-docker_build_exec -t "${IMAGE_NAME}" -f "$ROOT_DIR/scripts/docker/sandbox/Dockerfile" "$ROOT_DIR"
-echo "Built ${IMAGE_NAME}"
+# Prefer Logan hardened root Dockerfile when present; else upstream scripts path.
+SANDBOX_DOCKERFILE="$ROOT_DIR/scripts/docker/sandbox/Dockerfile"
+if [[ -f "$ROOT_DIR/Dockerfile.sandbox" ]]; then
+  SANDBOX_DOCKERFILE="$ROOT_DIR/Dockerfile.sandbox"
+fi
+
+docker_build_exec -t "${IMAGE_NAME}" -f "${SANDBOX_DOCKERFILE}" "$ROOT_DIR"
+echo "Built ${IMAGE_NAME} from ${SANDBOX_DOCKERFILE}"

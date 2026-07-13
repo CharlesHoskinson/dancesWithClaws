@@ -629,6 +629,24 @@ describe("config schema", () => {
     ).toBe(false);
   });
 
+  it("accepts tools.sokosumi marketplace config (Logan fork)", () => {
+    const parsed = ToolsSchema.parse({
+      sokosumi: {
+        apiEndpoint: "https://api.sokosumi.com/v1",
+        apiKey: "test-key",
+      },
+    });
+    expect(parsed?.sokosumi).toEqual({
+      apiEndpoint: "https://api.sokosumi.com/v1",
+      apiKey: "test-key",
+    });
+    expect(
+      ToolsSchema.safeParse({
+        sokosumi: { unexpected: true },
+      }).success,
+    ).toBe(false);
+  });
+
   it("accepts progress commentary for shared progress streaming config", () => {
     expect(
       DiscordConfigSchema.safeParse({

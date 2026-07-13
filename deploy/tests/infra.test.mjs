@@ -155,10 +155,13 @@ void describe("deploy-logan.yml workflow", () => {
     assert.match(workflow, /^name:/m);
   });
 
-  it("triggers on push to master", () => {
+  it("triggers on push to main or custom", () => {
     assert.ok(workflow.includes("push:"));
     assert.ok(workflow.includes("branches:"));
-    assert.ok(workflow.includes("master"));
+    assert.ok(
+      workflow.includes("main") && workflow.includes("custom"),
+      "deploy should track main and custom (not stale master)",
+    );
   });
 
   it("supports manual trigger via workflow_dispatch", () => {

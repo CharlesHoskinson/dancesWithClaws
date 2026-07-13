@@ -2,7 +2,7 @@ name: Deploy Logan
 
 on:
   push:
-    branches: [master]
+    branches: [main, custom]
   workflow_dispatch:
 
 jobs:
@@ -27,7 +27,14 @@ jobs:
           key: ${{ secrets.LOGAN_VM_SSH_KEY }}
           script: |
             cd /opt/logan/dancesWithClaws
-            GIT_SSH_COMMAND='ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new' git pull origin master
+            # Prefer main, fall back to custom (default branch on this fork).
+            BRANCH="${DEPLOY_BRANCH:-main}"
+            if ! GIT_SSH_COMMAND='ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new' git fetch origin "$BRANCH"; then
+              BRANCH=custom
+              GIT_SSH_COMMAND='ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new' git fetch origin "$BRANCH"
+            fi
+            git checkout "$BRANCH"
+            GIT_SSH_COMMAND='ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new' git pull origin "$BRANCH"
             cd deploy
             docker compose -f docker-compose.logan.yml build
             docker compose -f docker-compose.logan.yml up -d --remove-orphans
