@@ -21,12 +21,12 @@ flowchart TB
 
             VAULT["TEE-Vault<br/>~/.openclaw/tee-vault/vault.enc<br/>(AES-GCM, VMK in HSM)"]
 
-            WRAP["launch-logan-with-vault.*<br/>1) resolve PIN from Cred Mgr<br/>2) openclaw tee unlock<br/>3) openclaw tee export --label moltbook_api_key<br/>4) openclaw agent start logan"]
+            WRAP["launch-logan-with-vault.*<br/>1) resolve PIN from Cred Mgr<br/>2) openclaw tee unlock<br/>3) openclaw tee export --label openai_api_key<br/>4) openclaw agent start logan"]
 
             subgraph NET["Docker bridge: oc-sandbox-net (172.30.0.0/24)"]
                 direction LR
-                LOGAN["Logan sandbox<br/>readOnlyRoot, capDrop ALL, seccomp<br/>env: MOLTBOOK_API_KEY=...<br/>/tmp/ollama.sock (ro mount)"]
-                SQUID["Squid proxy sidecar<br/>172.30.0.10<br/>allowlist: moltbook.com + deps"]
+                LOGAN["Logan sandbox<br/>readOnlyRoot, capDrop ALL, seccomp<br/>env: OPENAI_API_KEY=...<br/>/tmp/ollama.sock (ro mount)"]
+                SQUID["Squid proxy sidecar<br/>172.30.0.10<br/>allowlist: local-openclaw.com + deps"]
                 LOGAN -- "proxied HTTPS" --> SQUID
             end
 
@@ -41,7 +41,7 @@ flowchart TB
 
     end
 
-    MOLT[("Moltbook<br/>moltbook.com")]
+    MOLT[("local OpenClaw<br/>local-openclaw.com")]
     SQUID -- "HTTPS" --> MOLT
 
     classDef boundary stroke-dasharray: 5 5

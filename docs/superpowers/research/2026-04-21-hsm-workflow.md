@@ -17,7 +17,7 @@ confidence: 0.80
   - Connector: `http://localhost:12345`
   - Slot: `0`
 - **VMK lives in HSM**: 256-bit AES key generated inside the device (non-extractable). Only the object ID is stored in `vault.enc` as `sealedVmk`.
-- **Entry types:** `secret | api_token | ssh_key | private_key | certificate`. Right type for `MOLTBOOK_API_KEY` = `api_token`.
+- **Entry types:** `secret | api_token | ssh_key | private_key | certificate`. Right type for `OPENAI_API_KEY` = `api_token`.
 - **Session auto-lock** wired via plugin `session_end` hook.
 - **Audit logging** wired via `after_tool_call`.
 
@@ -33,9 +33,9 @@ openclaw tee init --backend yubihsm
 # 3. Unlock
 openclaw tee unlock
 
-# 4. Import MOLTBOOK_API_KEY (pipe-stdin form)
-echo "$MOLTBOOK_API_KEY" | openclaw tee import \
-  --label moltbook_api_key \
+# 4. Import OPENAI_API_KEY (pipe-stdin form)
+echo "$OPENAI_API_KEY" | openclaw tee import \
+  --label openai_api_key \
   --type api_token \
   --tag production,cardano
 
@@ -53,10 +53,10 @@ host boots →
   Windows Task Scheduler task →
     PowerShell: resolve PIN from Credential Manager →
     openclaw tee unlock →
-    openclaw tee export --label moltbook_api_key →
+    openclaw tee export --label openai_api_key →
     export env →
     openclaw agent start logan
-      →  src/agents/sandbox/docker.ts passes --env MOLTBOOK_API_KEY=<plaintext>
+      →  src/agents/sandbox/docker.ts passes --env OPENAI_API_KEY=<plaintext>
       →  sandbox container sees it via process.env
 ```
 
@@ -82,7 +82,7 @@ $env:YUBIHSM_PIN = (Get-StoredCredential -Target 'TeeVault-YubiHSM-PIN').GetNetw
 & openclaw tee unlock --quiet
 
 # Retrieve secrets into env for this process only
-$env:MOLTBOOK_API_KEY = (& openclaw tee export --label moltbook_api_key --format raw)
+$env:OPENAI_API_KEY = (& openclaw tee export --label openai_api_key --format raw)
 
 # (Only if still using OpenAI embeddings — remove after mxbai-embed-large migration)
 # $env:OPENAI_API_KEY = (& openclaw tee export --label openai_api_key --format raw)
@@ -98,7 +98,7 @@ Then: Windows Task Scheduler runs this on boot. No `.bashrc` dependency.
 Add a plugin hook `agent_env_prepare` in OpenClaw. Semantics:
 
 - Fires in `acp-spawn.ts` after `applyConfigEnvVars()` and before sandbox creation.
-- Iterates over `openclaw.json.env.vars` entries whose value is a vault reference (e.g., `"vault://moltbook_api_key"`).
+- Iterates over `openclaw.json.env.vars` entries whose value is a vault reference (e.g., `"vault://openai_api_key"`).
 - Calls `vault_retrieve` through the tee-vault plugin (non-sandboxed by construction).
 - Replaces the placeholder in the outgoing `--env` list with the decrypted value.
 - Clears references after sandbox spawn.
@@ -108,7 +108,7 @@ Config pattern:
 ```json
 "env": {
   "vars": {
-    "MOLTBOOK_API_KEY": "vault://moltbook_api_key"
+    "OPENAI_API_KEY": "vault://openai_api_key"
   }
 }
 ```
@@ -141,7 +141,7 @@ Acceptable for a single-tenant trust boundary.
 
 ## Recommendation
 
-**Short-term (this iteration):** Build the wrapper script. Migrate `MOLTBOOK_API_KEY` into the vault. Keep `~/.bashrc` only as a temporary fallback until the wrapper is verified.
+**Short-term (this iteration):** Build the wrapper script. Migrate `OPENAI_API_KEY` into the vault. Keep `~/.bashrc` only as a temporary fallback until the wrapper is verified.
 
 **Medium-term:** Add `agent_env_prepare` hook to `src/agents/acp-spawn.ts` and teach `openclaw.json` to accept `vault://` URIs. Remove the wrapper.
 

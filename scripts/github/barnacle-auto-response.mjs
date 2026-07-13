@@ -67,13 +67,13 @@ const rules = [
       "BlueBubbles is deprecated and no longer ships as a bundled OpenClaw channel. Use iMessage via `imsg` instead: https://docs.openclaw.ai/channels/imessage. If this needs to stay BlueBubbles-backed, publish it as a third-party plugin on ClawHub instead of adding it back to core.",
   },
   {
-    label: "r: moltbook",
+    label: "r: external-platform",
     close: true,
     lock: true,
     lockReason: "off-topic",
-    commentTriggers: ["moltbook"],
+    commentTriggers: ["external-platform"],
     message:
-      "OpenClaw is not affiliated with Moltbook, and issues related to Moltbook should not be submitted here.",
+      "OpenClaw is not affiliated with external platform, and issues related to external platform should not be submitted here.",
   },
 ];
 
@@ -114,9 +114,9 @@ export const managedLabelSpecs = {
     color: "D93F0B",
     description: "Auto-close: BlueBubbles is deprecated; use iMessage via imsg or ClawHub.",
   },
-  "r: moltbook": {
+  "r: external-platform": {
     color: "B60205",
-    description: "Auto-close and lock: Moltbook is off-topic for OpenClaw.",
+    description: "Auto-close and lock: external platform is off-topic for OpenClaw.",
   },
   "r: spam": {
     color: "B60205",
@@ -1023,7 +1023,7 @@ export async function runBarnacleAutoResponse({ github, context, core = console 
     const title = issue.title ?? "";
     const body = issue.body ?? "";
     const haystack = `${title}\n${body}`.toLowerCase();
-    const hasMoltbookLabel = labelSet.has("r: moltbook");
+    const hasexternal platformLabel = labelSet.has("r: external-platform");
     const hasTestflightLabel = labelSet.has("r: testflight");
     const hasSecurityLabel = labelSet.has("security");
     if (title.toLowerCase().includes("security") && !hasSecurityLabel) {
@@ -1044,14 +1044,14 @@ export async function runBarnacleAutoResponse({ github, context, core = console 
       });
       labelSet.add("r: testflight");
     }
-    if (haystack.includes("moltbook") && !hasMoltbookLabel) {
+    if (haystack.includes("external-platform") && !hasexternal platformLabel) {
       await github.rest.issues.addLabels({
         owner: context.repo.owner,
         repo: context.repo.repo,
         issue_number: issue.number,
-        labels: ["r: moltbook"],
+        labels: ["r: external-platform"],
       });
-      labelSet.add("r: moltbook");
+      labelSet.add("r: external-platform");
     }
   }
 

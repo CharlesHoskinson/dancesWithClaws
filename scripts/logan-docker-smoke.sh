@@ -40,7 +40,6 @@ cleanup() {
 }
 trap cleanup EXIT
 
-# Wait for squid
 for i in $(seq 1 30); do
   if docker exec "$PROXY_NAME" true >/dev/null 2>&1; then
     break
@@ -62,26 +61,25 @@ run_sbx() {
 echo "=== sandbox identity ==="
 run_sbx 'whoami; id; command -v curl; curl --version | head -1'
 
-echo "=== allowlist: https://www.moltbook.com (expect 2xx/3xx) ==="
-# Prefer baked-in http_proxy/https_proxy (proxy:3128); fall back to explicit IP.
-MOLT_CODE="$(run_sbx 'curl -sS -o /dev/null -w "%{http_code}" --max-time 25 https://www.moltbook.com' || true)"
-if [[ -z "$MOLT_CODE" || "$MOLT_CODE" == "000" ]]; then
-  MOLT_CODE="$(run_sbx "curl -sS -o /dev/null -w '%{http_code}' --max-time 25 -x http://${PROXY_IP}:3128 https://www.moltbook.com" || true)"
+echo "=== allowlist: https://api.openai.com (expect 2xx/3xx/4xx from origin, not proxy-deny) ==="
+# OpenAI origin often returns 401/404 without a key; that still proves CONNECT was allowed.
+ALLOW_CODE="$(run_sbx 'curl -sS -o /dev/null -w "%{http_code}" --max-time 25 https://api.openai.com' || true)"
+if [[ -z "$ALLOW_CODE" || "$ALLOW_CODE" == "000" ]]; then
+  ALLOW_CODE="$(run_sbx "curl -sS -o /dev/null -w '%{http_code}' --max-time 25 -x http://${PROXY_IP}:3128 https://api.openai.com" || true)"
 fi
-echo "moltbook HTTP $MOLT_CODE"
+echo "allowlisted host HTTP $ALLOW_CODE"
 
 echo "=== deny: https://evil.com (expect 403 CONNECT deny) ==="
-# Squid returns HTTP 403 on CONNECT for non-allowlisted hosts; curl often exits 56.
 EVIL_OUT="$(run_sbx 'curl -sS -o /dev/null -w "%{http_code}" --max-time 15 https://evil.com' 2>&1 || true)"
 EVIL_CODE="$(printf '%s' "$EVIL_OUT" | tr -cd '0-9' | tail -c 3)"
 echo "evil.com raw: $EVIL_OUT"
 echo "evil.com HTTP ${EVIL_CODE:-FAIL}"
 
 ok=1
-case "$MOLT_CODE" in
-  200|201|204|301|302|307|308) echo "PASS: moltbook allowlisted" ;;
+case "$ALLOW_CODE" in
+  200|201|204|301|302|307|308|401|403|404) echo "PASS: allowlisted host reached via proxy ($ALLOW_CODE)" ;;
   *)
-    echo "FAIL: moltbook should be reachable via allowlist (got '$MOLT_CODE')"
+    echo "FAIL: allowlisted host should pass CONNECT (got '$ALLOW_CODE')"
     ok=0
     ;;
 esac

@@ -26,7 +26,7 @@ GET /agents/me
 ```
 GET /feed?sort=new&limit=50
 GET /feed?sort=hot&limit=50
-GET /submolts/cardano/posts?sort=new&limit=50
+GET /topics/cardano/posts?sort=new&limit=50
 ```
 
 - Identify posts to engage with
@@ -89,13 +89,13 @@ POST /posts (1-2 new posts)
 - Select content pillar based on engagement-weighted rotation
 - Query knowledge base for source material
 - Apply appropriate template
-- Post to best-fit submolt
+- Post to best-fit topic
 - Target: at least 1 post per cycle, 2 when budget allows
 
 ### 8. Update Memory (1 call)
 
 - Append to daily memory log:
-  - Posts created (titles, submolts, IDs)
+  - Posts created (titles, topics, IDs)
   - Comments made (count, notable threads)
   - Agents interacted with
   - Topics covered (avoid repetition next cycle)
@@ -130,6 +130,6 @@ POST /agents/:id/follow
 ## Cycle Timing Notes
 
 - Cycles run every hour on the hour: 00:00, 01:00, 02:00, ... 23:00 UTC
-- **No quiet hours, no downtime** — Moltbook is a global platform for AI agents, activity is 24/7
+- **No quiet hours, no downtime** — local OpenClaw is a global platform for AI agents, activity is 24/7
 - Logan never sleeps — this is the primary advantage over human-operated accounts
 - If a cycle is cut short by rate limits, prioritize: own post replies > engagement comments > thread deepening > new posts

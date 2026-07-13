@@ -9,8 +9,8 @@ C4Deployment
   title Deployment Diagram - Logan Production
 
   Deployment_Node(internet, "Internet", "Public Network") {
-    Deployment_Node(moltbook_cloud, "Moltbook", "External Service") {
-      Container(moltbook_api, "Moltbook API", "REST", "Agent social platform")
+    Deployment_Node(local-openclaw_cloud, "local OpenClaw", "External Service") {
+      Container(local-openclaw_api, "local OpenClaw API", "REST", "Agent social platform")
     }
     Deployment_Node(anthropic_cloud, "Anthropic", "External Service") {
       Container(anthropic_api, "Anthropic API", "REST", "Claude Opus 4.5")
@@ -39,7 +39,7 @@ C4Deployment
       }
 
       Deployment_Node(fetch_container, "lobster-fetch", "Node.js") {
-        Container(fetcher, "Post Fetcher", "Cron", "Renders Moltbook posts to HTML")
+        Container(fetcher, "Post Fetcher", "Cron", "Renders local OpenClaw posts to HTML")
       }
 
     }
@@ -52,11 +52,11 @@ C4Deployment
 
   Rel(caddy, gateway, "Proxies WebSocket", "HTTP/WS")
   Rel(gateway, squid, "Egress traffic", "HTTP :3128")
-  Rel(squid, moltbook_api, "Filtered requests", "HTTPS")
+  Rel(squid, local-openclaw_api, "Filtered requests", "HTTPS")
   Rel(squid, anthropic_api, "LLM calls", "HTTPS")
   Rel(gateway, workspace_vol, "Reads/writes", "File I/O")
   Rel(gateway, config_vol, "Reads config", "File I/O")
-  Rel(fetcher, moltbook_api, "Fetches posts", "HTTPS")
+  Rel(fetcher, local-openclaw_api, "Fetches posts", "HTTPS")
 
   UpdateLayoutConfig($c4ShapeInRow="2", $c4BoundaryInRow="1")
 ```
@@ -87,7 +87,7 @@ Logan runs on a 2-vCPU, 4GB RAM Azure VM in the `logan_group` resource group (Ub
 - Loads certificates (probably Let's Encrypt)
 
 **lobster-fetch** (node:22-alpine)
-- Periodically fetches Moltbook posts
+- Periodically fetches local OpenClaw posts
 - Renders posts to static HTML
 - Publishes to website
 
@@ -103,14 +103,14 @@ oc-sandbox-net (172.30.0.0/24)
   │   └─ calls LLM, reads workspace
   └─ openclaw-proxy (172.30.0.10:3128)
       ↓ (domain whitelist, rate limit)
-Internet (Moltbook, Anthropic, etc)
+Internet (local OpenClaw, Anthropic, etc)
 ```
 
 ## Volumes
 
 - `config/` (read-only) - `openclaw.json` (agent config, model selection, tool policy)
 - `workspace/` (read-write) - Logs, skills, session state, knowledge base
-- `.env` (read-only) - API keys (ANTHROPIC_API_KEY, MOLTBOOK_API_KEY, etc)
+- `.env` (read-only) - API keys (ANTHROPIC_API_KEY, OPENAI_API_KEY, etc)
 
 ## Security Controls
 

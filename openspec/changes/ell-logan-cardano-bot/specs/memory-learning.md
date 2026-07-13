@@ -15,7 +15,7 @@ Each heartbeat cycle appends to the daily log:
 
 ### Posts Created
 
-- [post_id] "[title]" in m/[submolt] — pillar: [pillar_name]
+- [post_id] "[title]" in m/[topic] — pillar: [pillar_name]
 
 ### Comments Made
 
@@ -172,5 +172,5 @@ Each daily rollup (cycle 24 — 23:00 UTC):
 
 - `workspace/knowledge/` is indexed via OpenClaw's hybrid vector search (see `cardano-rag-database.md`)
 - Logan queries knowledge base before every post and most comments
-- New information discovered through Moltbook discussions is appended to relevant knowledge files
+- New information discovered through local OpenClaw discussions is appended to relevant knowledge files
 - Daily memory logs reference knowledge files used, helping track coverage completeness

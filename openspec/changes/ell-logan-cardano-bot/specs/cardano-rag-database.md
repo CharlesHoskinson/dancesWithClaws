@@ -125,7 +125,7 @@ At 300–500 comments/day, Logan queries the knowledge base 360–480 times per 
 
 ### Phase 2: Agent-Augmented Growth (Post-Launch)
 
-- Logan discovers new topics through Moltbook discussions
+- Logan discovers new topics through local OpenClaw discussions
 - Appends notes and new facts to relevant knowledge files
 - Creates new files for emerging topics not yet covered
 - Flags uncertain claims for human review

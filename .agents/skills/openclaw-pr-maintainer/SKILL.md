@@ -129,7 +129,7 @@ Exceptions:
   - `r: too-many-prs`
   - `r: testflight`
   - `r: third-party-extension`
-  - `r: moltbook`
+  - `r: off-topic`
   - `r: spam`
   - `invalid`
   - `dirty` for PRs only

@@ -2,7 +2,7 @@
 
 ## Volume Targets
 
-- **20–30 posts per day** (across all submolts, ~1 per hourly heartbeat)
+- **20–30 posts per day** (across all topics, ~1 per hourly heartbeat)
 - **300–500 comments per day** (engagement + responses + thread deepening + community)
 - **500–800 upvotes per day** (~20-35 per hourly cycle)
 - Every piece of content grounded in knowledge base via `memory_search`
@@ -154,9 +154,9 @@ Here's the Cardano angle: [relevant perspective]
 
 ## Content Distribution
 
-- **`m/cardano`:** 10–12 posts/day (home base, all pillar types)
+- **`Cardano topics`:** 10–12 posts/day (home base, all pillar types)
 - **`m/crypto`:** 5–8 posts/day (broader appeal content, comparisons, education)
 - **`m/blockchain`:** 3–5 posts/day (technical deep dives, consensus topics)
 - **`m/defi`:** 2–3 posts/day (Cardano DeFi ecosystem, protocol comparisons)
 - **`m/governance`:** 1–2 posts/day (Voltaire, on-chain governance)
-- **Comments:** spread across all subscribed submolts based on opportunity
+- **Comments:** spread across all subscribed topics based on opportunity

@@ -38,22 +38,22 @@
 
 ## Phase 4: Skill Development
 
-- [ ] Write `skills/moltbook-cardano/SKILL.md` with frontmatter (name, requires env)
-- [ ] Write `skills/moltbook-cardano/references/cardano-facts.md`
-- [ ] Write `skills/moltbook-cardano/references/moltbook-api.md` — all endpoints with curl examples
-- [ ] Write `skills/moltbook-cardano/references/content-templates.md` — all 7+ templates
-- [ ] Write `skills/moltbook-cardano/references/engagement-rules.md` — full decision tree
+- [ ] Write `skills/local-openclaw-cardano/SKILL.md` with frontmatter (name, requires env)
+- [ ] Write `skills/local-openclaw-cardano/references/cardano-facts.md`
+- [ ] Write `skills/local-openclaw-cardano/references/local-openclaw-api.md` — all endpoints with curl examples
+- [ ] Write `skills/local-openclaw-cardano/references/content-templates.md` — all 7+ templates
+- [ ] Write `skills/local-openclaw-cardano/references/engagement-rules.md` — full decision tree
 - [ ] Verify SKILL.md frontmatter matches OpenClaw AgentSkills format
 
 ## Phase 4.5: Security Hardening
 
 - [ ] Configure sandbox in `openclaw.json`: `readOnlyRoot: true`, `network: "restricted"`, `capDrop: "ALL"`
-- [ ] Configure tool policy: allow only `curl` to `www.moltbook.com`, `memory_search`, workspace read, logs/MEMORY.md write
-- [ ] Enable output redaction for `MOLTBOOK_API_KEY` in logging config
+- [ ] Configure tool policy: allow only `curl` to `www.local-openclaw.com`, `memory_search`, workspace read, logs/MEMORY.md write
+- [ ] Enable output redaction for `OPENAI_API_KEY` in logging config
 - [ ] Set DM policy to `disabled` (no direct message access)
 - [ ] Run `openclaw security audit --deep --fix --agent logan` and resolve all findings
 - [ ] Document Sonnet 4 vs Opus 4.5 model strength tradeoff and monitoring plan
-- [ ] Verify SKILL.md explicitly marks all Moltbook content as untrusted external input
+- [ ] Verify SKILL.md explicitly marks all local OpenClaw content as untrusted external input
 - [ ] Test prompt injection resistance: submit known injection patterns via test posts, verify Logan ignores them
 
 ## Phase 5: Configuration
@@ -61,17 +61,17 @@
 - [ ] Finalize `openclaw.json` with all agent settings
 - [ ] Configure model: `anthropic/claude-sonnet-4`
 - [ ] Configure heartbeat: 1-hour interval, 24/7 operation
-- [ ] Configure env: `MOLTBOOK_API_KEY`
+- [ ] Configure env: `OPENAI_API_KEY`
 - [ ] Configure memorySearch: hybrid enabled, vector 0.7 / text 0.3, cache 50000
-- [ ] Verify skill is registered: `moltbook-cardano`
+- [ ] Verify skill is registered: `local-openclaw-cardano`
 
-## Phase 6: Moltbook Registration & Testing
+## Phase 6: local OpenClaw Registration & Testing
 
-- [ ] Register agent: `POST https://www.moltbook.com/agents/register`
-- [ ] Store API key as `MOLTBOOK_API_KEY` environment variable
-- [ ] Create `m/cardano` submolt
+- [ ] Register agent: `POST https://cardano.org/agents/register`
+- [ ] Store API key as `OPENAI_API_KEY` environment variable
+- [ ] Create `Cardano topics` topic
 - [ ] Subscribe to: `m/crypto`, `m/blockchain`, `m/defi`, `m/governance`, `m/technology`, `m/ai`
-- [ ] Test post creation (single post to `m/cardano`)
+- [ ] Test post creation (single post to `Cardano topics`)
 - [ ] Test comment creation
 - [ ] Test feed scanning and search
 - [ ] Test voting
@@ -111,5 +111,5 @@
 
 - [ ] Weekly: review content quality, update knowledge base with new developments
 - [ ] Monthly: full knowledge base accuracy audit
-- [ ] As needed: adjust volume targets based on Moltbook rate limit changes
+- [ ] As needed: adjust volume targets based on local OpenClaw rate limit changes
 - [ ] As needed: add new content pillars or templates based on engagement patterns

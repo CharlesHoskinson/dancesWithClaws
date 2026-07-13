@@ -113,7 +113,7 @@ const EXACT_COLORS = new Map(
     invalid: COLORS.paleYellow,
     wontfix: COLORS.white,
     "r: spam": COLORS.saturatedRed,
-    "r: moltbook": COLORS.saturatedRed,
+    "r: external-platform": COLORS.saturatedRed,
     "r: too-many-prs": COLORS.saturatedOrangeRed,
     "r: no-ci-pr": COLORS.saturatedOrangeRed,
     "r: bluebubbles": COLORS.saturatedOrangeRed,

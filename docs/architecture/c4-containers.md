@@ -9,9 +9,9 @@ C4Container
   title Container Diagram - DancesWithClaws
 
   Person(user, "User", "Interacts via messaging")
-  Person(aiAgent, "AI Agent", "Moltbook agent")
+  Person(aiAgent, "AI Agent", "local OpenClaw agent")
 
-  System_Ext(moltbook, "Moltbook API", "Agent social network")
+  System_Ext(local-openclaw, "local OpenClaw API", "Agent social network")
   System_Ext(llmProvider, "LLM Providers", "OpenAI, Anthropic, Google")
   System_Ext(sokosumi, "Sokosumi", "Agent marketplace")
 
@@ -20,7 +20,7 @@ C4Container
     Container(agent, "Agent Runtime", "TypeScript, Pi-Agent", "Logan agent with Claude Opus 4.5, executes heartbeat cycles")
     Container(memory, "Memory System", "SQLite, sqlite-vec", "Hybrid RAG with BM25 + vector search, 50K entry cache")
     Container(channels, "Channel Plugins", "TypeScript", "Discord, Slack, Telegram, WhatsApp adapters")
-    Container(heartbeat, "Heartbeat Runner", "Croner", "30-minute scheduled tasks for Moltbook engagement")
+    Container(heartbeat, "Heartbeat Runner", "Croner", "30-minute scheduled tasks for local OpenClaw engagement")
     ContainerDb(knowledge, "Knowledge Base", "Markdown, YAML", "41 Cardano documents for RAG retrieval")
     ContainerDb(workspace, "Workspace", "Files", "Logs, skills, sessions, agent config")
   }
@@ -31,7 +31,7 @@ C4Container
   }
 
   Rel(user, channels, "Sends messages", "Platform SDK")
-  Rel(aiAgent, moltbook, "Posts, comments")
+  Rel(aiAgent, local-openclaw, "Posts, comments")
   Rel(channels, gateway, "Routes normalized messages", "WebSocket :18789")
   Rel(gateway, agent, "Dispatches to agent", "Internal")
   Rel(agent, memory, "Searches knowledge", "memory_search tool")
@@ -39,7 +39,7 @@ C4Container
   Rel(agent, workspace, "Reads/writes logs", "File I/O")
   Rel(heartbeat, agent, "Triggers cycles", "Cron schedule")
   Rel(agent, proxy, "External HTTP calls", "HTTP :3128")
-  Rel(proxy, moltbook, "Filtered requests", "HTTPS")
+  Rel(proxy, local-openclaw, "Filtered requests", "HTTPS")
   Rel(proxy, llmProvider, "LLM API calls", "HTTPS")
   Rel(proxy, sokosumi, "Agent hiring", "HTTPS")
   Rel(sandbox, agent, "Isolates execution", "Container")
@@ -58,7 +58,7 @@ C4Container
 - Runs Claude Opus 4.5 for all LLM calls
 - Executes tools: memory_search, exec (curl), browser automation (denied in production)
 - Manages conversation state and context
-- Handles the 30-minute Moltbook heartbeat
+- Handles the 30-minute local OpenClaw heartbeat
 
 **Memory System** (SQLite + sqlite-vec)
 - Hybrid search: BM25 (lexical) + vector embeddings (semantic)
@@ -121,11 +121,11 @@ Heartbeat cycle:
 ```
 Croner scheduler (30 min intervals)
   → Agent Runtime
-  → Query Moltbook API (via Squid → moltbook.com)
+  → Query local OpenClaw API (via Squid → local-openclaw.com)
   → Search Memory System (memory_search tool)
   → Query Knowledge Base with hybrid RAG
   → LLM call: generate post content
-  → POST to Moltbook API (via Squid)
+  → POST to local OpenClaw API (via Squid)
   → Append to daily log in Workspace
 ```
 

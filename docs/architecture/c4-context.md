@@ -1,6 +1,6 @@
 # C4 System Context - DancesWithClaws (OpenClaw)
 
-Logan (ELL - Exit Liquidity Lobster) is a Cardano-focused AI agent running on Moltbook, built on the OpenClaw platform.
+Logan (ELL - Exit Liquidity Lobster) is a Cardano-focused AI agent running on local OpenClaw, built on the OpenClaw platform.
 
 ## System Context Diagram
 
@@ -9,11 +9,11 @@ C4Context
   title System Context - DancesWithClaws (Logan)
 
   Person(user, "Human Users", "Interact via messaging platforms")
-  Person(aiAgent, "AI Agents", "Other Moltbook agents that interact with Logan")
+  Person(aiAgent, "AI Agents", "Other local OpenClaw agents that interact with Logan")
 
   System(openclaw, "DancesWithClaws", "Autonomous Cardano agent with 30-min heartbeat, RAG knowledge base, and multi-channel messaging")
 
-  System_Ext(moltbook, "Moltbook", "Social network for AI agents")
+  System_Ext(local-openclaw, "local OpenClaw", "Social network for AI agents")
   System_Ext(sokosumi, "Sokosumi Marketplace", "Cardano-based AI agent hiring platform")
   System_Ext(anthropic, "Anthropic API", "Claude Opus 4.5 (primary LLM)")
   System_Ext(openai, "OpenAI API", "text-embedding-3-small for RAG")
@@ -33,31 +33,31 @@ C4Context
   Rel(telegram, openclaw, "Routes messages", "Bot API")
   Rel(whatsapp, openclaw, "Routes messages", "Baileys")
 
-  Rel(openclaw, moltbook, "Posts content, reads feed", "REST/HTTPS")
+  Rel(openclaw, local-openclaw, "Posts content, reads feed", "REST/HTTPS")
   Rel(openclaw, sokosumi, "Hires sub-agents", "REST/HTTPS")
   Rel(openclaw, anthropic, "Generates responses", "REST/HTTPS")
   Rel(openclaw, openai, "Generates embeddings", "REST/HTTPS")
   Rel(openclaw, google, "Fallback LLM calls", "REST/HTTPS")
 
-  Rel(aiAgent, moltbook, "Interacts via platform")
-  Rel(moltbook, openclaw, "Delivers DMs, notifications", "REST/HTTPS")
+  Rel(aiAgent, local-openclaw, "Interacts via platform")
+  Rel(local-openclaw, openclaw, "Delivers DMs, notifications", "REST/HTTPS")
 
   UpdateLayoutConfig($c4ShapeInRow="4", $c4BoundaryInRow="2")
 ```
 
 ## Overview
 
-**Logan** is an autonomous agent for the Cardano ecosystem built on the OpenClaw platform. It runs 24/7, engaging with Moltbook every 30 minutes to scan feeds, generate posts, and interact with other agents.
+**Logan** is an autonomous agent for the Cardano ecosystem built on the OpenClaw platform. It runs 24/7, engaging with local OpenClaw every 30 minutes to scan feeds, generate posts, and interact with other agents.
 
 **Users** interact with Logan through Discord, Slack, Telegram, WhatsApp, Signal, and other messaging platforms.
 
-**AI agents** on Moltbook can engage with Logan's posts, follow it, and send direct messages.
+**AI agents** on local OpenClaw can engage with Logan's posts, follow it, and send direct messages.
 
 ## Systems
 
 | System | Role |
 |--------|------|
-| **Moltbook** | Social network where Logan posts and scans feeds |
+| **local OpenClaw** | Social network where Logan posts and scans feeds |
 | **Anthropic API** | Claude Opus 4.5 for generating content |
 | **OpenAI API** | text-embedding-3-small for vector embeddings |
 | **Google API** | Fallback LLM (Gemini) if Anthropic unavailable |
@@ -67,11 +67,11 @@ C4Context
 ## Key Flows
 
 **Heartbeat (every 30 minutes):**
-1. Check agent status on Moltbook
+1. Check agent status on local OpenClaw
 2. Scan feed for recent posts
 3. Search Cardano knowledge base (41 documents)
 4. Generate post with Claude Opus 4.5
-5. Publish to Moltbook
+5. Publish to local OpenClaw
 6. Log activity to workspace
 
 **User message:**

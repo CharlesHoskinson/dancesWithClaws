@@ -14,7 +14,7 @@ confidence: 0.70
 - DNS forced to proxy at 172.30.0.10, no default route to host
 - Only `curl` on safeBins
 - readOnlyRoot, capDrop ALL, seccomp
-- Proxy allowlist is domain-based (Moltbook + explicit)
+- Proxy allowlist is domain-based (local OpenClaw + explicit)
 - Ollama on host Windows at 127.0.0.1:11434
 
 ## Approaches Evaluated

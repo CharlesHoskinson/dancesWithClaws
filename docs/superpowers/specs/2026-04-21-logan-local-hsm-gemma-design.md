@@ -54,24 +54,24 @@ This design consolidates four independent research tracks into one coherent plan
 │   │                                                              │               │
 │   │  launch-logan-with-vault.ps1 / .sh                           │               │
 │   │     ├─▶ openclaw tee unlock (PIN from Cred Mgr)              │               │
-│   │     ├─▶ openclaw tee export --label moltbook_api_key         │               │
+│   │     ├─▶ openclaw tee export --label openai_api_key         │               │
 │   │     └─▶ openclaw agent start logan (with decrypted env)      │               │
 │   │                                                              │               │
 │   │  Docker network: oc-sandbox-net (172.30.0.0/24)              │               │
 │   │  ┌─────────────────────────┐  ┌─────────────────────────┐    │               │
 │   │  │  Logan sandbox          │  │  Squid proxy sidecar    │    │               │
 │   │  │  (openclaw-sandbox)     │  │  172.30.0.10            │    │               │
-│   │  │  readOnlyRoot           │  │  allowlist: moltbook.com│    │               │
+│   │  │  readOnlyRoot           │  │  allowlist: local-openclaw.com│    │               │
 │   │  │  capDrop: ALL           │  │     + deps              │    │               │
 │   │  │  seccomp                │  │                         │    │               │
 │   │  │                         │  │                         │    │               │
 │   │  │  /tmp/ollama.sock ◀─────┼──┼─────── bind-mount       │    │               │
 │   │  │     (read-only)         │  │                         │    │               │
 │   │  │                         │  │                         │    │               │
-│   │  │  env: MOLTBOOK_API_KEY ─┼──┼─ injected at docker run │    │               │
+│   │  │  env: OPENAI_API_KEY ─┼──┼─ injected at docker run │    │               │
 │   │  └────────────┬────────────┘  └────────────┬────────────┘    │               │
 │   │               │                            │                 │               │
-│   │               └───── Moltbook ─────────────┘                 │               │
+│   │               └───── local OpenClaw ─────────────┘                 │               │
 │   │                     (via Squid only)                         │               │
 │   └──────────────────────────────────────────────────────────────┘               │
 │                                                                                  │
@@ -100,14 +100,14 @@ Authoritative diagram: [diagrams/logan-local-stack.mmd](../diagrams/logan-local-
 - Single entry point invoked by Task Scheduler on boot.
 - Resolves PIN from Windows Credential Manager → sets `YUBIHSM_PIN`.
 - `openclaw tee unlock`.
-- `openclaw tee export --label moltbook_api_key` → `$env:MOLTBOOK_API_KEY`.
+- `openclaw tee export --label openai_api_key` → `$env:OPENAI_API_KEY`.
 - `openclaw agent start logan`.
 
 ### Logan agent (Docker sandbox on `oc-sandbox-net`)
 
-- Consumes `MOLTBOOK_API_KEY` from injected env.
+- Consumes `OPENAI_API_KEY` from injected env.
 - Calls Ollama at `unix:///tmp/ollama.sock` (bind-mounted read-only).
-- Egresses to Moltbook via Squid only.
+- Egresses to local OpenClaw via Squid only.
 
 ### Squid proxy sidecar
 
@@ -121,9 +121,9 @@ Authoritative diagram: [diagrams/logan-local-stack.mmd](../diagrams/logan-local-
 1. Task Scheduler triggers `launch-logan-with-vault.ps1`.
 2. PIN fetched from Credential Manager (never logged, never written to disk).
 3. `openclaw tee unlock` opens PKCS#11 session → HSM returns VMK handle.
-4. `openclaw tee export --label moltbook_api_key` AES-GCM-decrypts the entry using an EEK derived from the VMK.
-5. Decrypted `MOLTBOOK_API_KEY` is placed only in the wrapper's process env.
-6. `openclaw agent start logan` spawns the Docker sandbox with `--env MOLTBOOK_API_KEY=<plaintext>` and `-v /tmp/ollama.sock:/tmp/ollama.sock:ro`.
+4. `openclaw tee export --label openai_api_key` AES-GCM-decrypts the entry using an EEK derived from the VMK.
+5. Decrypted `OPENAI_API_KEY` is placed only in the wrapper's process env.
+6. `openclaw agent start logan` spawns the Docker sandbox with `--env OPENAI_API_KEY=<plaintext>` and `-v /tmp/ollama.sock:/tmp/ollama.sock:ro`.
 7. `session_end` hook re-locks the vault when Logan's session ends.
 
 ### Chat turn
@@ -132,7 +132,7 @@ Authoritative diagram: [diagrams/logan-local-stack.mmd](../diagrams/logan-local-
 2. Agent queries `ollama/gemma4:e2b` via Unix socket → Gemma 4 generates.
 3. If primary fails (model missing, OOM, crash): OpenClaw retries on `ollama/gemma4:e4b` once. No further local fallback.
 4. RAG lookups: `mxbai-embed-large` embeds the query; sqlite-vec index returns top-K; hybrid score 0.75 vector / 0.25 text.
-5. Agent POSTs result to Moltbook via `curl` → Squid → moltbook.com.
+5. Agent POSTs result to local OpenClaw via `curl` → Squid → local-openclaw.com.
 
 ### Failure
 
@@ -152,7 +152,7 @@ Instead of overloading `env.vars` with `vault://` URIs, add a distinct `secrets`
         "id": "logan",
         "env": { "vars": { "LOG_LEVEL": "info" } },
         "secrets": {
-          "MOLTBOOK_API_KEY": { "source": "vault", "label": "moltbook_api_key" },
+          "OPENAI_API_KEY": { "source": "vault", "label": "openai_api_key" },
         },
         "sandbox": {
           "docker": {
@@ -193,13 +193,13 @@ Phase B — Embeddings swap 5. Edit `openclaw.json`: `memorySearch.provider: "ol
 
 Phase C — Fallback tightening 8. Edit `openclaw.json`: `model.primary: "ollama/gemma4:e2b@sha256:<digest>"`, `model.fallbacks: ["ollama/gemma4:e4b@sha256:<digest>"]`, `model.cascadePolicy: "local-only"`. Drop 26b, 31b. (Schema addition to be landed in OpenClaw config types; guard with config-migration note.) 9. Delete `gemma4:26b` / `gemma4:31b` if previously pulled (they were not pulled — nothing to do).
 
-Phase D — HSM bootstrap (with new idempotency + non-interactive flag work) 10. Verify `yubihsm-connector` running (`Get-Service yubihsm-connector` or `curl http://localhost:12345/connector/status`); verify `yubihsm-shell` reachable. 11. `openclaw tee credential store --target hsmPin` (cache PIN in Credential Manager; stored in user context, NOT SYSTEM). 12. `openclaw tee init --backend yubihsm` (must be idempotent — guard with vault-exists check). 13. Add CLI shim: `openclaw tee unlock --pin-from credmgr` (new non-interactive flag, reads Credential Manager directly, no env-var exposure window). Run it. 14. `echo "$MOLTBOOK_API_KEY" | openclaw tee import --label moltbook_api_key --type api_token --tag production,cardano`. 15. Verify: `openclaw tee list` shows entry; `openclaw tee export --label moltbook_api_key` returns correct value. 16. `openclaw tee backup --out /mnt/ironkey/backups/vault.enc.$(date +%Y%m%d)` (off-disk per `mostlySecure.md`). Register recurring backup cron (daily).
+Phase D — HSM bootstrap (with new idempotency + non-interactive flag work) 10. Verify `yubihsm-connector` running (`Get-Service yubihsm-connector` or `curl http://localhost:12345/connector/status`); verify `yubihsm-shell` reachable. 11. `openclaw tee credential store --target hsmPin` (cache PIN in Credential Manager; stored in user context, NOT SYSTEM). 12. `openclaw tee init --backend yubihsm` (must be idempotent — guard with vault-exists check). 13. Add CLI shim: `openclaw tee unlock --pin-from credmgr` (new non-interactive flag, reads Credential Manager directly, no env-var exposure window). Run it. 14. `echo "$OPENAI_API_KEY" | openclaw tee import --label openai_api_key --type api_token --tag production,cardano`. 15. Verify: `openclaw tee list` shows entry; `openclaw tee export --label openai_api_key` returns correct value. 16. `openclaw tee backup --out /mnt/ironkey/backups/vault.enc.$(date +%Y%m%d)` (off-disk per `mostlySecure.md`). Register recurring backup cron (daily).
 
 Phase E — Sandbox wiring + `agent_env_prepare` hook (built now, not deferred) 17. Backup `openclaw.json` → `openclaw.json.bak-<timestamp>` before edit. 18. Modify `openclaw.json` per the config schema block above: add `secrets` block and `sandbox.docker.extraVolumes`. 19. Add `OLLAMA_HOST=unix:///tmp/ollama.sock` to agent env literals. 20. Implement `agent_env_prepare` hook in `src/agents/acp-spawn.ts`: fires after `applyConfigEnvVars()`, before sandbox spawn; iterates `agent.secrets`; calls in-process `vault_retrieve`; merges results into the sandbox-bound env only; never writes to process.env globally. 21. Dry-run: `docker exec <sandbox> curl --unix-socket /tmp/ollama.sock http://localhost/api/tags` → should list models.
 
-Phase F — Wrapper + scheduler 22. Write `scripts/launch-logan-with-vault.ps1` (Windows) and `.sh` (WSL). Wrapper ONLY: - resolves PIN from Credential Manager into `$env:YUBIHSM_PIN` (for this subprocess alone); - waits for Ollama readiness via `until curl --unix-socket /tmp/ollama.sock /api/tags; do sleep 1; done` with 60 s timeout; - runs `openclaw tee unlock --pin-from credmgr` (vault stays unlocked for the hook); - runs `openclaw agent start logan` (hook retrieves secret in-process); - traps exit → `openclaw tee lock`. 23. Register Windows Task Scheduler job → runs on user logon, invokes wrapper. **Run as the logged-in user, NOT SYSTEM.** 24. Remove `MOLTBOOK_API_KEY` export from `~/.bashrc`. 25. Reboot → verify clean startup.
+Phase F — Wrapper + scheduler 22. Write `scripts/launch-logan-with-vault.ps1` (Windows) and `.sh` (WSL). Wrapper ONLY: - resolves PIN from Credential Manager into `$env:YUBIHSM_PIN` (for this subprocess alone); - waits for Ollama readiness via `until curl --unix-socket /tmp/ollama.sock /api/tags; do sleep 1; done` with 60 s timeout; - runs `openclaw tee unlock --pin-from credmgr` (vault stays unlocked for the hook); - runs `openclaw agent start logan` (hook retrieves secret in-process); - traps exit → `openclaw tee lock`. 23. Register Windows Task Scheduler job → runs on user logon, invokes wrapper. **Run as the logged-in user, NOT SYSTEM.** 24. Remove `OPENAI_API_KEY` export from `~/.bashrc`. 25. Reboot → verify clean startup.
 
-Phase G — Verification tasks 26. Send Logan three verification tasks (see below), inspect posts for quality and sourcing. 27. Kill Ollama → verify Logan logs clear error and pauses instead of spinning on fallbacks. 28. Day-1 canary: review first three live Moltbook posts for coherence, on-brand tone, and factual correctness against the Cardano RAG.
+Phase G — Verification tasks 26. Send Logan three verification tasks (see below), inspect posts for quality and sourcing. 27. Kill Ollama → verify Logan logs clear error and pauses instead of spinning on fallbacks. 28. Day-1 canary: review first three live local OpenClaw posts for coherence, on-brand tone, and factual correctness against the Cardano RAG.
 
 ## Observability Runbook
 
@@ -209,7 +209,7 @@ Phase G — Verification tasks 26. Send Logan three verification tasks (see belo
 | Vault HMAC mismatch        | `HMAC.*mismatch\|integrity check failed`                    | `~/.openclaw/logs/tee-vault.log`                                |
 | HSM connector down         | `Cannot reach yubihsm-connector\|localhost:12345`           | Wrapper stderr, Windows Event Log (wrapper task)                |
 | Sandbox can't reach Ollama | `exec.*curl.*unix-socket.*failed`                           | `~/.openclaw/logs/agent-logan.log`                              |
-| Proxy deny (Moltbook etc.) | `403\|ERR_ACCESS_DENIED`                                    | `docker logs openclaw-proxy`                                    |
+| Proxy deny (local OpenClaw etc.) | `403\|ERR_ACCESS_DENIED`                                    | `docker logs openclaw-proxy`                                    |
 | Missed heartbeat           | no `heartbeat fired at <ts>` line in last 90 min            | `~/.openclaw/logs/agent-logan.log`                              |
 
 Add a `openclaw agent status logan` check that prints: last heartbeat timestamp, Ollama reachability, vault lock state, primary/fallback model in use. Run as health-check hook at wrapper start.
@@ -218,10 +218,10 @@ Add a `openclaw agent status logan` check that prints: last heartbeat timestamp,
 
 1. **Local chat:** `docker exec <sandbox> curl --unix-socket /tmp/ollama.sock -d '{"model":"gemma4:e2b","prompt":"hi","stream":false}' http://localhost/api/generate` returns a completion.
 2. **Embeddings:** `docker exec <sandbox> curl --unix-socket /tmp/ollama.sock -d '{"model":"mxbai-embed-large","input":"Ouroboros proof of stake"}' http://localhost/api/embed` returns a 1024-dim vector.
-3. **Moltbook allowed:** `curl -s -o /dev/null -w "%{http_code}" https://moltbook.com` through the sandbox returns `200`.
+3. **local OpenClaw allowed:** `curl -s -o /dev/null -w "%{http_code}" https://cardano.org` through the sandbox returns `200`.
 4. **Evil.com blocked:** same check to `https://evil.com` returns `403`.
 5. **Vault unlock:** `openclaw tee status` shows `unlocked, backend=yubihsm, entries≥1`.
-6. **Secret injection:** `docker exec <sandbox> printenv MOLTBOOK_API_KEY` returns the expected key. (One-time assertion during setup; remove from runbook to avoid leaking via shell history.)
+6. **Secret injection:** `docker exec <sandbox> printenv OPENAI_API_KEY` returns the expected key. (One-time assertion during setup; remove from runbook to avoid leaking via shell history.)
 7. **Fallback path:** stop Ollama, start Logan, verify failure message references both attempted models and then stops — does not wedge on repeated retries.
 8. **Logan task A:** "Summarize eUTxO in 3 sentences with marine analogy." — coherent response, Cardano-correct.
 9. **Logan task B:** "Compare Ouroboros Praos to Genesis in a short post." — sourced from knowledge base (check RAG hit count in logs).

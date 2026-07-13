@@ -1,6 +1,6 @@
 # C4 Dynamic Diagram - Heartbeat Cycle
 
-Shows the 30-minute heartbeat workflow that Logan executes to engage with Moltbook.
+Shows the 30-minute heartbeat workflow that Logan executes to engage with local OpenClaw.
 
 ## Heartbeat Cycle Flow
 
@@ -14,20 +14,20 @@ C4Dynamic
   ContainerDb(knowledge, "Knowledge Base", "Markdown", "41 Cardano docs")
   ContainerDb(workspace, "Workspace", "Files", "Daily logs")
   Container(proxy, "Squid Proxy", "Alpine", "Egress filter")
-  System_Ext(moltbook, "Moltbook API", "Agent platform")
+  System_Ext(local-openclaw, "local OpenClaw API", "Agent platform")
   System_Ext(anthropic, "Anthropic API", "LLM provider")
 
   Rel(heartbeat, agent, "1. Trigger cycle", "Cron event")
   Rel(agent, proxy, "2. GET /agents/me", "Status check")
-  Rel(proxy, moltbook, "2a. Forward request", "HTTPS")
+  Rel(proxy, local-openclaw, "2a. Forward request", "HTTPS")
   Rel(agent, proxy, "3. GET /feed", "Scan posts")
-  Rel(proxy, moltbook, "3a. Forward request", "HTTPS")
+  Rel(proxy, local-openclaw, "3a. Forward request", "HTTPS")
   Rel(agent, memory, "4. Search knowledge", "memory_search")
   Rel(memory, knowledge, "4a. Hybrid query", "BM25 + vector")
   Rel(agent, proxy, "5. Generate post", "LLM call")
   Rel(proxy, anthropic, "5a. Claude Opus 4.5", "HTTPS")
   Rel(agent, proxy, "6. POST /posts", "Publish")
-  Rel(proxy, moltbook, "6a. Create post", "HTTPS")
+  Rel(proxy, local-openclaw, "6a. Create post", "HTTPS")
   Rel(agent, workspace, "7. Log entry", "Append daily log")
 
   UpdateRelStyle(heartbeat, agent, $textColor="green", $offsetY="-20")
@@ -41,11 +41,11 @@ C4Dynamic
 - Agent runtime wakes up
 
 **2. Status check (`GET /api/v1/agents/me`)**
-- Agent queries Moltbook to verify it's still active
+- Agent queries local OpenClaw to verify it's still active
 - Checks for any notifications or direct messages
 
 **3. Feed scan (`GET /api/v1/feed` and `/api/v1/posts`)**
-- Pulls recent posts from the Moltbook feed
+- Pulls recent posts from the local OpenClaw feed
 - Looks for trending topics and recent agent activity
 - Identifies discussion threads to participate in
 
@@ -60,13 +60,13 @@ C4Dynamic
 - Generates a post:
   - Relevant to trending Cardano topics
   - Grounded in factual knowledge from the base
-  - Uses templates from agent skills (Moltbook-Cardano skill)
+  - Uses templates from agent skills (local OpenClaw-Cardano skill)
   - 1-3 paragraphs, relevant hashtags, engagement-friendly
 
 **6. Publish post (`POST /api/v1/posts`)**
-- Publishes the generated post to Moltbook
+- Publishes the generated post to local OpenClaw
 - Rate limit: ~48 posts per day (2 per hour)
-- Moltbook's rate limit is the constraint, not Logan's
+- local OpenClaw's rate limit is the constraint, not Logan's
 
 **7. Log entry**
 - Appends to `logs/daily/YYYY-MM-DD.md` in workspace
@@ -75,7 +75,7 @@ C4Dynamic
 
 ## Failure Modes
 
-Moltbook API unreachable:
+local OpenClaw API unreachable:
 - Retry with exponential backoff
 - Skip cycle if still unavailable
 - Next heartbeat tries again in 30 minutes
@@ -97,6 +97,6 @@ Knowledge search fails:
 
 ## Limits
 
-- Posts: ~48/day on Moltbook (2 per 30-min cycle)
+- Posts: ~48/day on local OpenClaw (2 per 30-min cycle)
 - Anthropic API: per-request limits (Claude Opus quotas)
 - Squid proxy: 64 KB/s sustained bandwidth (per tool call)

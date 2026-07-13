@@ -4,7 +4,7 @@
 
 **Goal:** Run Logan end-to-end on the local host: Gemma 4 (e2b primary, e4b fallback) over Ollama, `mxbai-embed-large` for RAG embeddings, YubiHSM-sealed secrets injected at agent spawn via an in-process hook, sandbox reaches Ollama through a filtered Unix socket.
 
-**Architecture:** Ollama runs inside WSL2 on `/tmp/ollama.sock`. A small socket-filter shim exposes only inference endpoints to the Logan sandbox, which bind-mounts the filter socket read-only. Secrets live in the existing TEE-Vault (`extensions/tee-vault/`). A new `agent_env_prepare` hook in `src/agents/acp-spawn.ts` retrieves `MOLTBOOK_API_KEY` from the vault at spawn time and injects it into the sandbox env. A thin wrapper script (`scripts/launch-logan-with-vault.*`) is the Task Scheduler entry point: it resolves the HSM PIN from Windows Credential Manager, waits for Ollama readiness, unlocks the vault, starts Logan, and re-locks on exit.
+**Architecture:** Ollama runs inside WSL2 on `/tmp/ollama.sock`. A small socket-filter shim exposes only inference endpoints to the Logan sandbox, which bind-mounts the filter socket read-only. Secrets live in the existing TEE-Vault (`extensions/tee-vault/`). A new `agent_env_prepare` hook in `src/agents/acp-spawn.ts` retrieves `OPENAI_API_KEY` from the vault at spawn time and injects it into the sandbox env. A thin wrapper script (`scripts/launch-logan-with-vault.*`) is the Task Scheduler entry point: it resolves the HSM PIN from Windows Credential Manager, waits for Ollama readiness, unlocks the vault, starts Logan, and re-locks on exit.
 
 **Tech Stack:** TypeScript (OpenClaw), Node 22, pnpm, Ollama (SYCL on Intel Arc 140V), YubiHSM 2 via graphene-pk11/PKCS#11, Docker Desktop + WSL2, Squid sidecar, PowerShell for Windows orchestration.
 
@@ -434,9 +434,9 @@ Responsibility: listen on a UDS at `/tmp/ollama-filter.sock`, forward requests t
   describe("SecretsSchema", () => {
     it("parses vault-source entries", () => {
       const parsed = SecretsSchema.parse({
-        MOLTBOOK_API_KEY: { source: "vault", label: "moltbook_api_key" },
+        OPENAI_API_KEY: { source: "vault", label: "openai_api_key" },
       });
-      expect(parsed.MOLTBOOK_API_KEY.source).toBe("vault");
+      expect(parsed.OPENAI_API_KEY.source).toBe("vault");
     });
 
     it("rejects unknown source", () => {
@@ -516,12 +516,12 @@ Responsibility: given an agent config and a running OpenClaw context exposing `v
       const env = await prepareAgentEnv({
         agent: {
           id: "logan",
-          secrets: { MOLTBOOK_API_KEY: { source: "vault", label: "moltbook_api_key" } },
+          secrets: { OPENAI_API_KEY: { source: "vault", label: "openai_api_key" } },
         },
         vaultRetrieve,
       });
-      expect(env.MOLTBOOK_API_KEY).toBe("SECRET_VALUE");
-      expect(vaultRetrieve).toHaveBeenCalledWith("moltbook_api_key");
+      expect(env.OPENAI_API_KEY).toBe("SECRET_VALUE");
+      expect(vaultRetrieve).toHaveBeenCalledWith("openai_api_key");
     });
 
     it("resolves env-source secrets from passed env map", async () => {
@@ -705,12 +705,12 @@ Non-code steps. Commit documentation once the sequence succeeds.
 - [ ] **Step 4:** `openclaw tee unlock --pin-from credmgr` → expect "Vault unlocked".
 - [ ] **Step 5:** Import secret:
   ```bash
-  echo "$MOLTBOOK_API_KEY" | openclaw tee import \
-    --label moltbook_api_key \
+  echo "$OPENAI_API_KEY" | openclaw tee import \
+    --label openai_api_key \
     --type api_token \
     --tag production,cardano
   ```
-- [ ] **Step 6:** Verify: `openclaw tee list` shows entry; `openclaw tee export --label moltbook_api_key` returns correct value.
+- [ ] **Step 6:** Verify: `openclaw tee list` shows entry; `openclaw tee export --label openai_api_key` returns correct value.
 - [ ] **Step 7:** Backup: `openclaw tee backup --out /mnt/d/backups/vault.enc.$(date +%Y%m%d)` (adjust path to off-disk location, e.g., IronKey).
 - [ ] **Step 8:** Commit a short runbook snippet into `docs/superpowers/plans/artifacts/vault-bootstrap-<date>.md`.
 
@@ -729,7 +729,7 @@ Non-code steps. Commit documentation once the sequence succeeds.
 - [ ] **Step 2:** Edit `agents.list[0]`:
   ```json
   "secrets": {
-    "MOLTBOOK_API_KEY": { "source": "vault", "label": "moltbook_api_key" }
+    "OPENAI_API_KEY": { "source": "vault", "label": "openai_api_key" }
   },
   "sandbox": {
     "mode": "all",
@@ -752,7 +752,7 @@ Non-code steps. Commit documentation once the sequence succeeds.
   }
   ```
 - [ ] **Step 3:** Add to `env.vars`: `"OLLAMA_HOST": "unix:///tmp/ollama.sock"`.
-- [ ] **Step 4:** Remove `"MOLTBOOK_API_KEY": ""` and `"OPENAI_API_KEY": ""` from `env.vars` (moved to secrets or unused).
+- [ ] **Step 4:** Remove `"OPENAI_API_KEY": ""` and `"OPENAI_API_KEY": ""` from `env.vars` (moved to secrets or unused).
 - [ ] **Step 5:** Dry-run: `openclaw agent start logan --task once` (or equivalent). Inspect `docker ps` for sandbox. From another terminal:
   ```bash
   SB=$(docker ps --filter ancestor=openclaw-sandbox -q | head -1)
@@ -855,8 +855,8 @@ Non-code steps. Commit documentation once the sequence succeeds.
 
 ### Task 7.4: Clean up `.bashrc`
 
-- [ ] **Step 1:** Remove `export MOLTBOOK_API_KEY=…` from `~/.bashrc` (and `OPENAI_API_KEY` if present).
-- [ ] **Step 2:** `source ~/.bashrc; env | grep -i moltbook` → should be empty.
+- [ ] **Step 1:** Remove `export OPENAI_API_KEY=…` from `~/.bashrc` (and `OPENAI_API_KEY` if present).
+- [ ] **Step 2:** `source ~/.bashrc; env | grep -i local-openclaw` → should be empty.
 - [ ] **Step 3:** This change is on the user's shell config, not checked in.
 
 ---
@@ -876,10 +876,10 @@ Non-code steps. Commit documentation once the sequence succeeds.
   ```
 - [ ] **Step 5:** Proxy allowlist still works:
   ```bash
-  docker exec "$SB" curl -s -o /dev/null -w "%{http_code}" https://moltbook.com   # 200
+  docker exec "$SB" curl -s -o /dev/null -w "%{http_code}" https://cardano.org   # 200
   docker exec "$SB" curl -s -o /dev/null -w "%{http_code}" https://evil.com       # 403
   ```
-- [ ] **Step 6:** `docker exec "$SB" printenv MOLTBOOK_API_KEY | head -c 4` returns the first 4 chars of the expected key. **Note: remove this step from the runbook after first-run verification** (to avoid echoing secrets into shell history).
+- [ ] **Step 6:** `docker exec "$SB" printenv OPENAI_API_KEY | head -c 4` returns the first 4 chars of the expected key. **Note: remove this step from the runbook after first-run verification** (to avoid echoing secrets into shell history).
 
 ### Task 8.2: Ollama-down failure path
 

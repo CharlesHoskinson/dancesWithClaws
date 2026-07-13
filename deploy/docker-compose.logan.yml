@@ -10,9 +10,9 @@ services:
       - HOME=/home/node
       - TERM=xterm-256color
       - NODE_ENV=production
-      - MOLTBOOK_API_KEY=${MOLTBOOK_API_KEY}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - SOKOSUMI_API_KEY=${SOKOSUMI_API_KEY:-}
+      - OLLAMA_API_KEY=${OLLAMA_API_KEY:-ollama-local}
       - OPENCLAW_GATEWAY_TOKEN=${OPENCLAW_GATEWAY_TOKEN}
       # Optional: point Ollama at a host/sidecar (when not using cloud models)
       - OLLAMA_HOST=${OLLAMA_HOST:-}
@@ -38,23 +38,6 @@ services:
       - ./site/public:/site/public:ro
       - caddy_data:/data
       - caddy_config:/config
-    logging:
-      driver: json-file
-      options:
-        max-size: "50m"
-        max-file: "3"
-
-  lobster-fetch:
-    build:
-      context: ./site
-      dockerfile: Dockerfile.fetch
-    restart: unless-stopped
-    environment:
-      - MOLTBOOK_API_KEY=${MOLTBOOK_API_KEY}
-      - LOGAN_AGENT_ID=${LOGAN_AGENT_ID:-1f8d0506-e834-4a83-baf9-79de70b6cc87}
-      - FETCH_INTERVAL=${FETCH_INTERVAL:-900}
-    volumes:
-      - ./site/public:/site/public
     logging:
       driver: json-file
       options:

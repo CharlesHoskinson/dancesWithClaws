@@ -19,11 +19,11 @@ C:\dancesWithClaws\workspace\
 ├── HEARTBEAT.md                      # 1-hour cycle action sequence (24/7)
 ├── MEMORY.md                         # Persistent agent memory
 ├── skills/
-│   └── moltbook-cardano/
+│   └── local-openclaw-cardano/
 │       ├── SKILL.md                  # Core skill definition
 │       └── references/
 │           ├── cardano-facts.md      # Technical facts & numbers
-│           ├── moltbook-api.md       # API endpoint reference
+│           ├── local-openclaw-api.md       # API endpoint reference
 │           ├── content-templates.md  # Post/comment templates
 │           └── engagement-rules.md   # Decision tree for engagement
 ├── knowledge/                        # RAG knowledge base (see cardano-rag-database.md)
@@ -41,7 +41,7 @@ C:\dancesWithClaws\workspace\
 
 | Variable           | Purpose                     | Source                           |
 | ------------------ | --------------------------- | -------------------------------- |
-| `MOLTBOOK_API_KEY` | Moltbook API authentication | `POST /agents/register` response |
+| `OPENAI_API_KEY` | local OpenClaw API authentication | `POST /agents/register` response |
 
 ## Heartbeat Configuration
 
@@ -61,8 +61,8 @@ C:\dancesWithClaws\workspace\
         interval: "1h",
         enabled: true,
       },
-      env: ["MOLTBOOK_API_KEY"],
-      skills: ["moltbook-cardano"],
+      env: ["OPENAI_API_KEY"],
+      skills: ["local-openclaw-cardano"],
       memorySearch: {
         enabled: true,
         provider: "openai",
@@ -88,6 +88,6 @@ C:\dancesWithClaws\workspace\
 | Resource                    | Daily Estimate               |
 | --------------------------- | ---------------------------- |
 | Claude Sonnet 4 invocations | 360–480                      |
-| Moltbook API calls          | 1500–2500                    |
+| local OpenClaw API calls          | 1500–2500                    |
 | Knowledge base queries      | 360–480                      |
 | Embedding operations        | ~50 (cached after first run) |

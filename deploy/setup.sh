@@ -79,16 +79,16 @@ ENV_FILE="$PROJECT_DIR/dancesWithClaws/deploy/.env"
 if [ ! -f "$ENV_FILE" ]; then
   GATEWAY_TOKEN=$(openssl rand -hex 32)
 
-  echo -n "Enter MOLTBOOK_API_KEY: "
-  read -r MOLTBOOK_KEY
-  echo -n "Enter OPENAI_API_KEY: "
+  echo -n "Enter OPENAI_API_KEY (optional, for embeddings): "
   read -r OPENAI_KEY
+  echo -n "Enter SOKOSUMI_API_KEY (optional): "
+  read -r SOKOSUMI_KEY
 
   cat > "$ENV_FILE" <<EOL
-MOLTBOOK_API_KEY=$MOLTBOOK_KEY
 OPENAI_API_KEY=$OPENAI_KEY
+SOKOSUMI_API_KEY=$SOKOSUMI_KEY
+OLLAMA_API_KEY=ollama-local
 OPENCLAW_GATEWAY_TOKEN=$GATEWAY_TOKEN
-LOGAN_AGENT_ID=1f8d0506-e834-4a83-baf9-79de70b6cc87
 SITE_DOMAIN=lobsterthoughts.eastus.cloudapp.azure.com
 EOL
 

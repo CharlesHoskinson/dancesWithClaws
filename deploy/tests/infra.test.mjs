@@ -76,7 +76,7 @@ void describe("Caddyfile", () => {
   });
 
   it("does not contain secrets", () => {
-    assert.ok(!caddyfile.includes("moltbook_"));
+    assert.ok(!caddyfile.includes("local-openclaw_"));
     assert.ok(!caddyfile.includes("sk-"));
     assert.ok(!caddyfile.includes("password"));
   });
@@ -122,7 +122,7 @@ void describe("Dockerfile.fetch", () => {
   });
 
   it("does not contain secrets", () => {
-    assert.ok(!dockerfile.includes("MOLTBOOK_API_KEY"));
+    assert.ok(!dockerfile.includes("OPENAI_API_KEY"));
     assert.ok(!dockerfile.includes("OPENAI_API_KEY"));
     assert.ok(!dockerfile.includes("sk-"));
   });
@@ -238,7 +238,7 @@ void describe("deploy-logan.yml workflow", () => {
   });
 
   it("does not contain hardcoded secrets", () => {
-    assert.ok(!workflow.includes("moltbook_"));
+    assert.ok(!workflow.includes("local-openclaw_"));
     assert.ok(!workflow.includes("sk-"));
     assert.ok(!workflow.match(/ssh_key:\s+[A-Za-z0-9+/]{20}/));
   });
@@ -306,7 +306,7 @@ void describe("setup.sh", () => {
   });
 
   it("prompts for API keys interactively", () => {
-    assert.ok(setup.includes("MOLTBOOK_API_KEY"));
+    assert.ok(setup.includes("OPENAI_API_KEY"));
     assert.ok(setup.includes("OPENAI_API_KEY"));
     assert.ok(setup.includes("read -r"));
   });
@@ -316,8 +316,9 @@ void describe("setup.sh", () => {
     assert.ok(setup.includes("OPENCLAW_GATEWAY_TOKEN"));
   });
 
-  it("sets LOGAN_AGENT_ID", () => {
-    assert.ok(setup.includes("LOGAN_AGENT_ID=1f8d0506-e834-4a83-baf9-79de70b6cc87"));
+  it("sets SITE_DOMAIN and optional keys", () => {
+    assert.ok(setup.includes("SITE_DOMAIN="));
+    assert.ok(setup.includes("SOKOSUMI_API_KEY") || setup.includes("OPENAI_API_KEY"));
   });
 
   it("sets SITE_DOMAIN", () => {
@@ -359,7 +360,7 @@ void describe("setup.sh", () => {
   });
 
   it("does not contain hardcoded API keys", () => {
-    assert.ok(!setup.includes("moltbook_"));
+    assert.ok(!setup.includes("local-openclaw_"));
     assert.ok(!setup.match(/sk-[a-zA-Z0-9]{20}/));
   });
 
@@ -433,7 +434,7 @@ void describe("mock-posts.json fixture", () => {
       assert.ok(post.id, "Post missing id");
       assert.ok(post.title, "Post missing title");
       assert.ok(post.content, "Post missing content");
-      assert.ok(post.submolt, "Post missing submolt");
+      assert.ok(post.topic, "Post missing topic");
       assert.ok(post.created_at, "Post missing created_at");
     }
   });
@@ -474,7 +475,7 @@ void describe("mock-posts.json fixture", () => {
 
   it("does not contain real API keys", () => {
     const raw = JSON.stringify(mockData);
-    assert.ok(!raw.includes("moltbook_"));
+    assert.ok(!raw.includes("local-openclaw_"));
     assert.ok(!raw.includes("sk-"));
   });
 });
