@@ -98,8 +98,10 @@ export function registerTeeCli(program: Command, stateDir: string): void {
             sealedVmk = JSON.stringify({ hsmObjectId: objectId });
             break;
           }
-          default:
-            throw new Error(`Unknown backend: ${backend}`);
+          default: {
+            const unknownBackend: string = backend;
+            throw new Error(`Unknown backend: ${unknownBackend}`);
+          }
         }
 
         const envelope = vaultStore.createEmptyEnvelope(sealedVmk, backend, vmk);
@@ -166,8 +168,10 @@ export function registerTeeCli(program: Command, stateDir: string): void {
           vmk = Buffer.alloc(32, 0xff);
           break;
         }
-        default:
-          throw new Error(`Unknown backend: ${backend}`);
+        default: {
+          const unknownBackend: string = backend;
+          throw new Error(`Unknown backend: ${unknownBackend}`);
+        }
       }
 
       // Verify HMAC integrity
@@ -321,8 +325,6 @@ export function registerTeeCli(program: Command, stateDir: string): void {
         case "base64":
           process.stdout.write(value.toString("base64"));
           break;
-        case "pem":
-        case "raw":
         default:
           process.stdout.write(value);
           break;
@@ -598,7 +600,7 @@ export function registerTeeCli(program: Command, stateDir: string): void {
         hostAlias: opts.alias,
         hostname: opts.hostname,
         user: opts.user,
-        port: parseInt(opts.port, 10),
+        port: Number.parseInt(opts.port, 10),
       });
       console.log(
         `SSH config updated: Host ${opts.alias} → ${opts.user}@${opts.hostname}:${opts.port}`,
@@ -655,7 +657,7 @@ export function registerTeeCli(program: Command, stateDir: string): void {
     .action(async (opts: { objectId: string }) => {
       const pin = await credentialManager.resolveHsmPin(promptSecret);
       const pubKey = await sshConfig.getHsmPublicKeySsh(
-        parseInt(opts.objectId, 10),
+        Number.parseInt(opts.objectId, 10),
         undefined,
         pin,
       );
@@ -680,7 +682,9 @@ export function registerTeeCli(program: Command, stateDir: string): void {
           console.log(`Unseal progress: ${status.progress}/${status.t}`);
         }
       } catch (err) {
-        console.error(`Cannot reach OpenBao: ${err instanceof Error ? err.message : err}`);
+        console.error(
+          `Cannot reach OpenBao: ${err instanceof Error ? err.message : String(err)}`,
+        );
         process.exitCode = 1;
       }
     });
@@ -741,7 +745,7 @@ export function registerTeeCli(program: Command, stateDir: string): void {
     .option("--wrap-key-id <id>", "Wrap key ID", String(HSM_OBJECT_WRAP_KEY))
     .action(async (opts: { out: string; wrapKeyId: string }) => {
       const pin = await credentialManager.resolveHsmPin(promptSecret);
-      const wrapKeyId = parseInt(opts.wrapKeyId, 10);
+      const wrapKeyId = Number.parseInt(opts.wrapKeyId, 10);
 
       // List objects to export (the caller can provide specific IDs in the future)
       const objectIds = [
@@ -911,16 +915,27 @@ async function setVaultPermissions(stateDir: string): Promise<void> {
   const vaultDir = path.join(stateDir, VAULT_DIR_NAME);
   if (process.platform === "win32") {
     try {
-      const { createIcaclsResetCommand } = await import("../../../../src/security/windows-acl.js");
-      const cmd = createIcaclsResetCommand(vaultDir, { isDir: true });
-      if (cmd) {
-        const { execFile } = await import("node:child_process");
-        const { promisify } = await import("node:util");
-        const execFileAsync = promisify(execFile);
-        await execFileAsync(cmd.command, cmd.args, {
-          timeout: 10_000,
-          windowsHide: true,
-        });
+      // Local icacls reset — do not import core src/ (plugin package boundary).
+      const { execFile } = await import("node:child_process");
+      const { promisify } = await import("node:util");
+      const execFileAsync = promisify(execFile);
+      const user = process.env.USERNAME ?? process.env.USER ?? "";
+      if (user) {
+        await execFileAsync(
+          "icacls",
+          [
+            vaultDir,
+            "/inheritance:r",
+            "/grant:r",
+            `${user}:(OI)(CI)F`,
+            "/grant:r",
+            "SYSTEM:(OI)(CI)F",
+          ],
+          {
+            timeout: 10_000,
+            windowsHide: true,
+          },
+        );
       }
     } catch {
       // Best-effort

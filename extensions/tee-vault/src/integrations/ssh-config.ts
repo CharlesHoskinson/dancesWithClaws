@@ -125,8 +125,7 @@ function replaceHostBlock(config: string, hostAlias: string, replacement: string
   let inTargetBlock = false;
   let found = false;
 
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i]!;
+  for (const line of lines) {
     const trimmed = line.trim();
 
     if (trimmed.startsWith("Host ") && !trimmed.startsWith("Host *")) {
@@ -182,8 +181,9 @@ export async function loadPkcs11IntoAgent(pkcs11Library?: string): Promise<void>
     });
   } catch (err) {
     throw new Error(
-      `Failed to load PKCS#11 into ssh-agent: ${err instanceof Error ? err.message : err}. ` +
+      `Failed to load PKCS#11 into ssh-agent: ${err instanceof Error ? err.message : String(err)}. ` +
         `Ensure ssh-agent is running and yubihsm-connector is active.`,
+      { cause: err },
     );
   }
 }

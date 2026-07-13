@@ -54,7 +54,7 @@ interface GrapheneSession {
 interface GrapheneKey {
   handle: Buffer;
   getAttribute(attr: unknown): unknown;
-  toType<T>(): T;
+  toType(): unknown;
 }
 
 interface GrapheneSigner {
@@ -74,9 +74,7 @@ async function loadGraphene(): Promise<GrapheneModule | null> {
   try {
     const grapheneSpecifier = ["graphene", "-", "pk11"].join("");
     // Opaque dynamic import so bundlers do not resolve optional native binding.
-    const dynamicImport = new Function("s", "return import(s)") as (s: string) => Promise<{
-      Module: unknown;
-    }>;
+    const dynamicImport = (s: string) => import(s) as Promise<{ Module: unknown }>;
     const graphene = await dynamicImport(grapheneSpecifier);
     grapheneModule = graphene.Module as unknown as GrapheneModule;
     return grapheneModule;

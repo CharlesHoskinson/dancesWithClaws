@@ -10,7 +10,7 @@
 
 import fs from "node:fs/promises";
 import path from "node:path";
-import type { VaultEnvelope, VaultEntry, VaultMetadata } from "../types.js";
+import type { BackendType, VaultEnvelope, VaultEntry } from "../types.js";
 import { VAULT_DIR_NAME, VAULT_FILE_NAME } from "../constants.js";
 import { computeHmac, verifyHmac } from "../crypto/key-hierarchy.js";
 
@@ -37,8 +37,9 @@ export async function readVault(stateDir: string): Promise<VaultEnvelope> {
   const vaultPath = resolveVaultPath(stateDir);
   const raw = await fs.readFile(vaultPath, "utf8");
   const envelope = JSON.parse(raw) as VaultEnvelope;
-  if (envelope.version !== 1) {
-    throw new Error(`Unsupported vault version: ${envelope.version}`);
+  const version = (envelope as { version: number }).version;
+  if (version !== 1) {
+    throw new Error(`Unsupported vault version: ${version}`);
   }
   return envelope;
 }

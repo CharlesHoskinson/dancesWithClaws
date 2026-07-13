@@ -19,13 +19,11 @@
  *   2. Import each wrapped blob
  */
 
-import { execFile, spawn } from "node:child_process";
+import { spawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
-import { promisify } from "node:util";
 
-const _execFileAsync = promisify(execFile);
 const TIMEOUT_MS = 30_000;
 
 const DEFAULT_WRAP_KEY_ID = 200;

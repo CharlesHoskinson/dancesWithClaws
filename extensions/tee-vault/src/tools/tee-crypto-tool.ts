@@ -17,9 +17,10 @@ import * as vaultEntries from "../vault/vault-entries.js";
 import * as vaultLock from "../vault/vault-lock.js";
 import * as vaultStore from "../vault/vault-store.js";
 
-export function createTeeCryptoTool(api: OpenClawPluginApi, stateDir: string) {
+export function createTeeCryptoTool(_api: OpenClawPluginApi, stateDir: string) {
   return {
     name: "tee_crypto",
+    label: "TEE Crypto",
     description:
       "Encrypt, decrypt, sign, or verify data using vault keys. " +
       "Supports AES-256-GCM encryption and RSA/ECDSA/Ed25519 signing.",
@@ -38,9 +39,11 @@ export function createTeeCryptoTool(api: OpenClawPluginApi, stateDir: string) {
       ),
     }),
     async execute(_id: string, params: Record<string, unknown>) {
-      const operation = String(params.operation ?? "") as CryptoOperation;
-      const label = String(params.label ?? "").trim();
-      const dataB64 = String(params.data ?? "");
+      const operation = (
+        typeof params.operation === "string" ? params.operation : ""
+      ) as CryptoOperation;
+      const label = (typeof params.label === "string" ? params.label : "").trim();
+      const dataB64 = typeof params.data === "string" ? params.data : "";
       const signatureB64 = typeof params.signature === "string" ? params.signature : undefined;
 
       if (!label) {
@@ -154,8 +157,10 @@ export function createTeeCryptoTool(api: OpenClawPluginApi, stateDir: string) {
           }
           break;
         }
-        default:
-          throw new Error(`Unknown operation: ${operation}`);
+        default: {
+          const unknownOp: string = operation;
+          throw new Error(`Unknown operation: ${unknownOp}`);
+        }
       }
 
       await appendAuditLog(stateDir, {
@@ -167,7 +172,8 @@ export function createTeeCryptoTool(api: OpenClawPluginApi, stateDir: string) {
       });
 
       return {
-        content: [{ type: "text", text: JSON.stringify(result) }],
+        content: [{ type: "text" as const, text: JSON.stringify(result) }],
+        details: result,
       };
     },
   };

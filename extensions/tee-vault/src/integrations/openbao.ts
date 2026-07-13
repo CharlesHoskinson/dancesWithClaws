@@ -288,7 +288,7 @@ export async function transitSign(
   token: string,
   keyName: string,
   input: string, // base64-encoded
-  hashAlgorithm: string = "sha2-256",
+  hashAlgorithm = "sha2-256",
   config?: Partial<OpenbaoConfig>,
 ): Promise<string> {
   const { status, data } = await baoRequest(
@@ -314,7 +314,7 @@ export async function transitVerify(
   keyName: string,
   input: string, // base64-encoded
   signature: string,
-  hashAlgorithm: string = "sha2-256",
+  hashAlgorithm = "sha2-256",
   config?: Partial<OpenbaoConfig>,
 ): Promise<boolean> {
   const { status, data } = await baoRequest(

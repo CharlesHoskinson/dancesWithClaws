@@ -158,10 +158,11 @@ export async function collectContainerHardeningFindings(
     try {
       const wslConf = await fs.readFile("/etc/wsl.conf", "utf8");
       const interopMatch = wslConf.match(/^\s*enabled\s*=\s*(.+)$/m);
+      const interopValue = interopMatch?.[1]?.trim().toLowerCase();
       // Check if we're in WSL and interop is not explicitly disabled
       const procVersion = await fs.readFile("/proc/version", "utf8").catch(() => "");
       if (procVersion.toLowerCase().includes("microsoft")) {
-        if (!interopMatch || interopMatch[1].trim().toLowerCase() !== "false") {
+        if (interopValue !== "false") {
           findings.push({
             checkId: "tee.wsl_interop_enabled",
             severity: "critical",
@@ -205,13 +206,13 @@ export async function collectContainerHardeningFindings(
         ],
         { timeout: 10_000, encoding: "utf8", windowsHide: true },
       );
-      const count = parseInt(stdout.trim(), 10);
-      if (isNaN(count) || count < 3) {
+      const count = Number.parseInt(stdout.trim(), 10);
+      if (Number.isNaN(count) || count < 3) {
         findings.push({
           checkId: "tee.firewall_rules_missing",
           severity: "warn",
           title: "Windows Firewall rules not configured",
-          detail: `Expected at least 3 OpenClaw firewall rules, found ${isNaN(count) ? 0 : count}.`,
+          detail: `Expected at least 3 OpenClaw firewall rules, found ${Number.isNaN(count) ? 0 : count}.`,
           remediation: "Run security/windows-firewall-rules.ps1 as Administrator.",
         });
       }
@@ -256,11 +257,23 @@ export async function collectTeeVaultFindings(
   }
 
   // tee.vault_permissions_too_open (Windows)
+  // Keep this check local to the extension (no core src/ imports — plugin boundary).
   if (process.platform === "win32") {
     try {
-      const { inspectWindowsAcl } = await import("../../../../src/security/windows-acl.js");
-      const acl = await inspectWindowsAcl(vaultDir);
-      if (acl.ok && (acl.untrustedWorld.length > 0 || acl.untrustedGroup.length > 0)) {
+      const { execFile } = await import("node:child_process");
+      const { promisify } = await import("node:util");
+      const execFileAsync = promisify(execFile);
+      const { stdout } = await execFileAsync(
+        "icacls",
+        [vaultDir],
+        { timeout: 10_000, windowsHide: true, encoding: "utf8" },
+      );
+      const lower = stdout.toLowerCase();
+      if (
+        lower.includes("everyone:") ||
+        lower.includes("users:") ||
+        lower.includes("authenticated users:")
+      ) {
         findings.push({
           checkId: "tee.vault_permissions_too_open",
           severity: "critical",
@@ -270,7 +283,7 @@ export async function collectTeeVaultFindings(
         });
       }
     } catch {
-      // windows-acl not available; skip
+      // icacls not available; skip
     }
   } else {
     try {

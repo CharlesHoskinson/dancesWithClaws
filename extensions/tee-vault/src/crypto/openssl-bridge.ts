@@ -90,24 +90,25 @@ async function generateViaSshKeygen(
         stderr += d.toString();
       });
 
-      child.on("close", async (code) => {
+      child.on("close", (code) => {
         if (code !== 0) {
           // Cleanup
           spawn("rm", ["-rf", tmpDir]);
           reject(new Error(`ssh-keygen failed (${code}): ${stderr}`));
           return;
         }
-        try {
-          const { readFile } = await import("node:fs/promises");
-          const privateKey = await readFile(keyPath, "utf8");
-          const publicKey = await readFile(`${keyPath}.pub`, "utf8");
-          // Cleanup
-          spawn("rm", ["-rf", tmpDir]);
-          resolve({ privateKey, publicKey: publicKey.trim(), algorithm });
-        } catch (err) {
-          spawn("rm", ["-rf", tmpDir]);
-          reject(err);
-        }
+        void import("node:fs/promises")
+          .then(async ({ readFile }) => {
+            const privateKey = await readFile(keyPath, "utf8");
+            const publicKey = await readFile(`${keyPath}.pub`, "utf8");
+            // Cleanup
+            spawn("rm", ["-rf", tmpDir]);
+            resolve({ privateKey, publicKey: publicKey.trim(), algorithm });
+          })
+          .catch((err: unknown) => {
+            spawn("rm", ["-rf", tmpDir]);
+            reject(err instanceof Error ? err : new Error(String(err)));
+          });
       });
     });
   });
@@ -202,7 +203,6 @@ export async function opensslSign(
   data: Buffer,
   algorithm: SshKeyAlgorithm,
 ): Promise<Buffer> {
-  const _digestAlg = algorithm.startsWith("ed25519") ? "null" : "sha256";
   const args =
     algorithm === "ed25519"
       ? ["pkeyutl", "-sign", "-inkey", "/dev/stdin"]

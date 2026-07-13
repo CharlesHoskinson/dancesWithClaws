@@ -101,19 +101,18 @@ describe("vault-entries", () => {
 
   describe("listEntries", () => {
     it("returns metadata without decrypting", async () => {
-      let env = envelope;
-      ({ envelope: env } = await addEntry(env, vmk, {
+      const { envelope: env1 } = await addEntry(envelope, vmk, {
         label: "key1",
         type: "secret",
         tags: ["dev"],
         value: Buffer.from("v1"),
-      }));
-      ({ envelope: env } = await addEntry(env, vmk, {
+      });
+      const { envelope: env } = await addEntry(env1, vmk, {
         label: "key2",
         type: "api_token",
         tags: ["prod"],
         value: Buffer.from("v2"),
-      }));
+      });
 
       const all = listEntries(env);
       expect(all.length).toBe(2);
@@ -170,17 +169,16 @@ describe("vault-entries", () => {
 
   describe("rotateAllEntries", () => {
     it("re-encrypts all entries with a new VMK", async () => {
-      let env = envelope;
-      ({ envelope: env } = await addEntry(env, vmk, {
+      const { envelope: env1 } = await addEntry(envelope, vmk, {
         label: "s1",
         type: "secret",
         value: Buffer.from("val1"),
-      }));
-      ({ envelope: env } = await addEntry(env, vmk, {
+      });
+      const { envelope: env } = await addEntry(env1, vmk, {
         label: "s2",
         type: "api_token",
         value: Buffer.from("val2"),
-      }));
+      });
 
       const newVmk = generateVmk();
       const rotated = await rotateAllEntries(env, vmk, newVmk);

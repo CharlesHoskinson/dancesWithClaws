@@ -51,11 +51,11 @@ export async function listCertificates(): Promise<CertInfo[]> {
   const parsed = JSON.parse(trimmed);
   const arr = Array.isArray(parsed) ? parsed : [parsed];
   return arr.map((c: Record<string, unknown>) => ({
-    thumbprint: String(c.Thumbprint ?? ""),
-    subject: String(c.Subject ?? ""),
-    issuer: String(c.Issuer ?? ""),
-    notBefore: String(c.NotBefore ?? ""),
-    notAfter: String(c.NotAfter ?? ""),
+    thumbprint: typeof c.Thumbprint === "string" ? c.Thumbprint : "",
+    subject: typeof c.Subject === "string" ? c.Subject : "",
+    issuer: typeof c.Issuer === "string" ? c.Issuer : "",
+    notBefore: typeof c.NotBefore === "string" ? c.NotBefore : "",
+    notAfter: typeof c.NotAfter === "string" ? c.NotAfter : "",
     hasPrivateKey: Boolean(c.HasPrivateKey),
   }));
 }

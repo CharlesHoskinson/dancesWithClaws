@@ -10,9 +10,10 @@ import * as vaultEntries from "../vault/vault-entries.js";
 import * as vaultLock from "../vault/vault-lock.js";
 import * as vaultStore from "../vault/vault-store.js";
 
-export function createVaultStoreTool(api: OpenClawPluginApi, stateDir: string) {
+export function createVaultStoreTool(_api: OpenClawPluginApi, stateDir: string) {
   return {
     name: "vault_store",
+    label: "Vault Store",
     description:
       "Store a secret, SSH key, private key, or API token in the encrypted TEE vault. " +
       "The value is encrypted with a per-entry key derived from the vault master key.",
@@ -31,10 +32,12 @@ export function createVaultStoreTool(api: OpenClawPluginApi, stateDir: string) {
       ),
     }),
     async execute(_id: string, params: Record<string, unknown>) {
-      const label = String(params.label ?? "");
-      const type = String(params.type ?? "secret") as EntryType;
-      const value = String(params.value ?? "");
-      const tags = Array.isArray(params.tags) ? params.tags.map(String) : [];
+      const label = typeof params.label === "string" ? params.label : "";
+      const type = (typeof params.type === "string" ? params.type : "secret") as EntryType;
+      const value = typeof params.value === "string" ? params.value : "";
+      const tags = Array.isArray(params.tags)
+        ? params.tags.filter((t): t is string => typeof t === "string")
+        : [];
 
       if (!label.trim()) {
         throw new Error("label is required");
@@ -48,7 +51,7 @@ export function createVaultStoreTool(api: OpenClawPluginApi, stateDir: string) {
       }
 
       const vmk = vaultLock.getVmk();
-      let envelope = await vaultStore.readVault(stateDir);
+      const envelope = await vaultStore.readVault(stateDir);
       const { envelope: updated, entry } = await vaultEntries.addEntry(envelope, vmk, {
         label: label.trim(),
         type,
@@ -69,7 +72,7 @@ export function createVaultStoreTool(api: OpenClawPluginApi, stateDir: string) {
       return {
         content: [
           {
-            type: "text",
+            type: "text" as const,
             text: JSON.stringify({
               status: "stored",
               id: entry.id,
@@ -79,14 +82,16 @@ export function createVaultStoreTool(api: OpenClawPluginApi, stateDir: string) {
             }),
           },
         ],
+        details: {},
       };
     },
   };
 }
 
-export function createVaultRetrieveTool(api: OpenClawPluginApi, stateDir: string) {
+export function createVaultRetrieveTool(_api: OpenClawPluginApi, stateDir: string) {
   return {
     name: "vault_retrieve",
+    label: "Vault Retrieve",
     description:
       "Retrieve, list, or delete entries from the encrypted TEE vault. " +
       "The 'list' action returns metadata only (no decryption). " +
@@ -109,7 +114,7 @@ export function createVaultRetrieveTool(api: OpenClawPluginApi, stateDir: string
       tag: Type.Optional(Type.String({ description: "Filter by tag (for list action)" })),
     }),
     async execute(_id: string, params: Record<string, unknown>) {
-      const action = String(params.action ?? "list");
+      const action = typeof params.action === "string" ? params.action : "list";
       const label = typeof params.label === "string" ? params.label.trim() : undefined;
       const type = typeof params.type === "string" ? (params.type as EntryType) : undefined;
       const tag = typeof params.tag === "string" ? params.tag : undefined;
@@ -130,7 +135,8 @@ export function createVaultRetrieveTool(api: OpenClawPluginApi, stateDir: string
           success: true,
         });
         return {
-          content: [{ type: "text", text: JSON.stringify({ entries }, null, 2) }],
+          content: [{ type: "text" as const, text: JSON.stringify({ entries }, null, 2) }],
+          details: { entries },
         };
       }
 
@@ -149,7 +155,8 @@ export function createVaultRetrieveTool(api: OpenClawPluginApi, stateDir: string
           success: true,
         });
         return {
-          content: [{ type: "text", text: JSON.stringify({ label, value: text }) }],
+          content: [{ type: "text" as const, text: JSON.stringify({ label, value: text }) }],
+          details: { label },
         };
       }
 
@@ -166,10 +173,11 @@ export function createVaultRetrieveTool(api: OpenClawPluginApi, stateDir: string
         return {
           content: [
             {
-              type: "text",
+              type: "text" as const,
               text: JSON.stringify({ status: "deleted", label }),
             },
           ],
+          details: { label },
         };
       }
 

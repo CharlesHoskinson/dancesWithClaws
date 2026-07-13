@@ -12,9 +12,10 @@ import * as vaultEntries from "../vault/vault-entries.js";
 import * as vaultLock from "../vault/vault-lock.js";
 import * as vaultStore from "../vault/vault-store.js";
 
-export function createSshKeygenTool(api: OpenClawPluginApi, stateDir: string) {
+export function createSshKeygenTool(_api: OpenClawPluginApi, stateDir: string) {
   return {
     name: "ssh_keygen",
+    label: "SSH Keygen",
     description:
       "Generate an SSH key pair. The private key is stored in the vault; " +
       "the public key is returned. When using YubiHSM backend, the key can " +
@@ -37,11 +38,15 @@ export function createSshKeygenTool(api: OpenClawPluginApi, stateDir: string) {
       tags: Type.Optional(Type.Array(Type.String())),
     }),
     async execute(_id: string, params: Record<string, unknown>) {
-      const label = String(params.label ?? "").trim();
-      const algorithm = String(params.algorithm ?? "ed25519") as SshKeyAlgorithm;
+      const label = (typeof params.label === "string" ? params.label : "").trim();
+      const algorithm = (
+        typeof params.algorithm === "string" ? params.algorithm : "ed25519"
+      ) as SshKeyAlgorithm;
       const comment = typeof params.comment === "string" ? params.comment : undefined;
       const hsmResident = Boolean(params.hsmResident);
-      const tags = Array.isArray(params.tags) ? params.tags.map(String) : [];
+      const tags = Array.isArray(params.tags)
+        ? params.tags.filter((t): t is string => typeof t === "string")
+        : [];
 
       if (!label) {
         throw new Error("label is required");
@@ -110,7 +115,7 @@ export function createSshKeygenTool(api: OpenClawPluginApi, stateDir: string) {
       return {
         content: [
           {
-            type: "text",
+            type: "text" as const,
             text: JSON.stringify({
               status: "generated",
               label,
@@ -120,14 +125,16 @@ export function createSshKeygenTool(api: OpenClawPluginApi, stateDir: string) {
             }),
           },
         ],
+        details: { label, algorithm, hsmResident },
       };
     },
   };
 }
 
-export function createSshSignTool(api: OpenClawPluginApi, stateDir: string) {
+export function createSshSignTool(_api: OpenClawPluginApi, stateDir: string) {
   return {
     name: "ssh_sign",
+    label: "SSH Sign",
     description:
       "Sign data with a vault SSH key. The private key never leaves memory " +
       "(or never leaves the HSM for HSM-resident keys).",
@@ -136,8 +143,8 @@ export function createSshSignTool(api: OpenClawPluginApi, stateDir: string) {
       data: Type.String({ description: "Base64-encoded data to sign" }),
     }),
     async execute(_id: string, params: Record<string, unknown>) {
-      const label = String(params.label ?? "").trim();
-      const dataB64 = String(params.data ?? "");
+      const label = (typeof params.label === "string" ? params.label : "").trim();
+      const dataB64 = typeof params.data === "string" ? params.data : "";
 
       if (!label) {
         throw new Error("label is required");
@@ -199,13 +206,14 @@ export function createSshSignTool(api: OpenClawPluginApi, stateDir: string) {
       return {
         content: [
           {
-            type: "text",
+            type: "text" as const,
             text: JSON.stringify({
               label,
               signature: signature.toString("base64"),
             }),
           },
         ],
+        details: { label },
       };
     },
   };
