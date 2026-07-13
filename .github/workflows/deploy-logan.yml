@@ -30,15 +30,19 @@ jobs:
     steps:
       - name: Deploy to Azure VM
         uses: appleboy/ssh-action@v1
+        env:
+          # Pass inputs via env (not inline ${{ }} in script) to satisfy zizmor.
+          DEPLOY_BRANCH: ${{ github.event.inputs.deploy_branch || 'main' }}
         with:
           host: ${{ secrets.LOGAN_VM_HOST }}
           username: ${{ secrets.LOGAN_VM_USER }}
           key: ${{ secrets.LOGAN_VM_SSH_KEY }}
           command_timeout: 15m
+          envs: DEPLOY_BRANCH
           script: |
             cd /opt/logan/dancesWithClaws
             # Prefer requested branch, then main, then custom.
-            BRANCH="${{ github.event.inputs.deploy_branch }}"
+            BRANCH="${DEPLOY_BRANCH:-main}"
             if [ -z "$BRANCH" ]; then
               BRANCH=main
             fi
