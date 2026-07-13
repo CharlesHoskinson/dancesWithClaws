@@ -5,6 +5,7 @@ import type {
   SandboxBrowserConfig,
   SandboxPruneConfig,
   SandboxSshConfig,
+  SandboxWasmConfig,
 } from "../../agents/sandbox/types.js";
 
 export function createSandboxBrowserConfig(
@@ -46,6 +47,18 @@ export function createSandboxSshConfig(
     workspaceRoot,
     strictHostKeyChecking: true,
     updateHostKeys: true,
+    ...overrides,
+  };
+}
+
+export function createSandboxWasmConfig(
+  overrides: Partial<SandboxWasmConfig> = {},
+): SandboxWasmConfig {
+  return {
+    bin: "logan-wasm-sandbox",
+    allowlist: "security/proxy/allowed-domains.txt",
+    timeoutSecs: 30,
+    maxBytes: 1_048_576,
     ...overrides,
   };
 }

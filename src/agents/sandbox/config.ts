@@ -6,7 +6,7 @@
 import { resolveTimerTimeoutMs } from "@openclaw/normalization-core/number-coercion";
 import { normalizeOptionalString } from "@openclaw/normalization-core/string-coerce";
 import type { OpenClawConfig } from "../../config/types.openclaw.js";
-import type { SandboxSshSettings } from "../../config/types.sandbox.js";
+import type { SandboxSshSettings, SandboxWasmSettings } from "../../config/types.sandbox.js";
 import { normalizeSecretInputString } from "../../config/types.secrets.js";
 import { resolveAgentConfig } from "../agent-scope.js";
 import {
@@ -23,6 +23,10 @@ import {
   DEFAULT_SANDBOX_MAX_AGE_DAYS,
   DEFAULT_SANDBOX_WORKDIR,
   DEFAULT_SANDBOX_WORKSPACE_ROOT,
+  DEFAULT_WASM_SANDBOX_ALLOWLIST,
+  DEFAULT_WASM_SANDBOX_BIN,
+  DEFAULT_WASM_SANDBOX_MAX_BYTES,
+  DEFAULT_WASM_SANDBOX_TIMEOUT_SECS,
 } from "./constants.js";
 import { resolveSandboxToolPolicyForAgent } from "./tool-policy.js";
 import type {
@@ -32,6 +36,7 @@ import type {
   SandboxPruneConfig,
   SandboxScope,
   SandboxSshConfig,
+  SandboxWasmConfig,
 } from "./types.js";
 
 export const DANGEROUS_SANDBOX_DOCKER_BOOLEAN_KEYS = [
@@ -227,6 +232,25 @@ export function resolveSandboxSshConfig(params: {
   };
 }
 
+export function resolveSandboxWasmConfig(params: {
+  scope: SandboxScope;
+  globalWasm?: Partial<SandboxWasmSettings>;
+  agentWasm?: Partial<SandboxWasmSettings>;
+}): SandboxWasmConfig {
+  const agentWasm = params.scope === "shared" ? undefined : params.agentWasm;
+  const globalWasm = params.globalWasm;
+  return {
+    // Binary path may still be a bare name; createWasmSandboxBackend resolves repo tools build.
+    bin: normalizeOptionalString(agentWasm?.bin ?? globalWasm?.bin) ?? DEFAULT_WASM_SANDBOX_BIN,
+    allowlist:
+      normalizeOptionalString(agentWasm?.allowlist ?? globalWasm?.allowlist) ??
+      DEFAULT_WASM_SANDBOX_ALLOWLIST,
+    timeoutSecs:
+      agentWasm?.timeoutSecs ?? globalWasm?.timeoutSecs ?? DEFAULT_WASM_SANDBOX_TIMEOUT_SECS,
+    maxBytes: agentWasm?.maxBytes ?? globalWasm?.maxBytes ?? DEFAULT_WASM_SANDBOX_MAX_BYTES,
+  };
+}
+
 export function resolveSandboxConfigForAgent(
   cfg?: OpenClawConfig,
   agentId?: string,
@@ -267,6 +291,11 @@ export function resolveSandboxConfigForAgent(
       scope,
       globalSsh: agent?.ssh,
       agentSsh: agentSandbox?.ssh,
+    }),
+    wasm: resolveSandboxWasmConfig({
+      scope,
+      globalWasm: agent?.wasm,
+      agentWasm: agentSandbox?.wasm,
     }),
     browser: resolveSandboxBrowserConfig({
       scope,

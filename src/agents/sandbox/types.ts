@@ -71,6 +71,18 @@ export type SandboxSshConfig = {
   knownHostsData?: string;
 };
 
+/** Resolved wasm host CLI settings (defaults applied by config resolver). */
+export type SandboxWasmConfig = {
+  /** Path or PATH name for logan-wasm-sandbox. */
+  bin: string;
+  /** Domain allowlist file path. */
+  allowlist: string;
+  /** Host HTTP wall-clock timeout in seconds. */
+  timeoutSecs: number;
+  /** Max response body bytes for host-mediated HTTP. */
+  maxBytes: number;
+};
+
 export type SandboxScope = "session" | "agent" | "shared";
 
 export type SandboxConfig = {
@@ -81,6 +93,7 @@ export type SandboxConfig = {
   workspaceRoot: string;
   docker: SandboxDockerConfig;
   ssh: SandboxSshConfig;
+  wasm: SandboxWasmConfig;
   browser: SandboxBrowserConfig;
   tools: SandboxToolPolicy;
   prune: SandboxPruneConfig;

@@ -35,7 +35,7 @@ export type {
 const SANDBOX_BACKEND_FACTORIES_STATE_KEY = Symbol.for("openclaw.sandboxBackendFactories");
 
 // Process-wide sandbox backend registry. Tests and plugins can install temporary
-// factories while core still auto-registers the bundled Docker and SSH backends.
+// factories while core still auto-registers the bundled Docker, SSH, and wasm backends.
 function getSandboxBackendFactories(): Map<SandboxBackendId, RegisteredSandboxBackend> {
   const globalStore = globalThis as typeof globalThis & {
     [SANDBOX_BACKEND_FACTORIES_STATE_KEY]?: Map<SandboxBackendId, RegisteredSandboxBackend>;
@@ -107,6 +107,7 @@ import {
   resolveSshRuntimePaths,
   sshSandboxBackendManager,
 } from "./ssh-backend.js";
+import { createWasmSandboxBackend, wasmSandboxBackendManager } from "./wasm-backend.js";
 
 registerSandboxBackend("docker", {
   factory: createDockerSandboxBackend,
@@ -119,4 +120,10 @@ registerSandboxBackend("ssh", {
   manager: sshSandboxBackendManager,
   resolveWorkdir: ({ cfg, scopeKey }) =>
     resolveSshRuntimePaths(cfg.ssh.workspaceRoot, scopeKey).remoteWorkspaceDir,
+});
+
+registerSandboxBackend("wasm", {
+  factory: createWasmSandboxBackend,
+  manager: wasmSandboxBackendManager,
+  resolveWorkdir: ({ workspaceDir }) => workspaceDir,
 });

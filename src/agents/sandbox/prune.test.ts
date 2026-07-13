@@ -79,6 +79,12 @@ function buildPruneConfig(): SandboxConfig {
       strictHostKeyChecking: true,
       updateHostKeys: true,
     },
+    wasm: {
+      bin: "logan-wasm-sandbox",
+      allowlist: "security/proxy/allowed-domains.txt",
+      timeoutSecs: 30,
+      maxBytes: 1_048_576,
+    },
     browser: {
       enabled: true,
       image: "openclaw-sandbox-browser:bookworm-slim",

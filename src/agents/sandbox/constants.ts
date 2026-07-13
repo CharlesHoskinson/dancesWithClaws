@@ -15,6 +15,15 @@ export const DEFAULT_SANDBOX_WORKDIR = "/workspace";
 export const DEFAULT_SANDBOX_IDLE_HOURS = 24;
 export const DEFAULT_SANDBOX_MAX_AGE_DAYS = 7;
 
+/** Default PATH name / binary for logan-wasm-sandbox host CLI. */
+export const DEFAULT_WASM_SANDBOX_BIN = "logan-wasm-sandbox";
+/** Default domain allowlist path (repo-relative or absolute). */
+export const DEFAULT_WASM_SANDBOX_ALLOWLIST = "security/proxy/allowed-domains.txt";
+/** Default host HTTP wall-clock timeout (seconds). */
+export const DEFAULT_WASM_SANDBOX_TIMEOUT_SECS = 30;
+/** Default max response body bytes for host-mediated HTTP. */
+export const DEFAULT_WASM_SANDBOX_MAX_BYTES = 1_048_576;
+
 export const DEFAULT_TOOL_ALLOW = [
   "exec",
   "process",
