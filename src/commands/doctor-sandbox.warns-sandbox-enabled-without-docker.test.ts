@@ -1,5 +1,8 @@
 // Doctor sandbox tests cover warnings when sandbox mode is enabled without Docker availability.
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { OpenClawConfig } from "../config/config.js";
 import type { RuntimeEnv } from "../runtime.js";
 import type { DoctorPrompter } from "./doctor-prompter.js";
@@ -56,11 +59,25 @@ describe("maybeRepairSandboxImages", () => {
     } satisfies DoctorRepairMode,
   } as unknown as DoctorPrompter;
 
+  const createdDirs: string[] = [];
+
   beforeEach(() => {
     vi.clearAllMocks();
     inspectLegacySandboxRegistryFiles.mockResolvedValue([]);
     migrateLegacySandboxRegistryFiles.mockResolvedValue([]);
   });
+
+  afterEach(() => {
+    for (const dir of createdDirs.splice(0)) {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  function mkTmp(prefix: string): string {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), prefix));
+    createdDirs.push(dir);
+    return dir;
+  }
 
   function createSandboxConfig(mode: "off" | "all" | "non-main"): OpenClawConfig {
     return {
@@ -68,6 +85,35 @@ describe("maybeRepairSandboxImages", () => {
         defaults: {
           sandbox: {
             mode,
+          },
+        },
+      },
+    };
+  }
+
+  function createWasmSandboxConfig(params: {
+    mode?: "off" | "all" | "non-main";
+    bin?: string;
+    allowlist?: string;
+    browserEnabled?: boolean;
+  }): OpenClawConfig {
+    return {
+      agents: {
+        defaults: {
+          sandbox: {
+            mode: params.mode ?? "all",
+            backend: "wasm",
+            wasm: {
+              ...(params.bin !== undefined ? { bin: params.bin } : {}),
+              ...(params.allowlist !== undefined ? { allowlist: params.allowlist } : {}),
+            },
+            ...(params.browserEnabled
+              ? {
+                  browser: {
+                    enabled: true,
+                  },
+                }
+              : {}),
           },
         },
       },
@@ -107,6 +153,19 @@ describe("maybeRepairSandboxImages", () => {
       throw new Error("expected sandbox warning note");
     }
     return noteCall;
+  }
+
+  function createWasmFixtures(): { bin: string; allowlist: string } {
+    const dir = mkTmp("oc-doctor-wasm-");
+    const binName = process.platform === "win32" ? "logan-wasm-sandbox.exe" : "logan-wasm-sandbox";
+    const bin = path.join(dir, binName);
+    const allowlist = path.join(dir, "allowed-domains.txt");
+    fs.writeFileSync(bin, process.platform === "win32" ? "" : "#!/bin/sh\n");
+    if (process.platform !== "win32") {
+      fs.chmodSync(bin, 0o755);
+    }
+    fs.writeFileSync(allowlist, "example.com\n");
+    return { bin, allowlist };
   }
 
   it("warns when sandbox mode is enabled but Docker is not available", async () => {
@@ -242,6 +301,87 @@ describe("maybeRepairSandboxImages", () => {
         ([command, args]) => command === "unshare" && Array.isArray(args) && args.includes("--net"),
       ),
     ).toBe(false);
+  });
+
+  it("does not require Docker when backend is wasm with valid bin and allowlist", async () => {
+    const { bin, allowlist } = createWasmFixtures();
+    runExec.mockRejectedValue(new Error("Docker not installed"));
+
+    await maybeRepairSandboxImages(
+      createWasmSandboxConfig({ bin, allowlist }),
+      mockRuntime,
+      mockPrompter,
+    );
+
+    expect(runExec).not.toHaveBeenCalled();
+    const dockerRequired = note.mock.calls.find(
+      (call) =>
+        typeof call[0] === "string" &&
+        (/docker is required/i.test(call[0]) || /docker is not available/i.test(call[0])),
+    );
+    expect(dockerRequired).toBeUndefined();
+    const wasmMissing = note.mock.calls.find(
+      (call) => typeof call[0] === "string" && call[0].includes('backend is "wasm"'),
+    );
+    expect(wasmMissing).toBeUndefined();
+  });
+
+  it("warns when wasm backend binary is not resolvable", async () => {
+    const { allowlist } = createWasmFixtures();
+    const missingBin = path.join(mkTmp("oc-doctor-wasm-missing-"), "no-such-logan-wasm-sandbox");
+
+    await maybeRepairSandboxImages(
+      createWasmSandboxConfig({ bin: missingBin, allowlist }),
+      mockRuntime,
+      mockPrompter,
+    );
+
+    expect(note).toHaveBeenCalledWith(
+      expect.stringMatching(/backend is "wasm".*Binary not resolvable/s),
+      "Sandbox",
+    );
+    expect(note).toHaveBeenCalledWith(
+      expect.stringContaining("Docker is not required for the wasm backend"),
+      "Sandbox",
+    );
+    expect(runExec).not.toHaveBeenCalled();
+  });
+
+  it("warns when wasm backend allowlist is not readable", async () => {
+    const { bin } = createWasmFixtures();
+    const missingAllowlist = path.join(mkTmp("oc-doctor-wasm-allow-"), "missing-allowlist.txt");
+
+    await maybeRepairSandboxImages(
+      createWasmSandboxConfig({ bin, allowlist: missingAllowlist }),
+      mockRuntime,
+      mockPrompter,
+    );
+
+    expect(note).toHaveBeenCalledWith(
+      expect.stringMatching(/backend is "wasm".*Allowlist not readable/s),
+      "Sandbox",
+    );
+    expect(runExec).not.toHaveBeenCalled();
+  });
+
+  it("still notes browser skip for wasm backend without Docker image checks", async () => {
+    const { bin, allowlist } = createWasmFixtures();
+
+    await maybeRepairSandboxImages(
+      createWasmSandboxConfig({ bin, allowlist, browserEnabled: true }),
+      mockRuntime,
+      mockPrompter,
+    );
+
+    expect(note).toHaveBeenCalledWith(
+      expect.stringContaining('Sandbox backend "wasm" selected'),
+      "Sandbox",
+    );
+    expect(note).toHaveBeenCalledWith(
+      expect.stringContaining("browser sandbox currently requires the docker backend"),
+      "Sandbox",
+    );
+    expect(runExec).not.toHaveBeenCalled();
   });
 });
 

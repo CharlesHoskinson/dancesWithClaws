@@ -15,9 +15,11 @@ import {
   type LegacySandboxRegistryInspection,
   type LegacySandboxRegistryMigrationResult,
 } from "../agents/sandbox/registry.js";
+import { resolveWasmSandboxRuntimeConfig } from "../agents/sandbox/wasm-backend.js";
 import { formatCliCommand } from "../cli/command-format.js";
 import type { OpenClawConfig } from "../config/types.openclaw.js";
 import type { HealthFinding, HealthRepairEffect } from "../flows/health-checks.js";
+import { resolveExecutablePath } from "../infra/executable-path.js";
 import { resolveOpenClawPackageRootsSync } from "../infra/openclaw-root.js";
 import { runCommandWithTimeout, runExec } from "../process/exec.js";
 import type { RuntimeEnv } from "../runtime.js";
@@ -197,6 +199,55 @@ function resolveSandboxBackend(cfg: OpenClawConfig): string {
   return backend || "docker";
 }
 
+function isReadableFile(filePath: string): boolean {
+  try {
+    fs.accessSync(filePath, fs.constants.R_OK);
+    return fs.statSync(filePath).isFile();
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * When sandbox backend is wasm, validate host CLI + allowlist without requiring Docker.
+ * Emits warnings only when prerequisites are missing.
+ */
+function noteWasmSandboxHealth(cfg: OpenClawConfig): void {
+  const mode = cfg.agents?.defaults?.sandbox?.mode ?? "off";
+  const wasm = resolveWasmSandboxRuntimeConfig(cfg.agents?.defaults?.sandbox?.wasm);
+  const issues: string[] = [];
+
+  const resolvedBin = resolveExecutablePath(wasm.bin);
+  if (!resolvedBin) {
+    issues.push(
+      `Binary not resolvable: ${shortenHomePath(wasm.bin)}`,
+      "  Build tools/logan-wasm-sandbox (cargo build --release), install logan-wasm-sandbox on PATH,",
+      "  or set agents.defaults.sandbox.wasm.bin to the binary path.",
+    );
+  }
+
+  if (!isReadableFile(wasm.allowlist)) {
+    issues.push(
+      `Allowlist not readable: ${shortenHomePath(wasm.allowlist)}`,
+      "  Set agents.defaults.sandbox.wasm.allowlist to a readable domain list file",
+      "  (default: security/proxy/allowed-domains.txt).",
+    );
+  }
+
+  if (issues.length === 0) {
+    return;
+  }
+
+  note(
+    [
+      `Sandbox backend is "wasm" (mode: "${mode}") but wasm host prerequisites are missing.`,
+      "Docker is not required for the wasm backend.",
+      ...issues,
+    ].join("\n"),
+    "Sandbox",
+  );
+}
+
 function resolveSandboxBrowserImage(cfg: OpenClawConfig): string {
   const image = cfg.agents?.defaults?.sandbox?.browser?.image?.trim();
   return image ? image : DEFAULT_SANDBOX_BROWSER_IMAGE;
@@ -276,6 +327,7 @@ async function handleMissingSandboxImage(
 /**
  * Checks configured sandbox images and optionally runs repo build scripts for missing defaults.
  *
+ * Wasm backend validates the host CLI binary + allowlist and never requires Docker.
  * Non-Docker backends skip Docker image checks; Docker mode also probes Codex bwrap namespace
  * support because nested app-server shells rely on host user/network namespace policy.
  */
@@ -291,6 +343,9 @@ export async function maybeRepairSandboxImages(
   }
   const backend = resolveSandboxBackend(cfg);
   if (backend !== "docker") {
+    if (backend === "wasm") {
+      noteWasmSandboxHealth(cfg);
+    }
     if (sandbox.browser?.enabled) {
       note(
         `Sandbox backend "${backend}" selected. Docker browser health checks are skipped; browser sandbox currently requires the docker backend.`,
