@@ -2,6 +2,15 @@
   "id": "tee-vault",
   "name": "TEE Vault",
   "description": "Hardware-backed encrypted vault for secrets, SSH keys, and private keys",
+  "contracts": {
+    "tools": [
+      "vault_store",
+      "vault_retrieve",
+      "ssh_keygen",
+      "ssh_sign",
+      "tee_crypto"
+    ]
+  },
   "configSchema": {
     "type": "object",
     "additionalProperties": false,

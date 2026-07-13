@@ -126,6 +126,7 @@ export const th: TranslationMap = {
     ariaLabel: "{state} {kind} {repo} #{number}: {title}, โดย {author}",
   },
   channels: {
+    lastError: "Last error",
     refreshingStaleSnapshot: "กำลังรีเฟรชสถานะช่องในเบื้องหลัง กำลังแสดงสแนปช็อตล่าสุดที่สำเร็จ",
     config: {
       schemaUnavailable: "ไม่มีสคีมา ใช้ Raw",
@@ -456,6 +457,7 @@ export const th: TranslationMap = {
     start: "เริ่มเซสชัน",
     starting: "กำลังเริ่ม…",
     createFailed: "ไม่สามารถสร้างเซสชันได้",
+    catalogUnavailable: "This session target is unavailable.",
   },
   sessionsView: {
     deletePreservedWorktrees:
@@ -815,6 +817,7 @@ export const th: TranslationMap = {
     },
     manualRpcTitle: "Manual RPC",
     manualRpcSubtitle: "Send a raw gateway method with JSON params.",
+    callFailed: "Call failed",
     method: "Method",
     selectMethod: "Select a method…",
     paramsJson: "Params (JSON)",
@@ -1398,6 +1401,7 @@ export const th: TranslationMap = {
     moreLiveTitle: "มีเครื่องมือแบบ live อีก {count} รายการในกลุ่มด้านล่าง",
     moreLive: "+{count} เครื่องมือ live เพิ่มเติม",
     quickPresets: "พรีเซ็ตด่วน",
+    catalogTitle: "Tool Catalog",
     inherit: "สืบทอด",
     profile: "โปรไฟล์",
     source: "แหล่งที่มา",
@@ -2466,6 +2470,7 @@ export const th: TranslationMap = {
       uptime: "ระยะเวลาทำงาน",
       tickInterval: "ช่วงเวลาการอัปเดต",
       lastChannelsRefresh: "การรีเฟรชช่องครั้งล่าสุด",
+      lastError: "Last error",
     },
     help: {
       title: "วิธีเชื่อมต่อ",

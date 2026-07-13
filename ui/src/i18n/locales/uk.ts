@@ -126,6 +126,7 @@ export const uk: TranslationMap = {
     ariaLabel: "{state} {kind} {repo} #{number}: {title}, від {author}",
   },
   channels: {
+    lastError: "Last error",
     refreshingStaleSnapshot:
       "Оновлення статусу каналу у фоновому режимі; показано останній успішний знімок.",
     config: {
@@ -461,6 +462,7 @@ export const uk: TranslationMap = {
     start: "Почати сеанс",
     starting: "Запуск…",
     createFailed: "Не вдалося створити сеанс.",
+    catalogUnavailable: "This session target is unavailable.",
   },
   sessionsView: {
     deletePreservedWorktrees:
@@ -826,6 +828,7 @@ export const uk: TranslationMap = {
     },
     manualRpcTitle: "Manual RPC",
     manualRpcSubtitle: "Send a raw gateway method with JSON params.",
+    callFailed: "Call failed",
     method: "Method",
     selectMethod: "Select a method…",
     paramsJson: "Params (JSON)",
@@ -1419,6 +1422,7 @@ export const uk: TranslationMap = {
     moreLiveTitle: "Ще {count} активних інструментів доступно в групах нижче.",
     moreLive: "+{count} активних інструментів",
     quickPresets: "Швидкі шаблони",
+    catalogTitle: "Tool Catalog",
     inherit: "Успадкувати",
     profile: "Профіль",
     source: "Джерело",
@@ -2504,6 +2508,7 @@ export const uk: TranslationMap = {
       uptime: "Час роботи",
       tickInterval: "Інтервал оновлення",
       lastChannelsRefresh: "Останнє оновлення каналів",
+      lastError: "Last error",
     },
     help: {
       title: "Як підключитися",

@@ -126,6 +126,7 @@ export const hi: TranslationMap = {
     ariaLabel: "{state} {kind} {repo} #{number}: {title}, द्वारा {author}",
   },
   channels: {
+    lastError: "Last error",
     refreshingStaleSnapshot:
       "चैनल स्थिति पृष्ठभूमि में रीफ्रेश की जा रही है; अंतिम सफल स्नैपशॉट दिखाया जा रहा है।",
     config: {
@@ -459,6 +460,7 @@ export const hi: TranslationMap = {
     start: "Session शुरू करें",
     starting: "शुरू हो रहा है…",
     createFailed: "Session नहीं बनाया जा सका।",
+    catalogUnavailable: "This session target is unavailable.",
   },
   sessionsView: {
     deletePreservedWorktrees:
@@ -820,6 +822,7 @@ export const hi: TranslationMap = {
     },
     manualRpcTitle: "मैन्युअल RPC",
     manualRpcSubtitle: "JSON पैराम्स के साथ एक raw gateway method भेजें।",
+    callFailed: "Call failed",
     method: "मेथड",
     selectMethod: "एक मेथड चुनें…",
     paramsJson: "पैराम्स (JSON)",
@@ -1406,6 +1409,7 @@ export const hi: TranslationMap = {
     moreLiveTitle: "नीचे दिए गए समूहों में {count} और लाइव टूल उपलब्ध हैं।",
     moreLive: "+{count} और लाइव टूल",
     quickPresets: "क्विक प्रीसेट",
+    catalogTitle: "Tool Catalog",
     inherit: "इनहेरिट",
     profile: "प्रोफ़ाइल",
     source: "स्रोत",
@@ -2475,6 +2479,7 @@ export const hi: TranslationMap = {
       uptime: "अपटाइम",
       tickInterval: "टिक अंतराल",
       lastChannelsRefresh: "अंतिम चैनल रिफ्रेश",
+      lastError: "Last error",
     },
     help: {
       title: "कैसे connect करें",

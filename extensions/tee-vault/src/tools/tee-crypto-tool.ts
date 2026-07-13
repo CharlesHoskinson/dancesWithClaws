@@ -2,10 +2,9 @@
  * tee_crypto tool: generic encrypt/decrypt/sign/verify using vault keys.
  */
 
-import { Type } from "typebox";
 import { createSign, createVerify } from "node:crypto";
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk/plugin-entry";
-import type { CryptoOperation } from "../types.js";
+import { Type } from "typebox";
 import { appendAuditLog } from "../audit/tee-audit.js";
 import {
   aesGcmEncrypt,
@@ -13,6 +12,7 @@ import {
   deriveEntryKey,
   zeroBuffer,
 } from "../crypto/key-hierarchy.js";
+import type { CryptoOperation } from "../types.js";
 import * as vaultEntries from "../vault/vault-entries.js";
 import * as vaultLock from "../vault/vault-lock.js";
 import * as vaultStore from "../vault/vault-store.js";

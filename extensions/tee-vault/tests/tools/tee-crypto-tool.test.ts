@@ -56,7 +56,9 @@ describe("tee-crypto-tool", () => {
       label: "crypto-key",
       data: plaintext,
     });
-    const encParsed = JSON.parse(encResult.content[0].text);
+    const encText = encResult.content[0]?.text;
+    expect(encText).toBeDefined();
+    const encParsed = JSON.parse(encText!);
     expect(encParsed.iv).toBeTruthy();
     expect(encParsed.ciphertext).toBeTruthy();
     expect(encParsed.authTag).toBeTruthy();
@@ -68,7 +70,9 @@ describe("tee-crypto-tool", () => {
       label: "crypto-key",
       data: Buffer.from(encJson).toString("base64"),
     });
-    const decParsed = JSON.parse(decResult.content[0].text);
+    const decText = decResult.content[0]?.text;
+    expect(decText).toBeDefined();
+    const decParsed = JSON.parse(decText!);
     const recovered = Buffer.from(decParsed.plaintext, "base64").toString("utf8");
     expect(recovered).toBe("hello encrypted world");
   });

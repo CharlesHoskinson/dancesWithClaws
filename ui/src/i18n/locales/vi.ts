@@ -126,6 +126,7 @@ export const vi: TranslationMap = {
     ariaLabel: "{state} {kind} {repo} #{number}: {title}, bởi {author}",
   },
   channels: {
+    lastError: "Last error",
     refreshingStaleSnapshot:
       "Đang làm mới trạng thái kênh ở chế độ nền; hiển thị ảnh chụp thành công gần nhất.",
     config: {
@@ -462,6 +463,7 @@ export const vi: TranslationMap = {
     start: "Bắt đầu phiên",
     starting: "Đang bắt đầu…",
     createFailed: "Không thể tạo phiên.",
+    catalogUnavailable: "This session target is unavailable.",
   },
   sessionsView: {
     deletePreservedWorktrees:
@@ -826,6 +828,7 @@ export const vi: TranslationMap = {
     },
     manualRpcTitle: "RPC thủ công",
     manualRpcSubtitle: "Gửi phương thức gateway thô với tham số JSON.",
+    callFailed: "Call failed",
     method: "Phương thức",
     selectMethod: "Chọn một phương thức…",
     paramsJson: "Tham số (JSON)",
@@ -1414,6 +1417,7 @@ export const vi: TranslationMap = {
     moreLiveTitle: "{count} công cụ trực tiếp khác có sẵn trong các nhóm bên dưới.",
     moreLive: "+{count} công cụ trực tiếp khác",
     quickPresets: "Cài đặt sẵn nhanh",
+    catalogTitle: "Tool Catalog",
     inherit: "Kế thừa",
     profile: "Hồ sơ",
     source: "Nguồn",
@@ -2497,6 +2501,7 @@ export const vi: TranslationMap = {
       uptime: "Thời gian hoạt động",
       tickInterval: "Khoảng thời gian cập nhật",
       lastChannelsRefresh: "Lần làm mới kênh gần nhất",
+      lastError: "Last error",
     },
     help: {
       title: "Cách kết nối",

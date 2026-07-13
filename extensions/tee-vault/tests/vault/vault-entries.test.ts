@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import type { VaultEnvelope } from "../../src/types.js";
 import { generateVmk, zeroBuffer } from "../../src/crypto/key-hierarchy.js";
+import type { VaultEnvelope } from "../../src/types.js";
 import {
   addEntry,
   retrieveEntry,

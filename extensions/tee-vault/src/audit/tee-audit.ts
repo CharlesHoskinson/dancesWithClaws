@@ -4,13 +4,13 @@
 
 import fs from "node:fs/promises";
 import path from "node:path";
-import type { AuditLogEntry } from "../types.js";
 import {
   VAULT_DIR_NAME,
   VAULT_FILE_NAME,
   AUDIT_LOG_FILE_NAME,
   VMK_ROTATION_WARNING_DAYS,
 } from "../constants.js";
+import type { AuditLogEntry } from "../types.js";
 import * as vaultLock from "../vault/vault-lock.js";
 import * as vaultStore from "../vault/vault-store.js";
 
@@ -263,11 +263,11 @@ export async function collectTeeVaultFindings(
       const { execFile } = await import("node:child_process");
       const { promisify } = await import("node:util");
       const execFileAsync = promisify(execFile);
-      const { stdout } = await execFileAsync(
-        "icacls",
-        [vaultDir],
-        { timeout: 10_000, windowsHide: true, encoding: "utf8" },
-      );
+      const { stdout } = await execFileAsync("icacls", [vaultDir], {
+        timeout: 10_000,
+        windowsHide: true,
+        encoding: "utf8",
+      });
       const lower = stdout.toLowerCase();
       if (
         lower.includes("everyone:") ||

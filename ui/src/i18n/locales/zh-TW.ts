@@ -126,6 +126,7 @@ export const zh_TW: TranslationMap = {
     ariaLabel: "{state} {kind} {repo} #{number}：{title}，由 {author} 提交",
   },
   channels: {
+    lastError: "Last error",
     refreshingStaleSnapshot: "正在背景重新整理頻道狀態；顯示上次成功的快照。",
     config: {
       schemaUnavailable: "結構描述無法使用。請使用 Raw。",
@@ -454,6 +455,7 @@ export const zh_TW: TranslationMap = {
     start: "啟動工作階段",
     starting: "正在啟動…",
     createFailed: "無法建立工作階段。",
+    catalogUnavailable: "This session target is unavailable.",
   },
   sessionsView: {
     deletePreservedWorktrees:
@@ -814,6 +816,7 @@ export const zh_TW: TranslationMap = {
     },
     manualRpcTitle: "Manual RPC",
     manualRpcSubtitle: "Send a raw gateway method with JSON params.",
+    callFailed: "Call failed",
     method: "Method",
     selectMethod: "Select a method…",
     paramsJson: "Params (JSON)",
@@ -1394,6 +1397,7 @@ export const zh_TW: TranslationMap = {
     moreLiveTitle: "下方群組中還有 {count} 個可用的即時工具。",
     moreLive: "+{count} 個更多即時工具",
     quickPresets: "快速預設",
+    catalogTitle: "Tool Catalog",
     inherit: "繼承",
     profile: "設定檔",
     source: "來源",
@@ -2460,6 +2464,7 @@ export const zh_TW: TranslationMap = {
       uptime: "運作時間",
       tickInterval: "更新間隔",
       lastChannelsRefresh: "上次重新整理頻道",
+      lastError: "Last error",
     },
     help: {
       title: "如何連線",

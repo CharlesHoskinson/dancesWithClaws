@@ -2,10 +2,10 @@
  * vault_store and vault_retrieve agent tools.
  */
 
-import { Type } from "typebox";
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk/plugin-entry";
-import type { EntryType } from "../types.js";
+import { Type } from "typebox";
 import { appendAuditLog } from "../audit/tee-audit.js";
+import type { EntryType } from "../types.js";
 import * as vaultEntries from "../vault/vault-entries.js";
 import * as vaultLock from "../vault/vault-lock.js";
 import * as vaultStore from "../vault/vault-store.js";

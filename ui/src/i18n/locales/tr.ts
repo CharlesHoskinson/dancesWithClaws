@@ -126,6 +126,7 @@ export const tr: TranslationMap = {
     ariaLabel: "{state} {kind} {repo} #{number}: {title}, {author} tarafından",
   },
   channels: {
+    lastError: "Last error",
     refreshingStaleSnapshot:
       "Kanal durumu arka planda yenileniyor; son başarılı anlık görüntü gösteriliyor.",
     config: {
@@ -463,6 +464,7 @@ export const tr: TranslationMap = {
     start: "Oturumu başlat",
     starting: "Başlatılıyor…",
     createFailed: "Oturum oluşturulamadı.",
+    catalogUnavailable: "This session target is unavailable.",
   },
   sessionsView: {
     deletePreservedWorktrees:
@@ -828,6 +830,7 @@ export const tr: TranslationMap = {
     },
     manualRpcTitle: "Manual RPC",
     manualRpcSubtitle: "Send a raw gateway method with JSON params.",
+    callFailed: "Call failed",
     method: "Method",
     selectMethod: "Select a method…",
     paramsJson: "Params (JSON)",
@@ -1417,6 +1420,7 @@ export const tr: TranslationMap = {
     moreLiveTitle: "Aşağıdaki gruplarda {count} canlı araç daha kullanılabilir.",
     moreLive: "+{count} canlı araç daha",
     quickPresets: "Hızlı Ön Ayarlar",
+    catalogTitle: "Tool Catalog",
     inherit: "Devral",
     profile: "Profil",
     source: "Kaynak",
@@ -2513,6 +2517,7 @@ export const tr: TranslationMap = {
       uptime: "Çalışma Süresi",
       tickInterval: "Tik Aralığı",
       lastChannelsRefresh: "Son Kanal Yenileme",
+      lastError: "Last error",
     },
     help: {
       title: "Nasıl bağlanılır",

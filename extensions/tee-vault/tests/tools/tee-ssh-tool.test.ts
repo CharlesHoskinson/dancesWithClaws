@@ -51,7 +51,9 @@ describe("tee-ssh-tool", () => {
       algorithm: "ed25519",
       comment: "test@example.com",
     });
-    const parsed = JSON.parse(result.content[0].text);
+    const text = result.content[0]?.text;
+    expect(text).toBeDefined();
+    const parsed = JSON.parse(text!);
     expect(parsed.status).toBe("generated");
     expect(parsed.label).toBe("test-ssh-key");
     expect(parsed.algorithm).toBe("ed25519");

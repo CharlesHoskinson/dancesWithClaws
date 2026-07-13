@@ -6,10 +6,9 @@
  *   rotate, rotate-vmk, delete, audit, backup
  */
 
-import type { Command } from "commander";
 import fs from "node:fs/promises";
 import path from "node:path";
-import type { BackendType, EntryType } from "../types.js";
+import type { Command } from "commander";
 import { collectTeeVaultFindings, appendAuditLog } from "../audit/tee-audit.js";
 import {
   VAULT_DIR_NAME,
@@ -29,6 +28,7 @@ import * as credentialManager from "../integrations/credential-manager.js";
 import * as ironkeyBackup from "../integrations/ironkey-backup.js";
 import * as openbao from "../integrations/openbao.js";
 import * as sshConfig from "../integrations/ssh-config.js";
+import type { BackendType, EntryType } from "../types.js";
 import * as vaultEntries from "../vault/vault-entries.js";
 import * as vaultLock from "../vault/vault-lock.js";
 import * as vaultStore from "../vault/vault-store.js";
@@ -682,9 +682,7 @@ export function registerTeeCli(program: Command, stateDir: string): void {
           console.log(`Unseal progress: ${status.progress}/${status.t}`);
         }
       } catch (err) {
-        console.error(
-          `Cannot reach OpenBao: ${err instanceof Error ? err.message : String(err)}`,
-        );
+        console.error(`Cannot reach OpenBao: ${err instanceof Error ? err.message : String(err)}`);
         process.exitCode = 1;
       }
     });

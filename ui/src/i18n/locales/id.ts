@@ -126,6 +126,7 @@ export const id: TranslationMap = {
     ariaLabel: "{state} {kind} {repo} #{number}: {title}, oleh {author}",
   },
   channels: {
+    lastError: "Last error",
     refreshingStaleSnapshot:
       "Menyegarkan status channel di latar belakang; menampilkan snapshot terakhir yang berhasil.",
     config: {
@@ -460,6 +461,7 @@ export const id: TranslationMap = {
     start: "Mulai sesi",
     starting: "Memulai…",
     createFailed: "Tidak dapat membuat sesi.",
+    catalogUnavailable: "This session target is unavailable.",
   },
   sessionsView: {
     deletePreservedWorktrees:
@@ -824,6 +826,7 @@ export const id: TranslationMap = {
     },
     manualRpcTitle: "Manual RPC",
     manualRpcSubtitle: "Send a raw gateway method with JSON params.",
+    callFailed: "Call failed",
     method: "Method",
     selectMethod: "Select a method…",
     paramsJson: "Params (JSON)",
@@ -1414,6 +1417,7 @@ export const id: TranslationMap = {
     moreLiveTitle: "{count} alat langsung lainnya tersedia di grup di bawah.",
     moreLive: "+{count} alat langsung lainnya",
     quickPresets: "Preset Cepat",
+    catalogTitle: "Tool Catalog",
     inherit: "Warisi",
     profile: "Profil",
     source: "Sumber",
@@ -2498,6 +2502,7 @@ export const id: TranslationMap = {
       uptime: "Waktu aktif",
       tickInterval: "Interval tick",
       lastChannelsRefresh: "Penyegaran saluran terakhir",
+      lastError: "Last error",
     },
     help: {
       title: "Cara menghubungkan",

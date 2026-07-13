@@ -82,7 +82,7 @@ describe("key-hierarchy", () => {
       const key = generateVmk();
       const { iv, ciphertext, authTag } = aesGcmEncrypt(key, Buffer.from("test"));
 
-      ciphertext[0] ^= 0xff;
+      ciphertext[0]! ^= 0xff;
       expect(() => aesGcmDecrypt(key, iv, ciphertext, authTag)).toThrow();
     });
 
@@ -90,7 +90,7 @@ describe("key-hierarchy", () => {
       const key = generateVmk();
       const { iv, ciphertext, authTag } = aesGcmEncrypt(key, Buffer.from("test"));
 
-      authTag[0] ^= 0xff;
+      authTag[0]! ^= 0xff;
       expect(() => aesGcmDecrypt(key, iv, ciphertext, authTag)).toThrow();
     });
   });

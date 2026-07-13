@@ -5,9 +5,9 @@
  * It is explicitly zeroed on lock or when the auto-lock timer fires.
  */
 
-import type { BackendType, UnlockedState } from "../types.js";
 import { DEFAULT_AUTO_LOCK_TIMEOUT_MS } from "../constants.js";
 import { zeroBuffer } from "../crypto/key-hierarchy.js";
+import type { BackendType, UnlockedState } from "../types.js";
 
 let state: UnlockedState | null = null;
 let autoLockTimer: ReturnType<typeof setTimeout> | null = null;

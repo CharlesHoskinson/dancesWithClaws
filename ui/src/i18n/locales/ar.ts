@@ -126,6 +126,7 @@ export const ar: TranslationMap = {
     ariaLabel: "{state} {kind} {repo} #{number}: {title}، بواسطة {author}",
   },
   channels: {
+    lastError: "Last error",
     refreshingStaleSnapshot: "جارٍ تحديث حالة القناة في الخلفية؛ يتم عرض آخر لقطة ناجحة.",
     config: {
       schemaUnavailable: "المخطط غير متاح. استخدم Raw.",
@@ -458,6 +459,7 @@ export const ar: TranslationMap = {
     start: "بدء الجلسة",
     starting: "جارٍ البدء…",
     createFailed: "تعذّر إنشاء الجلسة.",
+    catalogUnavailable: "This session target is unavailable.",
   },
   sessionsView: {
     deletePreservedWorktrees:
@@ -820,6 +822,7 @@ export const ar: TranslationMap = {
     },
     manualRpcTitle: "RPC يدوي",
     manualRpcSubtitle: "أرسل طريقة Gateway أولية مع معلمات JSON.",
+    callFailed: "Call failed",
     method: "الطريقة",
     selectMethod: "اختر طريقة…",
     paramsJson: "المعلمات (JSON)",
@@ -1405,6 +1408,7 @@ export const ar: TranslationMap = {
     moreLiveTitle: "تتوفر {count} أداة مباشرة إضافية في المجموعات أدناه.",
     moreLive: "+{count} أداة مباشرة إضافية",
     quickPresets: "إعدادات مسبقة سريعة",
+    catalogTitle: "Tool Catalog",
     inherit: "توريث",
     profile: "الملف الشخصي",
     source: "المصدر",
@@ -2479,6 +2483,7 @@ export const ar: TranslationMap = {
       uptime: "مدة التشغيل",
       tickInterval: "الفاصل الزمني للنبضات",
       lastChannelsRefresh: "آخر تحديث للقنوات",
+      lastError: "Last error",
     },
     help: {
       title: "كيفية الاتصال",

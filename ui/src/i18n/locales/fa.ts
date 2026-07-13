@@ -126,6 +126,7 @@ export const fa: TranslationMap = {
     ariaLabel: "{state} {kind} {repo} #{number}: {title}، توسط {author}",
   },
   channels: {
+    lastError: "Last error",
     refreshingStaleSnapshot:
       "وضعیت کانال در پس‌زمینه به‌روزرسانی می‌شود؛ آخرین نمای موفق نمایش داده می‌شود.",
     config: {
@@ -461,6 +462,7 @@ export const fa: TranslationMap = {
     start: "شروع جلسه",
     starting: "در حال شروع…",
     createFailed: "امکان ایجاد نشست وجود نداشت.",
+    catalogUnavailable: "This session target is unavailable.",
   },
   sessionsView: {
     deletePreservedWorktrees:
@@ -824,6 +826,7 @@ export const fa: TranslationMap = {
     },
     manualRpcTitle: "RPC دستی",
     manualRpcSubtitle: "ارسال یک متد خام gateway با پارامترهای JSON.",
+    callFailed: "Call failed",
     method: "متد",
     selectMethod: "یک متد انتخاب کنید…",
     paramsJson: "پارامترها (JSON)",
@@ -1412,6 +1415,7 @@ export const fa: TranslationMap = {
     moreLiveTitle: "{count} ابزار زنده دیگر در گروه‌های زیر موجود است.",
     moreLive: "+{count} ابزار زنده دیگر",
     quickPresets: "پیش‌تنظیم‌های سریع",
+    catalogTitle: "Tool Catalog",
     inherit: "ارث‌بری",
     profile: "نمایه",
     source: "منبع",
@@ -2491,6 +2495,7 @@ export const fa: TranslationMap = {
       uptime: "مدت فعالیت",
       tickInterval: "فاصله تیک",
       lastChannelsRefresh: "آخرین به‌روزرسانی کانال‌ها",
+      lastError: "Last error",
     },
     help: {
       title: "نحوه اتصال",

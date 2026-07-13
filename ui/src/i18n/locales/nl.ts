@@ -126,6 +126,7 @@ export const nl: TranslationMap = {
     ariaLabel: "{state} {kind} {repo} #{number}: {title}, door {author}",
   },
   channels: {
+    lastError: "Last error",
     refreshingStaleSnapshot:
       "Kanaalstatus wordt op de achtergrond vernieuwd; de laatste succesvolle momentopname wordt getoond.",
     config: {
@@ -462,6 +463,7 @@ export const nl: TranslationMap = {
     start: "Sessie starten",
     starting: "Starten…",
     createFailed: "Kan de sessie niet maken.",
+    catalogUnavailable: "This session target is unavailable.",
   },
   sessionsView: {
     deletePreservedWorktrees:
@@ -828,6 +830,7 @@ export const nl: TranslationMap = {
     },
     manualRpcTitle: "Handmatige RPC",
     manualRpcSubtitle: "Stuur een ruwe gateway-methode met JSON-params.",
+    callFailed: "Call failed",
     method: "Methode",
     selectMethod: "Selecteer een methode…",
     paramsJson: "Params (JSON)",
@@ -1419,6 +1422,7 @@ export const nl: TranslationMap = {
     moreLiveTitle: "{count} extra live tools zijn beschikbaar in de onderstaande groepen.",
     moreLive: "+{count} extra live tools",
     quickPresets: "Snelle presets",
+    catalogTitle: "Tool Catalog",
     inherit: "Overnemen",
     profile: "Profiel",
     source: "Bron",
@@ -2506,6 +2510,7 @@ export const nl: TranslationMap = {
       uptime: "Bedrijfstijd",
       tickInterval: "Tickinterval",
       lastChannelsRefresh: "Laatste vernieuwing van kanalen",
+      lastError: "Last error",
     },
     help: {
       title: "Verbinding maken",

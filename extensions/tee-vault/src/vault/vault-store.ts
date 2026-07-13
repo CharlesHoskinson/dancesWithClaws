@@ -10,9 +10,9 @@
 
 import fs from "node:fs/promises";
 import path from "node:path";
-import type { BackendType, VaultEnvelope, VaultEntry } from "../types.js";
 import { VAULT_DIR_NAME, VAULT_FILE_NAME } from "../constants.js";
 import { computeHmac, verifyHmac } from "../crypto/key-hierarchy.js";
+import type { BackendType, VaultEnvelope, VaultEntry } from "../types.js";
 
 export function resolveVaultDir(stateDir: string): string {
   return path.join(stateDir, VAULT_DIR_NAME);

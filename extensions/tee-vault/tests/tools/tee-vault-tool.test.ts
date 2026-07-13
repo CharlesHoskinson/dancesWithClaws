@@ -47,7 +47,9 @@ describe("tee-vault-tool", () => {
         tags: ["openai"],
       });
 
-      const parsed = JSON.parse(result.content[0].text);
+      const text = result.content[0]?.text;
+      expect(text).toBeDefined();
+      const parsed = JSON.parse(text!);
       expect(parsed.status).toBe("stored");
       expect(parsed.label).toBe("my-api-key");
       expect(parsed.type).toBe("api_token");
@@ -78,7 +80,9 @@ describe("tee-vault-tool", () => {
 
       const retrieveTool = createVaultRetrieveTool(mockApi, tmpDir);
       const result = await retrieveTool.execute("3", { action: "list" });
-      const parsed = JSON.parse(result.content[0].text);
+      const text = result.content[0]?.text;
+      expect(text).toBeDefined();
+      const parsed = JSON.parse(text!);
       expect(parsed.entries.length).toBe(2);
       // List should NOT contain plaintext values
       expect(JSON.stringify(parsed)).not.toContain("val1");
@@ -98,7 +102,9 @@ describe("tee-vault-tool", () => {
         action: "get",
         label: "my-key",
       });
-      const parsed = JSON.parse(result.content[0].text);
+      const text = result.content[0]?.text;
+      expect(text).toBeDefined();
+      const parsed = JSON.parse(text!);
       expect(parsed.value).toBe("secret-123");
     });
 
@@ -114,7 +120,9 @@ describe("tee-vault-tool", () => {
       await retrieveTool.execute("2", { action: "delete", label: "temp" });
 
       const result = await retrieveTool.execute("3", { action: "list" });
-      const parsed = JSON.parse(result.content[0].text);
+      const text = result.content[0]?.text;
+      expect(text).toBeDefined();
+      const parsed = JSON.parse(text!);
       expect(parsed.entries.length).toBe(0);
     });
   });

@@ -126,6 +126,7 @@ export const ja_JP: TranslationMap = {
     ariaLabel: "{state} {kind} {repo} #{number}: {title}、作成者 {author}",
   },
   channels: {
+    lastError: "Last error",
     refreshingStaleSnapshot:
       "バックグラウンドでチャンネルの状態を更新しています。最後に成功したスナップショットを表示しています。",
     config: {
@@ -466,6 +467,7 @@ export const ja_JP: TranslationMap = {
     start: "セッションを開始",
     starting: "開始中…",
     createFailed: "セッションを作成できませんでした。",
+    catalogUnavailable: "This session target is unavailable.",
   },
   sessionsView: {
     deletePreservedWorktrees:
@@ -830,6 +832,7 @@ export const ja_JP: TranslationMap = {
     },
     manualRpcTitle: "Manual RPC",
     manualRpcSubtitle: "Send a raw gateway method with JSON params.",
+    callFailed: "Call failed",
     method: "Method",
     selectMethod: "Select a method…",
     paramsJson: "Params (JSON)",
@@ -1420,6 +1423,7 @@ export const ja_JP: TranslationMap = {
     moreLiveTitle: "さらに {count} 個のライブツールが下記のグループで利用可能です。",
     moreLive: "+{count} 個のライブツール",
     quickPresets: "クイックプリセット",
+    catalogTitle: "Tool Catalog",
     inherit: "継承",
     profile: "プロファイル",
     source: "ソース",
@@ -2505,6 +2509,7 @@ export const ja_JP: TranslationMap = {
       uptime: "稼働時間",
       tickInterval: "更新間隔",
       lastChannelsRefresh: "最終チャンネル更新",
+      lastError: "Last error",
     },
     help: {
       title: "接続方法",

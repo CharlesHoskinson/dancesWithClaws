@@ -126,6 +126,7 @@ export const es: TranslationMap = {
     ariaLabel: "{state} {kind} {repo} #{number}: {title}, por {author}",
   },
   channels: {
+    lastError: "Last error",
     refreshingStaleSnapshot:
       "Actualizando el estado del canal en segundo plano; se muestra la última instantánea correcta.",
     config: {
@@ -462,6 +463,7 @@ export const es: TranslationMap = {
     start: "Iniciar sesión",
     starting: "Iniciando…",
     createFailed: "No se pudo crear la sesión.",
+    catalogUnavailable: "This session target is unavailable.",
   },
   sessionsView: {
     deletePreservedWorktrees:
@@ -827,6 +829,7 @@ export const es: TranslationMap = {
     },
     manualRpcTitle: "Manual RPC",
     manualRpcSubtitle: "Send a raw gateway method with JSON params.",
+    callFailed: "Call failed",
     method: "Method",
     selectMethod: "Select a method…",
     paramsJson: "Params (JSON)",
@@ -1421,6 +1424,7 @@ export const es: TranslationMap = {
     moreLiveTitle: "Hay {count} herramientas en vivo más disponibles en los grupos siguientes.",
     moreLive: "+{count} herramientas en vivo más",
     quickPresets: "Ajustes rápidos",
+    catalogTitle: "Tool Catalog",
     inherit: "Heredar",
     profile: "Perfil",
     source: "Origen",
@@ -2517,6 +2521,7 @@ export const es: TranslationMap = {
       uptime: "Tiempo de actividad",
       tickInterval: "Intervalo de actualización",
       lastChannelsRefresh: "Última actualización de canales",
+      lastError: "Last error",
     },
     help: {
       title: "Cómo conectarse",

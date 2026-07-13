@@ -126,6 +126,7 @@ export const ru: TranslationMap = {
     ariaLabel: "{state} {kind} {repo} #{number}: {title}, автор {author}",
   },
   channels: {
+    lastError: "Last error",
     refreshingStaleSnapshot:
       "Статус канала обновляется в фоновом режиме; показан последний успешный снимок.",
     config: {
@@ -463,6 +464,7 @@ export const ru: TranslationMap = {
     start: "Начать сессию",
     starting: "Запуск…",
     createFailed: "Не удалось создать сессию.",
+    catalogUnavailable: "This session target is unavailable.",
   },
   sessionsView: {
     deletePreservedWorktrees:
@@ -831,6 +833,7 @@ export const ru: TranslationMap = {
     },
     manualRpcTitle: "Ручной RPC",
     manualRpcSubtitle: "Отправьте необработанный метод шлюза с параметрами JSON.",
+    callFailed: "Call failed",
     method: "Метод",
     selectMethod: "Выберите метод…",
     paramsJson: "Параметры (JSON)",
@@ -1424,6 +1427,7 @@ export const ru: TranslationMap = {
     moreLiveTitle: "Ещё {count} активных инструментов доступно в группах ниже.",
     moreLive: "+{count} активных инструментов",
     quickPresets: "Быстрые пресеты",
+    catalogTitle: "Tool Catalog",
     inherit: "Наследовать",
     profile: "Профиль",
     source: "Источник",
@@ -2514,6 +2518,7 @@ export const ru: TranslationMap = {
       uptime: "Время работы",
       tickInterval: "Интервал тика",
       lastChannelsRefresh: "Последнее обновление каналов",
+      lastError: "Last error",
     },
     help: {
       title: "Как подключиться",

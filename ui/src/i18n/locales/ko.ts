@@ -126,6 +126,7 @@ export const ko: TranslationMap = {
     ariaLabel: "{state} {kind} {repo} #{number}: {title}, 작성자 {author}",
   },
   channels: {
+    lastError: "Last error",
     refreshingStaleSnapshot:
       "백그라운드에서 채널 상태를 새로 고치는 중입니다. 마지막으로 성공한 스냅샷을 표시합니다.",
     config: {
@@ -459,6 +460,7 @@ export const ko: TranslationMap = {
     start: "세션 시작",
     starting: "시작 중…",
     createFailed: "세션을 만들 수 없습니다.",
+    catalogUnavailable: "This session target is unavailable.",
   },
   sessionsView: {
     deletePreservedWorktrees:
@@ -821,6 +823,7 @@ export const ko: TranslationMap = {
     },
     manualRpcTitle: "Manual RPC",
     manualRpcSubtitle: "Send a raw gateway method with JSON params.",
+    callFailed: "Call failed",
     method: "Method",
     selectMethod: "Select a method…",
     paramsJson: "Params (JSON)",
@@ -1408,6 +1411,7 @@ export const ko: TranslationMap = {
     moreLiveTitle: "아래 그룹에서 {count}개의 라이브 도구를 추가로 사용할 수 있습니다.",
     moreLive: "라이브 도구 +{count}개",
     quickPresets: "빠른 프리셋",
+    catalogTitle: "Tool Catalog",
     inherit: "상속",
     profile: "프로필",
     source: "소스",
@@ -2488,6 +2492,7 @@ export const ko: TranslationMap = {
       uptime: "가동 시간",
       tickInterval: "틱 간격",
       lastChannelsRefresh: "마지막 채널 새로고침",
+      lastError: "Last error",
     },
     help: {
       title: "연결 방법",

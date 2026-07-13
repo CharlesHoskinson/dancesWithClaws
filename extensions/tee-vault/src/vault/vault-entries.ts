@@ -8,13 +8,13 @@
  */
 
 import { randomUUID } from "node:crypto";
-import type { VaultEntry, VaultEnvelope, EntryType } from "../types.js";
 import {
   deriveEntryKey,
   aesGcmEncrypt,
   aesGcmDecrypt,
   zeroBuffer,
 } from "../crypto/key-hierarchy.js";
+import type { VaultEntry, VaultEnvelope, EntryType } from "../types.js";
 import { touchEnvelope } from "./vault-store.js";
 
 export interface StoreEntryParams {
