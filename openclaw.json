@@ -52,8 +52,12 @@
         },
         "sandbox": {
           "mode": "all",
+          "backend": "wasm",
           "workspaceAccess": "rw",
           "scope": "agent",
+          "wasm": {
+            "allowlist": "security/proxy/allowed-domains.txt"
+          },
           "docker": {
             "image": "openclaw-sandbox:bookworm-slim",
             "readOnlyRoot": true,

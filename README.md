@@ -13,7 +13,7 @@ This repo is a fork of the [OpenClaw monorepo](https://github.com/openclaw/openc
 ## Architecture
 
 ```
-Single agent · Local Gemma 4 (Ollama) · Hourly heartbeats · Hardened Docker sandbox + proxy
+Single agent · Local Gemma 4 (Ollama) · Hourly heartbeats · WASM sandbox (Docker optional) + allowlist egress
 ```
 
 | Piece | Choice |
@@ -23,8 +23,9 @@ Single agent · Local Gemma 4 (Ollama) · Hourly heartbeats · Hardened Docker s
 | Fallbacks | `ollama/gemma4:e4b`, `ollama/llama3.2:1b` |
 | Heartbeat | 1h — local status, knowledge refresh, memory hygiene |
 | RAG | `workspace/knowledge/` via `memorySearch` |
-| Sandbox image | `openclaw-sandbox:bookworm-slim` (user `sandboxuser`) |
-| Egress | Squid proxy allowlist (OpenAI, Sokosumi by default) |
+| Sandbox backend | **`wasm`** (Logan per-agent; monorepo default remains Docker) |
+| Sandbox image | `openclaw-sandbox:bookworm-slim` (user `sandboxuser`) — Docker fallback/debug |
+| Egress | Host-mediated allowlist (`security/proxy/allowed-domains.txt`); Squid when Docker |
 | Tools | `minimal` + alsoAllow exec/read/write/edit/memory_*/Sokosumi read tools |
 
 ## Quick start (host)
@@ -53,12 +54,35 @@ Builds sandbox + proxy, checks allowlisted HTTPS CONNECT vs blocked domains.
 
 ## WASM sandbox smoke (no Docker)
 
+Logan’s local agent defaults to the **wasm** sandbox backend (per-agent only — not monorepo-wide):
+
+```json
+{
+  "agents": {
+    "list": [
+      {
+        "id": "logan",
+        "sandbox": {
+          "mode": "all",
+          "backend": "wasm",
+          "wasm": {
+            "allowlist": "security/proxy/allowed-domains.txt"
+          }
+        }
+      }
+    ]
+  }
+}
+```
+
+Set in repo-root `openclaw.json` under `agents.list` entry `id: "logan"`. Docker settings remain for optional Docker smoke / fallback (`backend: "docker"`).
+
 ```powershell
 cargo build --manifest-path tools/logan-wasm-sandbox/Cargo.toml --release
 .\scripts\logan-wasm-smoke.ps1
 ```
 
-Host-mediated HTTPS with `security/proxy/allowed-domains.txt`. OpenClaw backend wiring is a later phase (see design spec).
+Host-mediated HTTPS with `security/proxy/allowed-domains.txt`. OpenClaw registers the `wasm` backend via `logan-wasm-sandbox` (see `src/agents/sandbox/wasm-backend.ts`).
 
 ## Configuration
 
@@ -67,9 +91,11 @@ Primary config: `openclaw.json` at repo root.
 | Setting | Value |
 |---------|--------|
 | `agents.list[0].model.primary` | `ollama/gemma4:e2b` |
+| `agents.list[0].sandbox.backend` | `wasm` (Logan only) |
+| `agents.list[0].sandbox.wasm.allowlist` | `security/proxy/allowed-domains.txt` |
 | `env.vars.OLLAMA_API_KEY` | `ollama-local` (placeholder; required) |
 | `tools.sokosumi` | optional marketplace endpoint |
-| `sandbox.docker.image` | `openclaw-sandbox:bookworm-slim` |
+| `sandbox.docker.image` | `openclaw-sandbox:bookworm-slim` (Docker fallback) |
 
 Workspace identity and ops: `workspace/AGENT.md`, `HEARTBEAT.md`, `MEMORY.md`, `knowledge/`.
 
