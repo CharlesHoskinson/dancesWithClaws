@@ -88,6 +88,8 @@ cargo build --manifest-path tools/logan-wasm-sandbox/Cargo.toml --release
 
 Host-mediated HTTPS with `security/proxy/allowed-domains.txt`. OpenClaw registers the `wasm` backend via `logan-wasm-sandbox` (see `src/agents/sandbox/wasm-backend.ts`). Docker is not required for this path.
 
+Typecheck (TypeScript 7 native): use `pnpm tsgo:core` / `node scripts/run-tsgo.mjs` (see `.agents/skills/typescript-7`). Keep package `typescript` 6.x for eslint API side-by-side.
+
 ## Configuration
 
 Primary config: `openclaw.json` at repo root.
