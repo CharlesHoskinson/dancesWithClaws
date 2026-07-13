@@ -118,10 +118,18 @@ Responsibilities:
 | Phase | Deliverable | Exit criteria |
 |-------|-------------|---------------|
 | **P0** | This design + implementation plan | Spec + plan in `docs/superpowers/` |
-| **P1** | Rust host + policy + allowlist HTTP smoke CLI | Allowlisted host succeeds CONNECT/HTTP; denied host fails; no Docker |
-| **P2** | OpenClaw backend wired; Logan agent turn uses wasm sandbox | Agent turn OK on Windows host without Docker/WSL |
+| **P1** | Rust host + policy + allowlist HTTP smoke CLI | Allowlisted host succeeds CONNECT/HTTP; denied host fails; no Docker — **DONE** (`tools/logan-wasm-sandbox`, smoke script; hardening: per-hop redirects + streaming body cap) |
+| **P2** | OpenClaw backend wired; Logan agent turn uses wasm sandbox | Agent turn OK on Windows host without Docker/WSL — plan: `docs/superpowers/plans/2026-07-13-logan-wasm-sandbox-openclaw-backend.md` |
 | **P3** | TS 7 in CI for agreed package set | Green typecheck; documented install |
 | **P4** | Defaults + docs; Docker path optional | `openclaw.json` + README default to wasm |
+
+## Research note (2026-07-13)
+
+Long-form industry assessment (WASM-first **hybrid**, WIT brokers, native/microVM fallback for shell/browser/GPU) is filed at:
+
+- `docs/superpowers/research/2026-07-13-docker-wsl-to-wasm-sandbox.md`
+
+P1 is the hot-path proof (embedded Wasmtime host + host-mediated HTTPS). P2 wires OpenClaw’s existing `registerSandboxBackend` surface. Full WIT worlds, worktree schedulers, and microVM fallback remain post-P2.
 
 ## Security requirements
 
@@ -188,4 +196,5 @@ Responsibilities:
 
 ---
 
-**Next step after user review of this file:** write implementation plan via superpowers **writing-plans** for **P1 only** (`docs/superpowers/plans/2026-07-13-logan-wasm-sandbox-host.md`).
+**P1 plan:** `docs/superpowers/plans/2026-07-13-logan-wasm-sandbox-host.md` (executed).  
+**P2 plan:** `docs/superpowers/plans/2026-07-13-logan-wasm-sandbox-openclaw-backend.md`.
