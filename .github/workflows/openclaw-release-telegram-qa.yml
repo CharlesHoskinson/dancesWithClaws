@@ -544,7 +544,7 @@ jobs:
 
       - name: Upload raw candidate archive
         id: upload
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: ${{ steps.archive.outputs.archive_name }}
           path: ${{ steps.archive.outputs.archive_path }}
@@ -659,7 +659,7 @@ jobs:
 
       - name: Download raw candidate archive
         id: download
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           artifact-ids: ${{ needs.build_candidate.outputs.artifact_id }}
           path: ${{ runner.temp }}/openclaw-telegram-attestor-download
@@ -779,7 +779,7 @@ jobs:
 
       - name: Attest exact candidate archive bytes
         id: attest
-        uses: actions/attest@a1948c3f048ba23858d222213b7c278aabede763 # v4.1.1
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
         with:
           subject-path: ${{ steps.verify_candidate.outputs.archive_path }}
 
@@ -898,7 +898,7 @@ jobs:
 
       - name: Download raw candidate archive
         id: download
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           artifact-ids: ${{ needs.build_candidate.outputs.artifact_id }}
           path: ${{ runner.temp }}/openclaw-telegram-executor-download
@@ -2595,7 +2595,7 @@ jobs:
       - name: Upload Telegram QA artifacts
         id: upload_evidence
         if: always() && steps.validate_evidence.outcome == 'success'
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: ${{ steps.create_sut.outputs.evidence_artifact_name }}
           path: ${{ steps.run_lane.outputs.output_dir }}
@@ -2799,7 +2799,7 @@ jobs:
 
       - name: Upload advisory status
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: release-check-status-qa-live-telegram-${{ inputs.target_sha }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: |

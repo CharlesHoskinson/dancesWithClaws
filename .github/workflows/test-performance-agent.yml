@@ -129,7 +129,7 @@ jobs:
 
       - name: Run Codex test performance agent
         if: steps.gate.outputs.run_agent == 'true'
-        uses: openai/codex-action@e0fdf01220eb9a88167c4898839d273e3f2609d1
+        uses: openai/codex-action@bdf19a4a223ec2549a3e2274a0cf61556bc07675
         with:
           openai-api-key: ${{ secrets.OPENCLAW_TEST_PERF_AGENT_OPENAI_API_KEY || secrets.OPENAI_API_KEY }}
           prompt-file: .github/codex/prompts/test-performance-agent.md
@@ -271,7 +271,7 @@ jobs:
 
       - name: Upload test performance artifacts
         if: steps.gate.outputs.run_agent == 'true' && always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: test-performance-agent-${{ github.run_id }}
           path: .artifacts/test-perf/
